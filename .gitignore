@@ -1,0 +1,34 @@
+tmp/
+
+# Environment and secrets
+!.env.example
+.env
+.env.*
+
+# Rust
+**/*.rs.bk
+*.pdb
+**/mutants.out*/
+coverage/
+debug/
+target/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE / Editor
+*~
+*.swo
+*.swp
+.idea/
+.vscode/
+
+# AI / LLM tooling
+# Ignore assembled output (created by setup script)
+.agents
+.claude
+.codex
+.cursor
+.gemini
+.opencode

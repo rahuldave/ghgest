@@ -1,0 +1,13 @@
+{
+  "Exclude": [
+    ".beads",
+    ".cargo",
+    ".idea",
+    ".mise",
+    ".mise-data",
+    "coverage",
+    "target",
+    "tmp",
+    "./tomlfmt.toml"
+  ]
+}
