@@ -213,7 +213,7 @@ pub fn write_task(data_dir: &Path, task: &Task) -> crate::Result<()> {
   ensure_dirs(data_dir)?;
   let content = toml::to_string(task)?;
   let path = data_dir.join(format!("tasks/{}.toml", task.id));
-  log::debug!("writing task {} to {}", task.id, path.display());
+  log::trace!("writing task {} to {}", task.id, path.display());
   fs::write(path, content)?;
   Ok(())
 }

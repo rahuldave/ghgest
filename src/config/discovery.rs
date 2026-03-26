@@ -10,20 +10,23 @@ use super::env::GEST_DATA_DIR;
 pub fn data_dir(config: &super::Config) -> crate::Result<PathBuf> {
   if let Ok(dir) = GEST_DATA_DIR.value() {
     let expanded = expand_path(&dir);
-    log::debug!("data directory from $GEST_DATA_DIR: {}", expanded.display());
+    log::debug!("$GEST_DATA_DIR is set, using it as data directory");
+    log::trace!("data directory resolved to {}", expanded.display());
     return Ok(expanded);
   }
 
   if let Some(ref dir) = config.storage.data_dir {
     let expanded = expand_path(dir);
-    log::debug!("data directory from config: {}", expanded.display());
+    log::debug!("config specifies data_dir, using it as data directory");
+    log::trace!("data directory resolved to {}", expanded.display());
     return Ok(expanded);
   }
 
   let cwd = std::env::current_dir().map_err(crate::Error::from)?;
 
   if let Some(gest_dir) = walk_up_for(&cwd, ".gest") {
-    log::debug!("data directory from .gest: {}", gest_dir.display());
+    log::debug!("found .gest directory, using it as data directory");
+    log::trace!("data directory resolved to {}", gest_dir.display());
     return Ok(gest_dir);
   }
 
@@ -33,13 +36,15 @@ pub fn data_dir(config: &super::Config) -> crate::Result<PathBuf> {
   if let Some(git_root) = walk_up_for_parent(&cwd, ".git") {
     let hash = path_hash(&git_root);
     let dir = data_home.join("gest").join(&hash);
-    log::debug!("data directory from git root hash: {}", dir.display());
+    log::debug!("found .git root, using hashed path as data directory");
+    log::trace!("data directory resolved to {}", dir.display());
     return Ok(dir);
   }
 
   let hash = path_hash(&cwd);
   let dir = data_home.join("gest").join(&hash);
-  log::debug!("data directory from cwd hash: {}", dir.display());
+  log::debug!("no .gest or .git found, using hashed cwd as data directory");
+  log::trace!("data directory resolved to {}", dir.display());
   Ok(dir)
 }
 

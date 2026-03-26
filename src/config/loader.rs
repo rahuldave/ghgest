@@ -66,7 +66,7 @@ fn load_file(path: &Path) -> crate::Result<Value> {
     Err(e) => return Err(e.into()),
   };
 
-  log::debug!("loaded config file: {}", path.display());
+  log::trace!("loaded config file: {}", path.display());
   let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
   match ext {
     "json" => Ok(serde_json::from_str(&content)?),
@@ -90,7 +90,7 @@ fn load_global() -> crate::Result<Value> {
 
   if let Some(config_home) = dir_spec::config_home() {
     let config_dir = config_home.join("gest");
-    log::trace!("searching for global config in {}", config_dir.display());
+    log::debug!("searching for global config in {}", config_dir.display());
     return find_config(&config_dir, GLOBAL_CONFIG_NAMES);
   }
 

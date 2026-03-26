@@ -149,7 +149,7 @@ pub fn write_artifact(data_dir: &Path, artifact: &Artifact) -> crate::Result<()>
   ensure_dirs(data_dir)?;
   let content = serialize_artifact(artifact)?;
   let path = data_dir.join(format!("artifacts/{}.md", artifact.id));
-  log::debug!("writing artifact {} to {}", artifact.id, path.display());
+  log::trace!("writing artifact {} to {}", artifact.id, path.display());
   fs::write(path, content)?;
   Ok(())
 }
