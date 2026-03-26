@@ -58,17 +58,49 @@ pub fn format_status(status: &Status, theme: &Theme) -> String {
 }
 
 pub fn shortest_unique_prefixes(ids: &[String]) -> Vec<usize> {
+  // Trie node: count of IDs passing through this node, plus children indexed by byte value.
+  // Since IDs use only chars k-z (16 chars), we use a HashMap for children.
+  struct TrieNode {
+    count: usize,
+    children: [Option<Box<TrieNode>>; 16],
+  }
+
+  impl TrieNode {
+    fn new() -> Self {
+      const NONE: Option<Box<TrieNode>> = None;
+      Self { count: 0, children: [NONE; 16] }
+    }
+  }
+
+  // Map chars k-z to indices 0-15
+  fn char_index(c: u8) -> usize {
+    (c - b'k') as usize
+  }
+
+  // Build trie
+  let mut root = TrieNode::new();
+  for id in ids {
+    let mut node = &mut root;
+    for &b in id.as_bytes() {
+      let idx = char_index(b);
+      node = node.children[idx].get_or_insert_with(|| Box::new(TrieNode::new()));
+      node.count += 1;
+    }
+  }
+
+  // For each ID, walk the trie to find shortest unique prefix
   ids
     .iter()
     .map(|id| {
-      let mut len = 1;
-      while len < id.len() {
-        let prefix = &id[..len];
-        let matches = ids.iter().filter(|other| other.starts_with(prefix)).count();
-        if matches == 1 {
+      let mut node = &root;
+      let mut len = 0;
+      for &b in id.as_bytes() {
+        let idx = char_index(b);
+        node = node.children[idx].as_ref().unwrap();
+        len += 1;
+        if node.count == 1 {
           break;
         }
-        len += 1;
       }
       len
     })

@@ -21,7 +21,7 @@ impl Id {
 
   /// Returns the first 8 characters of the encoded ID string.
   pub fn short(&self) -> String {
-    encode(&self.0)[..8].to_string()
+    encode_prefix(&self.0)
   }
 }
 
@@ -61,6 +61,18 @@ impl TryFrom<String> for Id {
   fn try_from(s: String) -> std::result::Result<Self, Self::Error> {
     s.parse()
   }
+}
+
+/// Encode only the first 4 bytes into an 8-character string (for `Id::short()`).
+fn encode_prefix(bytes: &[u8; 16]) -> String {
+  let mut s = String::with_capacity(8);
+  for &b in &bytes[..4] {
+    let high = (b >> 4) as usize;
+    let low = (b & 0x0F) as usize;
+    s.push(REVERSE_HEX_CHARS[high] as char);
+    s.push(REVERSE_HEX_CHARS[low] as char);
+  }
+  s
 }
 
 fn encode(bytes: &[u8; 16]) -> String {
