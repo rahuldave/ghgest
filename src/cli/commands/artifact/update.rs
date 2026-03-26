@@ -72,3 +72,176 @@ impl Command {
     Ok(())
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use chrono::Utc;
+
+  use super::*;
+  use crate::{
+    config::{Config, StorageConfig},
+    model::Artifact,
+    store,
+  };
+
+  mod call {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn it_updates_title_only() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_config(dir.path());
+      let artifact = make_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      store::write_artifact(dir.path(), &artifact).unwrap();
+
+      let cmd = Command {
+        id: "zyxw".to_string(),
+        title: Some("New Title".to_string()),
+        body: None,
+        kind: None,
+        tags: None,
+        metadata: vec![],
+      };
+
+      cmd.call(&config, &Theme::default()).unwrap();
+
+      let updated = store::read_artifact(dir.path(), &artifact.id).unwrap();
+      assert_eq!(updated.title, "New Title");
+      assert_eq!(updated.body, "Original body");
+      assert_eq!(updated.tags, vec!["original"]);
+      assert_eq!(updated.kind, Some("note".to_string()));
+    }
+
+    #[test]
+    fn it_updates_tags() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_config(dir.path());
+      let artifact = make_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      store::write_artifact(dir.path(), &artifact).unwrap();
+
+      let cmd = Command {
+        id: "zyxw".to_string(),
+        title: None,
+        body: None,
+        kind: None,
+        tags: Some("rust, cli".to_string()),
+        metadata: vec![],
+      };
+
+      cmd.call(&config, &Theme::default()).unwrap();
+
+      let updated = store::read_artifact(dir.path(), &artifact.id).unwrap();
+      assert_eq!(updated.tags, vec!["rust".to_string(), "cli".to_string()]);
+    }
+
+    #[test]
+    fn it_adds_metadata_entries() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_config(dir.path());
+      let artifact = make_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      store::write_artifact(dir.path(), &artifact).unwrap();
+
+      let cmd = Command {
+        id: "zyxw".to_string(),
+        title: None,
+        body: None,
+        kind: None,
+        tags: None,
+        metadata: vec!["team=backend".to_string()],
+      };
+
+      cmd.call(&config, &Theme::default()).unwrap();
+
+      let updated = store::read_artifact(dir.path(), &artifact.id).unwrap();
+      let priority = updated
+        .metadata
+        .get(yaml_serde::Value::String("priority".to_string()))
+        .and_then(|v| v.as_str())
+        .unwrap();
+      assert_eq!(priority, "low");
+      let team = updated
+        .metadata
+        .get(yaml_serde::Value::String("team".to_string()))
+        .and_then(|v| v.as_str())
+        .unwrap();
+      assert_eq!(team, "backend");
+    }
+
+    #[test]
+    fn it_sets_updated_at() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_config(dir.path());
+      let artifact = make_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      let original_updated = artifact.updated_at;
+      store::write_artifact(dir.path(), &artifact).unwrap();
+
+      let cmd = Command {
+        id: "zyxw".to_string(),
+        title: Some("Changed".to_string()),
+        body: None,
+        kind: None,
+        tags: None,
+        metadata: vec![],
+      };
+
+      cmd.call(&config, &Theme::default()).unwrap();
+
+      let updated = store::read_artifact(dir.path(), &artifact.id).unwrap();
+      assert!(updated.updated_at >= original_updated);
+    }
+
+    #[test]
+    fn it_updates_kind() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_config(dir.path());
+      let artifact = make_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      store::write_artifact(dir.path(), &artifact).unwrap();
+
+      let cmd = Command {
+        id: "zyxw".to_string(),
+        title: None,
+        body: None,
+        kind: Some("adr".to_string()),
+        tags: None,
+        metadata: vec![],
+      };
+
+      cmd.call(&config, &Theme::default()).unwrap();
+
+      let updated = store::read_artifact(dir.path(), &artifact.id).unwrap();
+      assert_eq!(updated.kind, Some("adr".to_string()));
+    }
+  }
+
+  fn make_config(dir: &std::path::Path) -> Config {
+    store::ensure_dirs(dir).unwrap();
+    Config {
+      storage: StorageConfig {
+        data_dir: Some(dir.to_path_buf()),
+      },
+      ..Config::default()
+    }
+  }
+
+  fn make_artifact(id: &str) -> Artifact {
+    let now = Utc::now();
+    let mut metadata = yaml_serde::Mapping::new();
+    metadata.insert(
+      yaml_serde::Value::String("priority".to_string()),
+      yaml_serde::Value::String("low".to_string()),
+    );
+    Artifact {
+      archived_at: None,
+      body: "Original body".to_string(),
+      created_at: now,
+      id: id.parse().unwrap(),
+      kind: Some("note".to_string()),
+      metadata,
+      tags: vec!["original".to_string()],
+      title: "Original Title".to_string(),
+      updated_at: now,
+    }
+  }
+}

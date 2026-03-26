@@ -35,3 +35,94 @@ impl Command {
     Ok(())
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use chrono::Utc;
+  use tempfile::TempDir;
+
+  use super::*;
+  use crate::model::Artifact;
+
+  mod call {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn it_adds_tags() {
+      let (_dir, config) = setup();
+      let artifact = make_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      store::write_artifact(_dir.path(), &artifact).unwrap();
+
+      let cmd = Command {
+        id: "zyxw".to_string(),
+        tags: vec!["rust".to_string(), "cli".to_string()],
+      };
+      cmd.call(&config, &Theme::default()).unwrap();
+
+      let loaded = store::read_artifact(_dir.path(), &artifact.id).unwrap();
+      assert_eq!(loaded.tags, vec!["rust".to_string(), "cli".to_string()]);
+    }
+
+    #[test]
+    fn it_deduplicates_tags() {
+      let (_dir, config) = setup();
+      let mut artifact = make_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      artifact.tags = vec!["rust".to_string()];
+      store::write_artifact(_dir.path(), &artifact).unwrap();
+
+      let cmd = Command {
+        id: "zyxw".to_string(),
+        tags: vec!["rust".to_string(), "cli".to_string()],
+      };
+      cmd.call(&config, &Theme::default()).unwrap();
+
+      let loaded = store::read_artifact(_dir.path(), &artifact.id).unwrap();
+      assert_eq!(loaded.tags, vec!["rust".to_string(), "cli".to_string()]);
+    }
+
+    #[test]
+    fn it_preserves_existing_tags() {
+      let (_dir, config) = setup();
+      let mut artifact = make_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      artifact.tags = vec!["existing".to_string()];
+      store::write_artifact(_dir.path(), &artifact).unwrap();
+
+      let cmd = Command {
+        id: "zyxw".to_string(),
+        tags: vec!["new".to_string()],
+      };
+      cmd.call(&config, &Theme::default()).unwrap();
+
+      let loaded = store::read_artifact(_dir.path(), &artifact.id).unwrap();
+      assert_eq!(loaded.tags, vec!["existing".to_string(), "new".to_string()]);
+    }
+  }
+
+  fn make_artifact(id: &str) -> Artifact {
+    Artifact {
+      archived_at: None,
+      body: String::new(),
+      created_at: Utc::now(),
+      id: id.parse().unwrap(),
+      kind: None,
+      metadata: yaml_serde::Mapping::new(),
+      tags: vec![],
+      title: format!("Artifact {id}"),
+      updated_at: Utc::now(),
+    }
+  }
+
+  fn setup() -> (TempDir, crate::config::Config) {
+    let dir = TempDir::new().unwrap();
+    let config = crate::config::Config {
+      storage: crate::config::StorageConfig {
+        data_dir: Some(dir.path().to_path_buf()),
+      },
+      ..Default::default()
+    };
+    store::ensure_dirs(dir.path()).unwrap();
+    (dir, config)
+  }
+}
