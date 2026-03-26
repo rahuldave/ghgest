@@ -56,22 +56,18 @@ impl Command {
     let metadata = if self.metadata.is_empty() {
       None
     } else {
+      let pairs = crate::cli::helpers::split_key_value_pairs(&self.metadata)?;
       let mut table = store::read_task(&data_dir, &id)?.metadata;
-      for entry in &self.metadata {
-        let (key, value) = entry
-          .split_once('=')
-          .ok_or_else(|| crate::Error::generic(format!("Invalid metadata format '{entry}', expected key=value")))?;
-        table.insert(key.to_string(), toml::Value::String(value.to_string()));
+      for (key, value) in pairs {
+        table.insert(key, toml::Value::String(value));
       }
       Some(table)
     };
 
-    let tags = self.tags.as_deref().map(|t| {
-      t.split(',')
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect()
-    });
+    let tags = self
+      .tags
+      .as_deref()
+      .map(crate::cli::helpers::parse_tags);
 
     let patch = TaskPatch {
       description,

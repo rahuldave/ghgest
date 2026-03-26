@@ -47,10 +47,20 @@ impl Command {
     let tags = self
       .tags
       .as_deref()
-      .map(|t| t.split(',').map(|s| s.trim().to_string()).collect())
+      .map(crate::cli::helpers::parse_tags)
       .unwrap_or_default();
 
-    let metadata = parse_metadata(&self.metadata)?;
+    let metadata = {
+      let pairs = crate::cli::helpers::split_key_value_pairs(&self.metadata)?;
+      let mut map = yaml_serde::Mapping::new();
+      for (key, value) in pairs {
+        map.insert(
+          yaml_serde::Value::String(key),
+          yaml_serde::Value::String(value),
+        );
+      }
+      map
+    };
 
     let new = NewArtifact {
       body,
@@ -106,20 +116,6 @@ fn extract_title(body: &str) -> Option<String> {
   None
 }
 
-fn parse_metadata(pairs: &[String]) -> crate::Result<yaml_serde::Mapping> {
-  let mut map = yaml_serde::Mapping::new();
-  for pair in pairs {
-    let (key, value) = pair
-      .split_once('=')
-      .ok_or_else(|| crate::Error::generic(format!("Invalid metadata format '{pair}', expected key=value")))?;
-    map.insert(
-      yaml_serde::Value::String(key.to_string()),
-      yaml_serde::Value::String(value.to_string()),
-    );
-  }
-  Ok(map)
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -160,37 +156,4 @@ mod tests {
     }
   }
 
-  mod parse_metadata {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn it_errors_on_missing_equals() {
-      let pairs = vec!["invalid".to_string()];
-      let result = parse_metadata(&pairs);
-      assert!(result.is_err());
-    }
-
-    #[test]
-    fn it_handles_empty_list() {
-      let pairs: Vec<String> = vec![];
-      let map = parse_metadata(&pairs).unwrap();
-      assert!(map.is_empty());
-    }
-
-    #[test]
-    fn it_parses_key_value_pairs() {
-      let pairs = vec!["foo=bar".to_string(), "baz=qux".to_string()];
-      let map = parse_metadata(&pairs).unwrap();
-      assert_eq!(
-        map.get(&yaml_serde::Value::String("foo".to_string())),
-        Some(&yaml_serde::Value::String("bar".to_string()))
-      );
-      assert_eq!(
-        map.get(&yaml_serde::Value::String("baz".to_string())),
-        Some(&yaml_serde::Value::String("qux".to_string()))
-      );
-    }
-  }
 }

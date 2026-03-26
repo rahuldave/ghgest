@@ -45,14 +45,12 @@ impl Command {
     let metadata = if self.metadata.is_empty() {
       None
     } else {
+      let pairs = crate::cli::helpers::split_key_value_pairs(&self.metadata)?;
       let mut map = store::read_artifact(&data_dir, &id)?.metadata;
-      for pair in &self.metadata {
-        let (key, value) = pair
-          .split_once('=')
-          .ok_or_else(|| crate::Error::generic(format!("Invalid metadata format '{pair}', expected key=value")))?;
+      for (key, value) in pairs {
         map.insert(
-          yaml_serde::Value::String(key.to_string()),
-          yaml_serde::Value::String(value.to_string()),
+          yaml_serde::Value::String(key),
+          yaml_serde::Value::String(value),
         );
       }
       Some(map)
@@ -65,7 +63,7 @@ impl Command {
       tags: self
         .tags
         .as_deref()
-        .map(|t| t.split(',').map(|s| s.trim().to_string()).collect()),
+        .map(crate::cli::helpers::parse_tags),
       title: self.title.clone(),
     };
 

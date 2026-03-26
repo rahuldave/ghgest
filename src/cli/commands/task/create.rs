@@ -36,16 +36,20 @@ impl Command {
       None => Status::Open,
     };
 
-    let metadata = parse_metadata(&self.metadata)?;
-
-    let tags = match &self.tags {
-      Some(t) => t
-        .split(',')
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect(),
-      None => vec![],
+    let metadata = {
+      let pairs = crate::cli::helpers::split_key_value_pairs(&self.metadata)?;
+      let mut table = toml::Table::new();
+      for (key, value) in pairs {
+        table.insert(key, toml::Value::String(value));
+      }
+      table
     };
+
+    let tags = self
+      .tags
+      .as_deref()
+      .map(crate::cli::helpers::parse_tags)
+      .unwrap_or_default();
 
     let description = self.read_description()?;
 
@@ -81,17 +85,6 @@ impl Command {
 
     Ok(String::new())
   }
-}
-
-fn parse_metadata(entries: &[String]) -> crate::Result<toml::Table> {
-  let mut table = toml::Table::new();
-  for entry in entries {
-    let (key, value) = entry
-      .split_once('=')
-      .ok_or_else(|| crate::Error::generic(format!("Invalid metadata format '{entry}', expected key=value")))?;
-    table.insert(key.to_string(), toml::Value::String(value.to_string()));
-  }
-  Ok(table)
 }
 
 #[cfg(test)]
@@ -233,22 +226,4 @@ mod tests {
     }
   }
 
-  mod parse_metadata {
-    use pretty_assertions::assert_eq;
-
-    #[test]
-    fn it_errors_on_missing_equals() {
-      let entries = vec!["no-equals".to_string()];
-      let result = super::parse_metadata(&entries);
-      assert!(result.is_err());
-    }
-
-    #[test]
-    fn it_parses_key_value_pairs() {
-      let entries = vec!["priority=high".to_string(), "team=backend".to_string()];
-      let table = super::parse_metadata(&entries).unwrap();
-      assert_eq!(table.get("priority").unwrap().as_str().unwrap(), "high");
-      assert_eq!(table.get("team").unwrap().as_str().unwrap(), "backend");
-    }
-  }
 }
