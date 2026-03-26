@@ -2,7 +2,7 @@
 categories = ["command-line-utilities", "development-tools"]
 description = "Manage agent-generated artifacts and task backlogs alongside your project"
 edition = "2024"
-include = ["src/*", "LICENSE", "README.md"]
+include = ["src/*", "build.rs", "LICENSE", "README.md"]
 keywords = ["cli", "agent", "artifact", "task"]
 license = "MIT"
 name = "gest"
