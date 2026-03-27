@@ -297,15 +297,6 @@ mod tests {
       assert_eq!(results.artifacts.len(), 1);
     }
 
-    fn make_config(dir: &std::path::Path) -> Config {
-      Config {
-        storage: StorageConfig {
-          data_dir: Some(dir.to_path_buf()),
-        },
-        ..Config::default()
-      }
-    }
-
     #[test]
     fn it_outputs_json_when_flag_set() {
       let dir = tempfile::tempdir().unwrap();
@@ -335,6 +326,15 @@ mod tests {
       let config = make_config(dir.path());
       let result = cmd.call(&config, &Theme::default());
       assert!(result.is_ok());
+    }
+
+    fn make_config(dir: &std::path::Path) -> Config {
+      Config {
+        storage: StorageConfig {
+          data_dir: Some(dir.to_path_buf()),
+        },
+        ..Config::default()
+      }
     }
   }
 

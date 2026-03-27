@@ -13,6 +13,38 @@ pub fn ensure_dirs(data_dir: &Path) -> crate::Result<()> {
   Ok(())
 }
 
+pub(crate) fn collect_prefix_matches(dir: &Path, extension: &str, prefix: &str) -> crate::Result<Vec<String>> {
+  let mut matches = Vec::new();
+  for path in read_dir_files(dir, extension)? {
+    if let Some(stem) = path.file_stem().and_then(|s| s.to_str())
+      && stem.starts_with(prefix)
+    {
+      matches.push(stem.to_string());
+    }
+  }
+  Ok(matches)
+}
+
+pub(crate) fn read_dir_files(dir: &Path, extension: &str) -> crate::Result<Vec<PathBuf>> {
+  if !dir.exists() {
+    return Ok(Vec::new());
+  }
+
+  let mut paths = Vec::new();
+  for entry in fs::read_dir(dir)? {
+    let entry = entry?;
+    let path = entry.path();
+    if path.is_file()
+      && let Some(ext) = path.extension().and_then(|e| e.to_str())
+      && ext == extension
+    {
+      paths.push(path);
+    }
+  }
+  paths.sort();
+  Ok(paths)
+}
+
 pub(crate) fn resolve_id(
   primary_dir: &Path,
   secondary_dir: Option<&Path>,
@@ -59,38 +91,6 @@ pub(crate) fn resolve_id(
     msg.push_str(" (try --all)");
   }
   Err(crate::Error::generic(msg))
-}
-
-pub(crate) fn collect_prefix_matches(dir: &Path, extension: &str, prefix: &str) -> crate::Result<Vec<String>> {
-  let mut matches = Vec::new();
-  for path in read_dir_files(dir, extension)? {
-    if let Some(stem) = path.file_stem().and_then(|s| s.to_str())
-      && stem.starts_with(prefix)
-    {
-      matches.push(stem.to_string());
-    }
-  }
-  Ok(matches)
-}
-
-pub(crate) fn read_dir_files(dir: &Path, extension: &str) -> crate::Result<Vec<PathBuf>> {
-  if !dir.exists() {
-    return Ok(Vec::new());
-  }
-
-  let mut paths = Vec::new();
-  for entry in fs::read_dir(dir)? {
-    let entry = entry?;
-    let path = entry.path();
-    if path.is_file()
-      && let Some(ext) = path.extension().and_then(|e| e.to_str())
-      && ext == extension
-    {
-      paths.push(path);
-    }
-  }
-  paths.sort();
-  Ok(paths)
 }
 
 #[cfg(test)]

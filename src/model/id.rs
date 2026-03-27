@@ -63,29 +63,6 @@ impl TryFrom<String> for Id {
   }
 }
 
-/// Encode only the first 4 bytes into an 8-character string (for `Id::short()`).
-fn encode_prefix(bytes: &[u8; 16]) -> String {
-  let mut s = String::with_capacity(8);
-  for &b in &bytes[..4] {
-    let high = (b >> 4) as usize;
-    let low = (b & 0x0F) as usize;
-    s.push(REVERSE_HEX_CHARS[high] as char);
-    s.push(REVERSE_HEX_CHARS[low] as char);
-  }
-  s
-}
-
-fn encode(bytes: &[u8; 16]) -> String {
-  let mut s = String::with_capacity(32);
-  for &b in bytes {
-    let high = (b >> 4) as usize;
-    let low = (b & 0x0F) as usize;
-    s.push(REVERSE_HEX_CHARS[high] as char);
-    s.push(REVERSE_HEX_CHARS[low] as char);
-  }
-  s
-}
-
 fn decode(s: &str) -> Result<[u8; 16], String> {
   let chars: Vec<u8> = s.bytes().collect();
   if chars.len() != 32 {
@@ -99,6 +76,29 @@ fn decode(s: &str) -> Result<[u8; 16], String> {
     bytes[i] = (high << 4) | low;
   }
   Ok(bytes)
+}
+
+fn encode(bytes: &[u8; 16]) -> String {
+  let mut s = String::with_capacity(32);
+  for &b in bytes {
+    let high = (b >> 4) as usize;
+    let low = (b & 0x0F) as usize;
+    s.push(REVERSE_HEX_CHARS[high] as char);
+    s.push(REVERSE_HEX_CHARS[low] as char);
+  }
+  s
+}
+
+/// Encode only the first 4 bytes into an 8-character string (for `Id::short()`).
+fn encode_prefix(bytes: &[u8; 16]) -> String {
+  let mut s = String::with_capacity(8);
+  for &b in &bytes[..4] {
+    let high = (b >> 4) as usize;
+    let low = (b & 0x0F) as usize;
+    s.push(REVERSE_HEX_CHARS[high] as char);
+    s.push(REVERSE_HEX_CHARS[low] as char);
+  }
+  s
 }
 
 fn nibble_from_char(c: u8) -> Result<u8, String> {

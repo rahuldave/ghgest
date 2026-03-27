@@ -83,12 +83,12 @@ mod tests {
 
   fn make_test_task(id: &str, title: &str) -> Task {
     Task {
-      resolved_at: None,
       created_at: Utc::now(),
       description: String::new(),
       id: id.parse().unwrap(),
       links: vec![],
       metadata: toml::Table::new(),
+      resolved_at: None,
       status: Status::Open,
       tags: vec![],
       title: title.to_string(),

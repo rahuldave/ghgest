@@ -20,6 +20,15 @@ pub struct Command {
   shell: ShellArg,
 }
 
+impl Command {
+  pub fn call(&self) -> Result<()> {
+    let mut cmd = crate::cli::Cli::command();
+    let shell: Shell = self.shell.clone().into();
+    clap_complete::generate(shell, &mut cmd, "gest", &mut io::stdout());
+    Ok(())
+  }
+}
+
 #[derive(Clone, Debug, ValueEnum)]
 enum ShellArg {
   Bash,
@@ -39,15 +48,6 @@ impl From<ShellArg> for Shell {
       ShellArg::PowerShell => Shell::PowerShell,
       ShellArg::Zsh => Shell::Zsh,
     }
-  }
-}
-
-impl Command {
-  pub fn call(&self) -> Result<()> {
-    let mut cmd = crate::cli::Cli::command();
-    let shell: Shell = self.shell.clone().into();
-    clap_complete::generate(shell, &mut cmd, "gest", &mut io::stdout());
-    Ok(())
   }
 }
 

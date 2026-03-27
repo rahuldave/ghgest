@@ -40,14 +40,6 @@ pub fn format_id(id: &Id, prefix_len: usize, max_display_len: Option<usize>, the
   format!("{}{}", prefix.paint(theme.id_prefix), rest.paint(theme.id_rest))
 }
 
-pub fn format_tags(tags: &[String], theme: &Theme) -> String {
-  tags
-    .iter()
-    .map(|t| format!("@{}", t).paint(theme.tag).to_string())
-    .collect::<Vec<_>>()
-    .join(" ")
-}
-
 pub fn format_status(status: &Status, theme: &Theme) -> String {
   match status {
     Status::Open => status.to_string().paint(theme.status_open).to_string(),
@@ -57,20 +49,28 @@ pub fn format_status(status: &Status, theme: &Theme) -> String {
   }
 }
 
+pub fn format_tags(tags: &[String], theme: &Theme) -> String {
+  tags
+    .iter()
+    .map(|t| format!("@{}", t).paint(theme.tag).to_string())
+    .collect::<Vec<_>>()
+    .join(" ")
+}
+
 pub fn shortest_unique_prefixes(ids: &[String]) -> Vec<usize> {
   // Trie node: count of IDs passing through this node, plus children indexed by byte value.
   // Since IDs use only chars k-z (16 chars), we use a HashMap for children.
   struct TrieNode {
-    count: usize,
     children: [Option<Box<TrieNode>>; 16],
+    count: usize,
   }
 
   impl TrieNode {
     fn new() -> Self {
       const NONE: Option<Box<TrieNode>> = None;
       Self {
-        count: 0,
         children: [NONE; 16],
+        count: 0,
       }
     }
   }

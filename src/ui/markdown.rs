@@ -5,48 +5,6 @@ use yansi::Paint;
 
 use super::theme::Theme;
 
-/// Get the terminal width, falling back to 80 columns.
-fn terminal_width() -> usize {
-  terminal_size::terminal_size().map(|(w, _)| w.0 as usize).unwrap_or(80)
-}
-
-/// Render markdown text to the given writer using ANSI styling from the theme.
-///
-/// When yansi color is globally disabled (e.g. piped output), the output is
-/// plain text with no ANSI escape sequences.
-///
-/// Accepts `&mut impl io::Write` consistent with ADR-0006 component pattern.
-pub fn render(w: &mut impl io::Write, markdown: &str, theme: &Theme) -> io::Result<()> {
-  let width = terminal_width();
-  render_with_width(w, markdown, theme, width)
-}
-
-/// Render markdown with a specific width (useful for testing).
-fn render_with_width(w: &mut impl io::Write, markdown: &str, theme: &Theme, width: usize) -> io::Result<()> {
-  let options = Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TABLES;
-  let parser = Parser::new_ext(markdown, options);
-
-  let mut state = RenderState::new(width);
-
-  for event in parser {
-    match event {
-      Event::Start(tag) => handle_start(w, &tag, theme, &mut state)?,
-      Event::End(tag_end) => handle_end(w, &tag_end, theme, &mut state)?,
-      Event::Text(text) => handle_text(w, &text, theme, &mut state)?,
-      Event::Code(code) => handle_inline_code(w, &code, theme, &mut state)?,
-      Event::SoftBreak => handle_soft_break(w, &mut state)?,
-      Event::HardBreak => handle_hard_break(w, &mut state)?,
-      Event::Rule => handle_rule(w, theme, &mut state)?,
-      _ => {}
-    }
-  }
-
-  // Flush any remaining text
-  flush_line(w, &mut state)?;
-
-  Ok(())
-}
-
 /// Tracking state for the markdown renderer.
 struct RenderState {
   /// Current column position (for word wrapping).
@@ -112,6 +70,17 @@ impl RenderState {
       0
     }
   }
+}
+
+/// Render markdown text to the given writer using ANSI styling from the theme.
+///
+/// When yansi color is globally disabled (e.g. piped output), the output is
+/// plain text with no ANSI escape sequences.
+///
+/// Accepts `&mut impl io::Write` consistent with ADR-0006 component pattern.
+pub fn render(w: &mut impl io::Write, markdown: &str, theme: &Theme) -> io::Result<()> {
+  let width = terminal_width();
+  render_with_width(w, markdown, theme, width)
 }
 
 fn ensure_blank_line(w: &mut impl io::Write, state: &mut RenderState) -> io::Result<()> {
@@ -331,6 +300,32 @@ fn heading_level_to_u8(level: &HeadingLevel) -> u8 {
   }
 }
 
+/// Render markdown with a specific width (useful for testing).
+fn render_with_width(w: &mut impl io::Write, markdown: &str, theme: &Theme, width: usize) -> io::Result<()> {
+  let options = Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TABLES;
+  let parser = Parser::new_ext(markdown, options);
+
+  let mut state = RenderState::new(width);
+
+  for event in parser {
+    match event {
+      Event::Start(tag) => handle_start(w, &tag, theme, &mut state)?,
+      Event::End(tag_end) => handle_end(w, &tag_end, theme, &mut state)?,
+      Event::Text(text) => handle_text(w, &text, theme, &mut state)?,
+      Event::Code(code) => handle_inline_code(w, &code, theme, &mut state)?,
+      Event::SoftBreak => handle_soft_break(w, &mut state)?,
+      Event::HardBreak => handle_hard_break(w, &mut state)?,
+      Event::Rule => handle_rule(w, theme, &mut state)?,
+      _ => {}
+    }
+  }
+
+  // Flush any remaining text
+  flush_line(w, &mut state)?;
+
+  Ok(())
+}
+
 fn style_inline_text(text: &str, theme: &Theme, state: &RenderState) -> String {
   if state.in_bold && state.in_italic {
     text.paint(theme.md_bold).italic().to_string()
@@ -345,6 +340,11 @@ fn style_inline_text(text: &str, theme: &Theme, state: &RenderState) -> String {
   } else {
     text.to_string()
   }
+}
+
+/// Get the terminal width, falling back to 80 columns.
+fn terminal_width() -> usize {
+  terminal_size::terminal_size().map(|(w, _)| w.0 as usize).unwrap_or(80)
 }
 
 fn write_indent(w: &mut impl io::Write, state: &RenderState) -> io::Result<()> {

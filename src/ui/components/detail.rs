@@ -25,8 +25,6 @@ impl<'a> ArtifactDetail<'a> {
 
   /// Write the detail view to the given writer.
   pub fn write_to(&self, w: &mut impl io::Write, theme: &Theme) -> io::Result<()> {
-    use yansi::Paint;
-
     writeln!(w, "{}", self.artifact.title.paint(theme.md_heading))?;
     if let Some(ref kind) = self.artifact.kind {
       writeln!(w, "{}", kind.paint(theme.muted))?;
@@ -42,18 +40,6 @@ impl<'a> ArtifactDetail<'a> {
     }
     Ok(())
   }
-}
-
-/// Strip a leading `# Title` line from the body if it matches the artifact title,
-/// to avoid duplication since the title is already shown as a styled heading.
-fn strip_leading_title(body: &str, title: &str) -> String {
-  let expected = format!("# {title}");
-  if let Some(rest) = body.strip_prefix(&expected)
-    && (rest.is_empty() || rest.starts_with('\n'))
-  {
-    return rest.strip_prefix('\n').unwrap_or(rest).to_string();
-  }
-  body.to_string()
 }
 
 crate::ui::macros::impl_display_via_write_to!(ArtifactDetail<'_>, theme);
@@ -113,6 +99,18 @@ impl<'a> TaskDetail<'a> {
 
 crate::ui::macros::impl_display_via_write_to!(TaskDetail<'_>, theme);
 
+/// Strip a leading `# Title` line from the body if it matches the artifact title,
+/// to avoid duplication since the title is already shown as a styled heading.
+fn strip_leading_title(body: &str, title: &str) -> String {
+  let expected = format!("# {title}");
+  if let Some(rest) = body.strip_prefix(&expected)
+    && (rest.is_empty() || rest.starts_with('\n'))
+  {
+    return rest.strip_prefix('\n').unwrap_or(rest).to_string();
+  }
+  body.to_string()
+}
+
 #[cfg(test)]
 mod tests {
   use chrono::Utc;
@@ -154,6 +152,34 @@ mod tests {
       }
     }
 
+    mod strip_leading_title {
+      use super::super::strip_leading_title;
+
+      #[test]
+      fn it_handles_title_only_body() {
+        let body = "# My Title";
+        assert_eq!(strip_leading_title(body, "My Title"), "");
+      }
+
+      #[test]
+      fn it_preserves_body_when_title_differs() {
+        let body = "# Different Title\nRest of body";
+        assert_eq!(strip_leading_title(body, "My Title"), body);
+      }
+
+      #[test]
+      fn it_preserves_body_without_heading() {
+        let body = "Just some text";
+        assert_eq!(strip_leading_title(body, "My Title"), body);
+      }
+
+      #[test]
+      fn it_strips_matching_title() {
+        let body = "# My Title\nRest of body";
+        assert_eq!(strip_leading_title(body, "My Title"), "Rest of body");
+      }
+    }
+
     mod write_to {
       use super::*;
 
@@ -192,6 +218,20 @@ mod tests {
         let lines: Vec<&str> = output.lines().collect();
         // Only title line, no kind line
         assert_eq!(lines.len(), 1, "Should not contain kind line");
+      }
+
+      #[test]
+      fn it_strips_leading_title_from_body() {
+        yansi::disable();
+        let artifact = make_artifact("My Artifact", None, vec![], "# My Artifact\nBody content here");
+        let detail = ArtifactDetail::new(&artifact);
+        let mut buf = Vec::new();
+        detail.write_to(&mut buf, &Theme::default()).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        // Title should appear once (as heading), not duplicated from body
+        let count = output.matches("My Artifact").count();
+        assert_eq!(count, 1, "Title should not be duplicated");
+        assert!(output.contains("Body content here"), "Should contain rest of body");
       }
 
       #[test]
@@ -237,48 +277,6 @@ mod tests {
         let output = String::from_utf8(buf).unwrap();
         assert!(output.contains("note"), "Should contain kind");
       }
-
-      #[test]
-      fn it_strips_leading_title_from_body() {
-        yansi::disable();
-        let artifact = make_artifact("My Artifact", None, vec![], "# My Artifact\nBody content here");
-        let detail = ArtifactDetail::new(&artifact);
-        let mut buf = Vec::new();
-        detail.write_to(&mut buf, &Theme::default()).unwrap();
-        let output = String::from_utf8(buf).unwrap();
-        // Title should appear once (as heading), not duplicated from body
-        let count = output.matches("My Artifact").count();
-        assert_eq!(count, 1, "Title should not be duplicated");
-        assert!(output.contains("Body content here"), "Should contain rest of body");
-      }
-    }
-
-    mod strip_leading_title {
-      use super::super::strip_leading_title;
-
-      #[test]
-      fn it_strips_matching_title() {
-        let body = "# My Title\nRest of body";
-        assert_eq!(strip_leading_title(body, "My Title"), "Rest of body");
-      }
-
-      #[test]
-      fn it_preserves_body_when_title_differs() {
-        let body = "# Different Title\nRest of body";
-        assert_eq!(strip_leading_title(body, "My Title"), body);
-      }
-
-      #[test]
-      fn it_preserves_body_without_heading() {
-        let body = "Just some text";
-        assert_eq!(strip_leading_title(body, "My Title"), body);
-      }
-
-      #[test]
-      fn it_handles_title_only_body() {
-        let body = "# My Title";
-        assert_eq!(strip_leading_title(body, "My Title"), "");
-      }
     }
   }
 
@@ -289,12 +287,12 @@ mod tests {
     fn make_task() -> Task {
       let now = Utc::now();
       Task {
-        resolved_at: None,
         created_at: now,
         description: String::new(),
         id: "zyxwvutsrqponmlkzyxwvutsrqponmlk".parse().unwrap(),
         links: vec![],
         metadata: toml::Table::new(),
+        resolved_at: None,
         status: Status::Open,
         tags: vec![],
         title: "Test Task".to_string(),

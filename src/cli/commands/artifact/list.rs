@@ -299,16 +299,6 @@ mod tests {
     }
   }
 
-  fn make_config(dir: &std::path::Path) -> Config {
-    store::ensure_dirs(dir).unwrap();
-    Config {
-      storage: StorageConfig {
-        data_dir: Some(dir.to_path_buf()),
-      },
-      ..Config::default()
-    }
-  }
-
   fn make_artifact(id: &str, title: &str) -> Artifact {
     let now = Utc::now();
     Artifact {
@@ -321,6 +311,16 @@ mod tests {
       tags: vec![],
       title: title.to_string(),
       updated_at: now,
+    }
+  }
+
+  fn make_config(dir: &std::path::Path) -> Config {
+    store::ensure_dirs(dir).unwrap();
+    Config {
+      storage: StorageConfig {
+        data_dir: Some(dir.to_path_buf()),
+      },
+      ..Config::default()
     }
   }
 }

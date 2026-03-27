@@ -11,12 +11,12 @@ use crate::model::{Id, NewTask, Task, TaskFilter, TaskPatch};
 pub fn create_task(data_dir: &Path, new: NewTask) -> crate::Result<Task> {
   let now = Utc::now();
   let task = Task {
-    resolved_at: None,
     created_at: now,
     description: new.description,
     id: Id::new(),
     links: new.links,
     metadata: new.metadata,
+    resolved_at: None,
     status: new.status,
     tags: new.tags,
     title: new.title,
@@ -226,16 +226,39 @@ mod tests {
 
   fn make_test_task(id: &str, title: &str) -> Task {
     Task {
-      resolved_at: None,
       created_at: Utc::now(),
       description: String::new(),
       id: id.parse().unwrap(),
       links: vec![],
       metadata: toml::Table::new(),
+      resolved_at: None,
       status: Status::Open,
       tags: vec![],
       title: title.to_string(),
       updated_at: Utc::now(),
+    }
+  }
+
+  mod is_task_resolved {
+    use super::*;
+
+    #[test]
+    fn it_returns_false_for_active_task() {
+      let dir = tempfile::tempdir().unwrap();
+      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Active");
+      crate::store::write_task(dir.path(), &task).unwrap();
+
+      assert!(!crate::store::is_task_resolved(dir.path(), &task.id));
+    }
+
+    #[test]
+    fn it_returns_true_for_resolved_task() {
+      let dir = tempfile::tempdir().unwrap();
+      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Resolved");
+      crate::store::write_task(dir.path(), &task).unwrap();
+      crate::store::resolve_task(dir.path(), &task.id).unwrap();
+
+      assert!(crate::store::is_task_resolved(dir.path(), &task.id));
     }
   }
 
@@ -270,29 +293,6 @@ mod tests {
 
       let loaded = crate::store::read_task(dir.path(), &task.id).unwrap();
       assert!(loaded.resolved_at.is_some());
-    }
-  }
-
-  mod is_task_resolved {
-    use super::*;
-
-    #[test]
-    fn it_returns_false_for_active_task() {
-      let dir = tempfile::tempdir().unwrap();
-      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Active");
-      crate::store::write_task(dir.path(), &task).unwrap();
-
-      assert!(!crate::store::is_task_resolved(dir.path(), &task.id));
-    }
-
-    #[test]
-    fn it_returns_true_for_resolved_task() {
-      let dir = tempfile::tempdir().unwrap();
-      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Resolved");
-      crate::store::write_task(dir.path(), &task).unwrap();
-      crate::store::resolve_task(dir.path(), &task.id).unwrap();
-
-      assert!(crate::store::is_task_resolved(dir.path(), &task.id));
     }
   }
 

@@ -213,16 +213,6 @@ mod tests {
     }
   }
 
-  fn make_config(dir: &std::path::Path) -> Config {
-    store::ensure_dirs(dir).unwrap();
-    Config {
-      storage: StorageConfig {
-        data_dir: Some(dir.to_path_buf()),
-      },
-      ..Config::default()
-    }
-  }
-
   fn make_artifact(id: &str) -> Artifact {
     let now = Utc::now();
     let mut metadata = yaml_serde::Mapping::new();
@@ -240,6 +230,16 @@ mod tests {
       tags: vec!["original".to_string()],
       title: "Original Title".to_string(),
       updated_at: now,
+    }
+  }
+
+  fn make_config(dir: &std::path::Path) -> Config {
+    store::ensure_dirs(dir).unwrap();
+    Config {
+      storage: StorageConfig {
+        data_dir: Some(dir.to_path_buf()),
+      },
+      ..Config::default()
     }
   }
 }

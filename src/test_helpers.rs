@@ -24,12 +24,12 @@ pub fn make_test_config(dir: &Path) -> Config {
 pub fn make_test_task(id: &str) -> Task {
   let now = Utc::now();
   Task {
-    resolved_at: None,
     created_at: now,
     description: String::new(),
     id: id.parse().unwrap(),
     links: vec![],
     metadata: toml::Table::new(),
+    resolved_at: None,
     status: Status::Open,
     tags: vec![],
     title: format!("Task {id}"),
