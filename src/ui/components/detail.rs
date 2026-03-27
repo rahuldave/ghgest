@@ -1,8 +1,14 @@
 use std::io;
 
+use yansi::Paint;
+
 use crate::{
   model::{Artifact, Task},
-  ui::{markdown, theme::Theme, utils::format_status},
+  ui::{
+    markdown,
+    theme::Theme,
+    utils::{format_status, format_tags},
+  },
 };
 
 /// Detail view for an artifact, matching the output of `artifact show`.
@@ -66,48 +72,35 @@ impl<'a> TaskDetail<'a> {
 
   /// Write the detail view to the given writer.
   pub fn write_to(&self, w: &mut impl io::Write, theme: &Theme) -> io::Result<()> {
-    writeln!(w, "# {}", self.task.title)?;
-    writeln!(w)?;
-    writeln!(w, "**Status:** {}", format_status(&self.task.status, theme))?;
-    writeln!(w, "**ID:** {}", self.task.id)?;
-    writeln!(
-      w,
-      "**Created:** {}",
-      self.task.created_at.format("%Y-%m-%d %H:%M:%S UTC")
-    )?;
-    writeln!(
-      w,
-      "**Updated:** {}",
-      self.task.updated_at.format("%Y-%m-%d %H:%M:%S UTC")
-    )?;
-
-    if let Some(resolved_at) = self.task.resolved_at {
-      writeln!(w, "**Resolved:** {}", resolved_at.format("%Y-%m-%d %H:%M:%S UTC"))?;
-    }
-
+    // Title heading
+    writeln!(w, "{}", self.task.title.paint(theme.md_heading))?;
+    // Status on its own line
+    writeln!(w, "{}", format_status(&self.task.status, theme))?;
+    // Tags with @ prefix (omitted if empty)
     if !self.task.tags.is_empty() {
-      writeln!(w, "**Tags:** {}", self.task.tags.join(", "))?;
+      writeln!(w, "{}", format_tags(&self.task.tags, theme))?;
     }
 
+    // Blank line before description
     if !self.task.description.is_empty() {
       writeln!(w)?;
-      writeln!(w, "## Description")?;
-      writeln!(w)?;
-      writeln!(w, "{}", self.task.description)?;
+      markdown::render(w, &self.task.description, theme)?;
     }
 
+    // Links section (omitted if empty)
     if !self.task.links.is_empty() {
       writeln!(w)?;
-      writeln!(w, "## Links")?;
+      writeln!(w, "{}", "── Links ──".paint(theme.border))?;
       writeln!(w)?;
       for link in &self.task.links {
         writeln!(w, "- **{}:** {}", link.rel, link.ref_)?;
       }
     }
 
+    // Metadata section (omitted if empty)
     if !self.task.metadata.is_empty() {
       writeln!(w)?;
-      writeln!(w, "## Metadata")?;
+      writeln!(w, "{}", "── Metadata ──".paint(theme.border))?;
       writeln!(w)?;
       for (key, value) in &self.task.metadata {
         writeln!(w, "- **{key}:** {value}")?;
@@ -291,6 +284,7 @@ mod tests {
 
   mod task_detail {
     use super::*;
+    use crate::model::{Link, RelationshipType};
 
     fn make_task() -> Task {
       let now = Utc::now();
@@ -322,6 +316,133 @@ mod tests {
         detail.write_to(&mut buf, &Theme::default()).unwrap();
         let write_output = String::from_utf8(buf).unwrap();
         assert_eq!(display, write_output.trim_end());
+      }
+    }
+
+    mod write_to {
+      use super::*;
+
+      #[test]
+      fn it_writes_styled_title_heading() {
+        let task = make_task();
+        let detail = TaskDetail::new(&task);
+        let mut buf = Vec::new();
+        detail.write_to(&mut buf, &Theme::default()).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(output.contains("Test Task"), "Should contain styled title");
+      }
+
+      #[test]
+      fn it_writes_status_on_own_line() {
+        let task = make_task();
+        let detail = TaskDetail::new(&task);
+        let mut buf = Vec::new();
+        detail.write_to(&mut buf, &Theme::default()).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(output.contains("open"), "Should contain status text");
+        // Status should not be on same line as title
+        let lines: Vec<&str> = output.lines().collect();
+        assert!(lines.len() >= 2, "Should have at least 2 lines (title + status)");
+      }
+
+      #[test]
+      fn it_omits_tags_when_empty() {
+        let task = make_task();
+        let detail = TaskDetail::new(&task);
+        let mut buf = Vec::new();
+        detail.write_to(&mut buf, &Theme::default()).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(!output.contains("@"), "Should not contain @ tags when empty");
+      }
+
+      #[test]
+      fn it_writes_tags_with_at_prefix() {
+        let mut task = make_task();
+        task.tags = vec!["rust".to_string(), "cli".to_string()];
+        let detail = TaskDetail::new(&task);
+        let mut buf = Vec::new();
+        detail.write_to(&mut buf, &Theme::default()).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(output.contains("@rust"), "Should contain @rust tag");
+        assert!(output.contains("@cli"), "Should contain @cli tag");
+      }
+
+      #[test]
+      fn it_renders_description_with_markdown() {
+        let mut task = make_task();
+        task.description = "Some **bold** description".to_string();
+        let detail = TaskDetail::new(&task);
+        let mut buf = Vec::new();
+        detail.write_to(&mut buf, &Theme::default()).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(output.contains("bold"), "Should contain rendered markdown description");
+      }
+
+      #[test]
+      fn it_omits_description_when_empty() {
+        let task = make_task();
+        let detail = TaskDetail::new(&task);
+        let mut buf = Vec::new();
+        detail.write_to(&mut buf, &Theme::default()).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        let lines: Vec<&str> = output.lines().collect();
+        // With no description, tags, links, or metadata: just title + status
+        assert_eq!(lines.len(), 2, "Should only have title and status lines");
+      }
+
+      #[test]
+      fn it_writes_links_with_separator() {
+        let mut task = make_task();
+        task.links = vec![Link {
+          ref_: "https://example.com".to_string(),
+          rel: RelationshipType::RelatesTo,
+        }];
+        let detail = TaskDetail::new(&task);
+        let mut buf = Vec::new();
+        detail.write_to(&mut buf, &Theme::default()).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(output.contains("Links"), "Should contain Links separator");
+        assert!(output.contains("https://example.com"), "Should contain link reference");
+      }
+
+      #[test]
+      fn it_omits_links_when_empty() {
+        let task = make_task();
+        let detail = TaskDetail::new(&task);
+        let mut buf = Vec::new();
+        detail.write_to(&mut buf, &Theme::default()).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+          !output.contains("Links"),
+          "Should not contain Links separator when empty"
+        );
+      }
+
+      #[test]
+      fn it_writes_metadata_with_separator() {
+        let mut task = make_task();
+        task
+          .metadata
+          .insert("wave".to_string(), toml::Value::String("3".to_string()));
+        let detail = TaskDetail::new(&task);
+        let mut buf = Vec::new();
+        detail.write_to(&mut buf, &Theme::default()).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(output.contains("Metadata"), "Should contain Metadata separator");
+        assert!(output.contains("wave"), "Should contain metadata key");
+      }
+
+      #[test]
+      fn it_omits_metadata_when_empty() {
+        let task = make_task();
+        let detail = TaskDetail::new(&task);
+        let mut buf = Vec::new();
+        detail.write_to(&mut buf, &Theme::default()).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert!(
+          !output.contains("Metadata"),
+          "Should not contain Metadata separator when empty"
+        );
       }
     }
   }
