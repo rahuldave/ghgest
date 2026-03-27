@@ -74,6 +74,19 @@ fn it_creates_an_artifact_from_stdin() {
 }
 
 #[test]
+fn it_creates_an_artifact_from_file() {
+  let env = GestCmd::new();
+  let file_path = env.temp_dir_path().join("input.md");
+  std::fs::write(&file_path, "# File Title\n\nBody from file").unwrap();
+
+  env
+    .run(["artifact", "create", "--file", file_path.to_str().unwrap()])
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("Created artifact"));
+}
+
+#[test]
 fn it_creates_an_artifact_with_tags() {
   let env = GestCmd::new();
 

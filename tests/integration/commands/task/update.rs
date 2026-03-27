@@ -64,6 +64,39 @@ fn it_updates_status() {
 }
 
 #[test]
+fn it_transitions_open_to_done_and_back() {
+  let env = GestCmd::new();
+
+  let output = env
+    .run(["task", "create", "Lifecycle Task", "-d", "test lifecycle"])
+    .output()
+    .expect("failed to create task");
+  let id = extract_task_id(&String::from_utf8_lossy(&output.stdout));
+
+  // open -> done
+  env.run(["task", "update", &id, "-s", "done"]).assert().success();
+
+  let show = env
+    .run(["task", "show", &id, "--json"])
+    .output()
+    .expect("failed to show task");
+  let json: serde_json::Value = serde_json::from_str(&String::from_utf8_lossy(&show.stdout)).unwrap();
+  assert_eq!(json["status"], "done");
+  assert!(json["resolved_at"].is_string(), "resolved_at should be set");
+
+  // done -> open
+  env.run(["task", "update", &id, "-s", "open"]).assert().success();
+
+  let show2 = env
+    .run(["task", "show", &id, "--json"])
+    .output()
+    .expect("failed to show task");
+  let json2: serde_json::Value = serde_json::from_str(&String::from_utf8_lossy(&show2.stdout)).unwrap();
+  assert_eq!(json2["status"], "open");
+  assert_eq!(json2["resolved_at"], "", "resolved_at should be cleared");
+}
+
+#[test]
 fn it_persists_updates_across_reads() {
   let env = GestCmd::new();
 

@@ -47,6 +47,42 @@ fn it_links_two_tasks() {
 }
 
 #[test]
+fn it_creates_reciprocal_link_on_target() {
+  let env = GestCmd::new();
+
+  let out1 = env
+    .run(["task", "create", "Blocker", "-d", "blocks other"])
+    .output()
+    .expect("failed to create source task");
+  let source_id = extract_id(&String::from_utf8_lossy(&out1.stdout), "task");
+
+  let out2 = env
+    .run(["task", "create", "Blocked", "-d", "blocked by other"])
+    .output()
+    .expect("failed to create target task");
+  let target_id = extract_id(&String::from_utf8_lossy(&out2.stdout), "task");
+
+  env
+    .run(["task", "link", &source_id, "blocks", &target_id])
+    .assert()
+    .success();
+
+  // Verify reciprocal link on target task
+  let show_output = env
+    .run(["task", "show", &target_id, "--json"])
+    .output()
+    .expect("failed to show target task");
+  let stdout = String::from_utf8_lossy(&show_output.stdout);
+  let json: serde_json::Value = serde_json::from_str(&stdout).expect("invalid JSON");
+  let links = json["links"].as_array().expect("links should be an array");
+  assert_eq!(links.len(), 1, "Target should have exactly one reciprocal link");
+  assert_eq!(
+    links[0]["rel"], "blocked-by",
+    "Reciprocal of blocks should be blocked-by"
+  );
+}
+
+#[test]
 fn it_links_a_task_to_an_artifact() {
   let env = GestCmd::new();
 

@@ -174,6 +174,42 @@ fn walk_up_for_parent(start: &Path, name: &str) -> Option<PathBuf> {
 mod tests {
   use super::*;
 
+  mod data_dir {
+    use super::*;
+    use crate::config::{Config, StorageConfig};
+
+    #[test]
+    fn it_uses_gest_data_dir_env_var() {
+      let dir = tempfile::tempdir().unwrap();
+      let expected = dir.path().join("custom-data");
+      std::fs::create_dir_all(&expected).unwrap();
+
+      temp_env::with_var("GEST_DATA_DIR", Some(expected.to_str().unwrap()), || {
+        let config = Config::default();
+        let result = data_dir(&config).unwrap();
+        assert_eq!(result, expected);
+      });
+    }
+
+    #[test]
+    fn it_uses_config_data_dir_when_env_unset() {
+      let dir = tempfile::tempdir().unwrap();
+      let expected = dir.path().join("config-data");
+      std::fs::create_dir_all(&expected).unwrap();
+
+      temp_env::with_var_unset("GEST_DATA_DIR", || {
+        let config = Config {
+          storage: StorageConfig {
+            data_dir: Some(expected.clone()),
+          },
+          ..Config::default()
+        };
+        let result = data_dir(&config).unwrap();
+        assert_eq!(result, expected);
+      });
+    }
+  }
+
   mod expand_path {
     use super::*;
 

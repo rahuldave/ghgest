@@ -42,3 +42,55 @@ impl Command {
     Ok(())
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::{
+    model::Artifact,
+    store,
+    test_helpers::{make_test_artifact, make_test_config},
+  };
+
+  mod call {
+    use super::*;
+
+    #[test]
+    fn it_shows_artifact_detail() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path());
+      let artifact = Artifact {
+        title: "Detail Test".to_string(),
+        body: "Some body".to_string(),
+        ..make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk")
+      };
+      store::write_artifact(dir.path(), &artifact).unwrap();
+
+      let cmd = Command {
+        id: "zyxw".to_string(),
+        json: false,
+      };
+      // Should not error
+      cmd.call(&config, &Theme::default()).unwrap();
+    }
+
+    #[test]
+    fn it_shows_artifact_as_json() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path());
+      let artifact = Artifact {
+        title: "JSON Test".to_string(),
+        body: "json body".to_string(),
+        ..make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk")
+      };
+      store::write_artifact(dir.path(), &artifact).unwrap();
+
+      let cmd = Command {
+        id: "zyxw".to_string(),
+        json: true,
+      };
+      // Should not error
+      cmd.call(&config, &Theme::default()).unwrap();
+    }
+  }
+}
