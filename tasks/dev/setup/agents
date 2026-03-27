@@ -220,9 +220,9 @@ wire_assistant() {
 
   mkdir -p "$assistant_dir/agents" "$assistant_dir/skills"
 
-  # Clear old symlinks
-  find "$assistant_dir/agents" -maxdepth 1 -type l -delete 2>/dev/null || true
-  find "$assistant_dir/skills" -maxdepth 1 -type l -delete 2>/dev/null || true
+  # Clear old symlinks and directories (ln -sfn won't replace a directory)
+  find "$assistant_dir/agents" -maxdepth 1 -mindepth 1 \( -type l -o -type d \) -exec rm -rf {} + 2>/dev/null || true
+  find "$assistant_dir/skills" -maxdepth 1 -mindepth 1 \( -type l -o -type d \) -exec rm -rf {} + 2>/dev/null || true
 
   # Symlink agents and skills directly from profiles (later profiles override earlier)
   for profile in "${PROFILES[@]}"; do
