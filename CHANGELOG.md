@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [v0.2.1] - 2026-03-26
+
+### Fixed
+
+- Install script now downloads the correct checksum file during installation
+- Self-update no longer fails with a 404 when fetching the target release
+
 ## [v0.2.0] - 2026-03-26
 
 ### Added
@@ -38,5 +45,6 @@ Initial release
 [#4]: https://github.com/aaronmallen/gest/issues/4
 [#5]: https://github.com/aaronmallen/gest/issues/5
 
-[Unreleased]: https://github.com/aaronmallen/gest/compare/0.2.0...main
+[Unreleased]: https://github.com/aaronmallen/gest/compare/0.2.1...main
 [v0.2.0]: https://github.com/aaronmallen/gest/compare/0.1.0...0.2.0
+[v0.2.1]: https://github.com/aaronmallen/gest/compare/0.2.0...0.2.1
