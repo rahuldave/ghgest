@@ -68,7 +68,7 @@ impl Command {
       .repo_owner(REPO_OWNER)
       .repo_name(REPO_NAME)
       .bin_name(BIN_NAME)
-      .target_version_tag(&format!("v{target_version}"))
+      .target_version_tag(target_version)
       .show_download_progress(true)
       .current_version(CURRENT_VERSION)
       .no_confirm(true)
