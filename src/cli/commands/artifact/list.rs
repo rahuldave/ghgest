@@ -18,17 +18,17 @@ use crate::{
 #[derive(Debug, Args)]
 pub struct Command {
   /// Show only archived artifacts
-  #[arg(long, conflicts_with = "include_archived")]
+  #[arg(long, conflicts_with = "show_all")]
   pub archived: bool,
-  /// Include archived artifacts alongside active ones
-  #[arg(short = 'a', long, conflicts_with = "archived")]
-  pub include_archived: bool,
   /// Output artifact list as JSON
   #[arg(short, long)]
   pub json: bool,
   /// Filter by artifact type (e.g. spec, adr, rfc)
   #[arg(long = "type")]
   pub kind: Option<String>,
+  /// Include archived artifacts alongside active ones
+  #[arg(short = 'a', long = "all", conflicts_with = "archived")]
+  pub show_all: bool,
   /// Filter by tag
   #[arg(long)]
   pub tag: Option<String>,
@@ -38,17 +38,17 @@ impl Command {
   pub fn call(&self, config: &Config, theme: &Theme) -> crate::Result<()> {
     log::info!("listing artifacts");
     let filter = ArtifactFilter {
-      include_archived: self.include_archived,
+      show_all: self.show_all,
       only_archived: self.archived,
       kind: self.kind.clone(),
       tag: self.tag.clone(),
     };
     log::debug!(
-      "filter: kind={:?}, tag={:?}, archived={}, include_archived={}",
+      "filter: kind={:?}, tag={:?}, archived={}, show_all={}",
       filter.kind,
       filter.tag,
       self.archived,
-      self.include_archived
+      self.show_all
     );
 
     let data_dir = config::data_dir(config)?;
@@ -151,7 +151,7 @@ mod tests {
 
       let cmd = Command {
         archived: false,
-        include_archived: false,
+        show_all: false,
         json: false,
         kind: None,
         tag: None,
@@ -172,7 +172,7 @@ mod tests {
 
       let cmd = Command {
         archived: false,
-        include_archived: false,
+        show_all: false,
         json: false,
         kind: None,
         tag: None,
@@ -188,7 +188,7 @@ mod tests {
 
       let cmd = Command {
         archived: false,
-        include_archived: false,
+        show_all: false,
         json: true,
         kind: None,
         tag: None,
@@ -209,7 +209,7 @@ mod tests {
 
       let cmd = Command {
         archived: false,
-        include_archived: false,
+        show_all: false,
         json: true,
         kind: None,
         tag: None,
@@ -232,7 +232,7 @@ mod tests {
 
       let cmd = Command {
         archived: false,
-        include_archived: false,
+        show_all: false,
         json: false,
         kind: Some("spec".to_string()),
         tag: None,
@@ -251,7 +251,7 @@ mod tests {
 
       let cmd = Command {
         archived: false,
-        include_archived: false,
+        show_all: false,
         json: false,
         kind: None,
         tag: Some("important".to_string()),
@@ -270,7 +270,7 @@ mod tests {
 
       let cmd = Command {
         archived: false,
-        include_archived: false,
+        show_all: false,
         json: false,
         kind: Some("nonexistent".to_string()),
         tag: None,
@@ -289,7 +289,7 @@ mod tests {
 
       let cmd = Command {
         archived: false,
-        include_archived: true,
+        show_all: true,
         json: false,
         kind: None,
         tag: None,

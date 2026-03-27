@@ -66,7 +66,7 @@ pub fn list_artifacts(data_dir: &Path, filter: &ArtifactFilter) -> crate::Result
     }
   }
 
-  if filter.include_archived || filter.only_archived {
+  if filter.show_all || filter.only_archived {
     for path in read_dir_files(&data_dir.join("artifacts/archive"), "md")? {
       let content = fs::read_to_string(&path)?;
       let artifact = parse_artifact_file(&content)?;
@@ -109,14 +109,14 @@ pub fn read_artifact(data_dir: &Path, id: &Id) -> crate::Result<Artifact> {
   parse_artifact_file(&content)
 }
 
-pub fn resolve_artifact_id(data_dir: &Path, prefix: &str, include_archived: bool) -> crate::Result<Id> {
+pub fn resolve_artifact_id(data_dir: &Path, prefix: &str, show_all: bool) -> crate::Result<Id> {
   log::debug!("resolving artifact ID prefix '{prefix}'");
   resolve_id(
     &data_dir.join("artifacts"),
     Some(&data_dir.join("artifacts/archive")),
     "md",
     prefix,
-    include_archived,
+    show_all,
     "Artifact",
   )
 }
@@ -301,7 +301,7 @@ mod tests {
       crate::store::archive_artifact(dir.path(), &to_archive.id).unwrap();
 
       let filter = ArtifactFilter {
-        include_archived: true,
+        show_all: true,
         ..Default::default()
       };
       let artifacts = crate::store::list_artifacts(dir.path(), &filter).unwrap();
@@ -367,7 +367,7 @@ mod tests {
       assert!(result.is_err());
       let err = result.unwrap_err().to_string();
       assert!(err.contains("not found"), "Expected not found error, got: {err}");
-      assert!(err.contains("--include-archived"), "Expected archive hint, got: {err}");
+      assert!(err.contains("--all"), "Expected archive hint, got: {err}");
     }
   }
 }

@@ -56,11 +56,7 @@ pub(crate) fn resolve_id(
 
   let mut msg = format!("{hint} not found: '{prefix}'");
   if !include_secondary {
-    if hint == "Artifact" {
-      msg.push_str(" (try --include-archived)");
-    } else {
-      msg.push_str(" (try --all)");
-    }
+    msg.push_str(" (try --all)");
   }
   Err(crate::Error::generic(msg))
 }

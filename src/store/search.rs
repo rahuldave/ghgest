@@ -19,7 +19,7 @@ pub fn search(data_dir: &Path, query: &str, show_all: bool) -> crate::Result<Sea
   let all_tasks = super::list_tasks(data_dir, &task_filter)?;
 
   let artifact_filter = ArtifactFilter {
-    include_archived: show_all,
+    show_all,
     ..Default::default()
   };
   let all_artifacts = super::list_artifacts(data_dir, &artifact_filter)?;

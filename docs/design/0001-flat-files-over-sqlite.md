@@ -51,7 +51,7 @@ is everything after the closing `---`.
 **Search** reads files in parallel using rayon for in-memory matching. No database, no full-text search index. Files are
 naturally greppable.
 
-**Archive** directories hold archived items. `list` skips them by default; `list --include-archived` includes them.
+**Archive** directories hold archived items. `list` skips them by default; `list --all` includes them.
 `show` reaches any item by ID regardless of archive status.
 
 **Alternatives considered:**
