@@ -27,7 +27,7 @@ impl Command {
     let mut artifact = store::read_artifact(&data_dir, &id)?;
 
     log::debug!("tags to remove: {:?}", self.tags);
-    artifact.tags.retain(|t| !self.tags.contains(t));
+    super::super::tags::remove_tags(&mut artifact.tags, &self.tags);
 
     artifact.updated_at = Utc::now();
     store::write_artifact(&data_dir, &artifact)?;

@@ -8,3 +8,4 @@ pub mod task;
 pub mod version;
 
 pub(crate) mod json_utils;
+pub(crate) mod tags;

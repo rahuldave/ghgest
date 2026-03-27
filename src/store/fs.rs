@@ -5,6 +5,17 @@ use std::{
 
 use crate::model::Id;
 
+/// Write `content` to `dest` and remove `src` if it exists.
+/// Both `ensure_dirs` and the actual write are handled here.
+pub(crate) fn move_entity_file(data_dir: &Path, content: &str, dest: &Path, src: &Path) -> crate::Result<()> {
+  ensure_dirs(data_dir)?;
+  fs::write(dest, content)?;
+  if src.exists() {
+    fs::remove_file(src)?;
+  }
+  Ok(())
+}
+
 pub fn ensure_dirs(data_dir: &Path) -> crate::Result<()> {
   fs::create_dir_all(data_dir.join("artifacts"))?;
   fs::create_dir_all(data_dir.join("artifacts/archive"))?;

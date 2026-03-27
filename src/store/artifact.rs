@@ -5,7 +5,7 @@ use std::{
 
 use chrono::Utc;
 
-use super::fs::{ensure_dirs, read_dir_files, resolve_id};
+use super::fs::{ensure_dirs, move_entity_file, read_dir_files, resolve_id};
 use crate::model::{Artifact, ArtifactFilter, ArtifactPatch, Id, NewArtifact};
 
 pub fn archive_artifact(data_dir: &Path, id: &Id) -> crate::Result<()> {
@@ -14,15 +14,13 @@ pub fn archive_artifact(data_dir: &Path, id: &Id) -> crate::Result<()> {
   artifact.archived_at = Some(now);
   artifact.updated_at = now;
 
-  ensure_dirs(data_dir)?;
   let content = serialize_artifact(&artifact)?;
-  let archive_path = data_dir.join(format!("artifacts/archive/{id}.md"));
-  fs::write(archive_path, content)?;
-
-  let active_path = data_dir.join(format!("artifacts/{id}.md"));
-  if active_path.exists() {
-    fs::remove_file(active_path)?;
-  }
+  move_entity_file(
+    data_dir,
+    &content,
+    &data_dir.join(format!("artifacts/archive/{id}.md")),
+    &data_dir.join(format!("artifacts/{id}.md")),
+  )?;
 
   Ok(())
 }

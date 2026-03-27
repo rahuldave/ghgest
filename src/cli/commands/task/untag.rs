@@ -23,7 +23,7 @@ impl Command {
     let id = store::resolve_task_id(&data_dir, &self.id, false)?;
     let mut task = store::read_task(&data_dir, &id)?;
 
-    task.tags.retain(|t| !self.tags.contains(t));
+    super::super::tags::remove_tags(&mut task.tags, &self.tags);
 
     task.updated_at = Utc::now();
     store::write_task(&data_dir, &task)?;

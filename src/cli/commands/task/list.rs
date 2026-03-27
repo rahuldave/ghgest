@@ -77,53 +77,11 @@ impl Command {
       .iter()
       .map(|status| {
         let mut matching: Vec<&Task> = tasks.iter().filter(|t| &t.status == status).collect();
-        // Sort by creation date, oldest first
         matching.sort_by_key(|t| t.created_at);
-
         let rows: Vec<Vec<String>> = matching
           .iter()
-          .map(|task| {
-            let id_str = task.id.to_string();
-            let prefix_len = prefix_map.get(&id_str).copied().unwrap_or(1);
-            let id_cell = format_id(&task.id, prefix_len, Some(8), theme);
-
-            // Title with optional status marker for resolved tasks
-            let status_marker = if task.resolved_at.is_some() {
-              match task.status {
-                Status::Done => " (done)",
-                Status::Cancelled => " (cancelled)",
-                _ => "",
-              }
-            } else {
-              ""
-            };
-            let title_cell = format!("{}{}", task.title, status_marker);
-
-            let tags_cell = format_tags(&task.tags, theme);
-
-            // Indicators: blocked (!!), blocking (⚠ N)
-            let mut indicators = Vec::new();
-
-            let has_blocked_by = task.links.iter().any(|l| l.rel == RelationshipType::BlockedBy);
-            if has_blocked_by {
-              indicators.push("!!".paint(theme.indicator_blocked).to_string());
-            }
-
-            let blocks_count = task.links.iter().filter(|l| l.rel == RelationshipType::Blocks).count();
-            if blocks_count > 0 {
-              indicators.push(
-                format!("\u{26a0} {}", blocks_count)
-                  .paint(theme.indicator_blocking)
-                  .to_string(),
-              );
-            }
-
-            let indicators_cell = indicators.join(" ");
-
-            vec![id_cell, title_cell, tags_cell, indicators_cell]
-          })
+          .map(|task| build_row(task, &prefix_map, theme))
           .collect();
-
         Group::new(status_heading(status), rows)
       })
       .collect();
@@ -132,6 +90,39 @@ impl Command {
 
     Ok(())
   }
+}
+
+fn build_row(task: &Task, prefix_map: &std::collections::HashMap<String, usize>, theme: &Theme) -> Vec<String> {
+  let id_str = task.id.to_string();
+  let prefix_len = prefix_map.get(&id_str).copied().unwrap_or(1);
+  let id_cell = format_id(&task.id, prefix_len, Some(8), theme);
+
+  let status_marker = if task.resolved_at.is_some() {
+    match task.status {
+      Status::Done => " (done)",
+      Status::Cancelled => " (cancelled)",
+      _ => "",
+    }
+  } else {
+    ""
+  };
+  let title_cell = format!("{}{}", task.title, status_marker);
+  let tags_cell = format_tags(&task.tags, theme);
+
+  let mut indicators = Vec::new();
+  if task.links.iter().any(|l| l.rel == RelationshipType::BlockedBy) {
+    indicators.push("!!".paint(theme.indicator_blocked).to_string());
+  }
+  let blocks_count = task.links.iter().filter(|l| l.rel == RelationshipType::Blocks).count();
+  if blocks_count > 0 {
+    indicators.push(
+      format!("\u{26a0} {}", blocks_count)
+        .paint(theme.indicator_blocking)
+        .to_string(),
+    );
+  }
+
+  vec![id_cell, title_cell, tags_cell, indicators.join(" ")]
 }
 
 fn status_heading(status: &Status) -> &'static str {

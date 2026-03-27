@@ -26,11 +26,7 @@ impl Command {
     log::debug!("resolved artifact ID: {id}");
     let mut artifact = store::read_artifact(&data_dir, &id)?;
 
-    for tag in &self.tags {
-      if !artifact.tags.contains(tag) {
-        artifact.tags.push(tag.clone());
-      }
-    }
+    super::super::tags::apply_tags(&mut artifact.tags, &self.tags);
     log::debug!("tags to add: {:?}", self.tags);
 
     artifact.updated_at = Utc::now();

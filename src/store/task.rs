@@ -1,11 +1,8 @@
-use std::{
-  fs,
-  path::{Path, PathBuf},
-};
+use std::{fs, path::Path};
 
 use chrono::Utc;
 
-use super::fs::{ensure_dirs, read_dir_files, resolve_id};
+use super::fs::{ensure_dirs, move_entity_file, read_dir_files, resolve_id};
 use crate::model::{Id, NewTask, Task, TaskFilter, TaskPatch};
 
 pub fn create_task(data_dir: &Path, new: NewTask) -> crate::Result<Task> {
@@ -98,15 +95,13 @@ pub fn resolve_task(data_dir: &Path, id: &Id) -> crate::Result<()> {
   task.resolved_at = Some(now);
   task.updated_at = now;
 
-  ensure_dirs(data_dir)?;
   let content = toml::to_string(&task)?;
-  let resolved_path = data_dir.join(format!("tasks/resolved/{id}.toml"));
-  fs::write(resolved_path, content)?;
-
-  let active_path = data_dir.join(format!("tasks/{id}.toml"));
-  if active_path.exists() {
-    fs::remove_file(active_path)?;
-  }
+  move_entity_file(
+    data_dir,
+    &content,
+    &data_dir.join(format!("tasks/resolved/{id}.toml")),
+    &data_dir.join(format!("tasks/{id}.toml")),
+  )?;
 
   Ok(())
 }
@@ -121,36 +116,6 @@ pub fn resolve_task_id(data_dir: &Path, prefix: &str, include_resolved: bool) ->
     include_resolved,
     "Task",
   )
-}
-
-#[allow(dead_code)]
-pub fn task_path(data_dir: &Path, id: &Id) -> PathBuf {
-  let active = data_dir.join(format!("tasks/{id}.toml"));
-  let resolved = data_dir.join(format!("tasks/resolved/{id}.toml"));
-  if resolved.exists() && !active.exists() {
-    resolved
-  } else {
-    active
-  }
-}
-
-#[allow(dead_code)]
-pub fn unresolve_task(data_dir: &Path, id: &Id) -> crate::Result<()> {
-  let mut task = read_task(data_dir, id)?;
-  task.resolved_at = None;
-  task.updated_at = Utc::now();
-
-  ensure_dirs(data_dir)?;
-  let content = toml::to_string(&task)?;
-  let active_path = data_dir.join(format!("tasks/{id}.toml"));
-  fs::write(active_path, content)?;
-
-  let resolved_path = data_dir.join(format!("tasks/resolved/{id}.toml"));
-  if resolved_path.exists() {
-    fs::remove_file(resolved_path)?;
-  }
-
-  Ok(())
 }
 
 pub fn update_task(data_dir: &Path, id: &Id, patch: TaskPatch) -> crate::Result<Task> {
@@ -176,32 +141,23 @@ pub fn update_task(data_dir: &Path, id: &Id, patch: TaskPatch) -> crate::Result<
   task.updated_at = Utc::now();
 
   if task.status.is_terminal() && !was_resolved {
-    // Write then resolve — but resolve_task would re-read from disk.
-    // Instead, do the resolve inline using the already-read task data.
     task.resolved_at = Some(task.updated_at);
-
-    ensure_dirs(data_dir)?;
     let content = toml::to_string(&task)?;
-    let resolved_path = data_dir.join(format!("tasks/resolved/{id}.toml"));
-    fs::write(resolved_path, content)?;
-
-    let active_path = data_dir.join(format!("tasks/{id}.toml"));
-    if active_path.exists() {
-      fs::remove_file(active_path)?;
-    }
+    move_entity_file(
+      data_dir,
+      &content,
+      &data_dir.join(format!("tasks/resolved/{id}.toml")),
+      &data_dir.join(format!("tasks/{id}.toml")),
+    )?;
   } else if !task.status.is_terminal() && was_resolved {
-    // Unresolve inline — avoid re-reading from disk.
     task.resolved_at = None;
-
-    ensure_dirs(data_dir)?;
     let content = toml::to_string(&task)?;
-    let active_path = data_dir.join(format!("tasks/{id}.toml"));
-    fs::write(active_path, content)?;
-
-    let resolved_path = data_dir.join(format!("tasks/resolved/{id}.toml"));
-    if resolved_path.exists() {
-      fs::remove_file(resolved_path)?;
-    }
+    move_entity_file(
+      data_dir,
+      &content,
+      &data_dir.join(format!("tasks/{id}.toml")),
+      &data_dir.join(format!("tasks/resolved/{id}.toml")),
+    )?;
   } else {
     write_task(data_dir, &task)?;
   }
@@ -210,9 +166,13 @@ pub fn update_task(data_dir: &Path, id: &Id, patch: TaskPatch) -> crate::Result<
 }
 
 pub fn write_task(data_dir: &Path, task: &Task) -> crate::Result<()> {
+  let path = data_dir.join(format!("tasks/{}.toml", task.id));
+  write_task_to_path(data_dir, task, &path)
+}
+
+fn write_task_to_path(data_dir: &Path, task: &Task, path: &Path) -> crate::Result<()> {
   ensure_dirs(data_dir)?;
   let content = toml::to_string(task)?;
-  let path = data_dir.join(format!("tasks/{}.toml", task.id));
   log::trace!("writing task {} to {}", task.id, path.display());
   fs::write(path, content)?;
   Ok(())
@@ -220,22 +180,12 @@ pub fn write_task(data_dir: &Path, task: &Task) -> crate::Result<()> {
 
 #[cfg(test)]
 mod tests {
-  use chrono::Utc;
-
   use crate::model::{Task, TaskFilter, link::Link, task::Status};
 
   fn make_test_task(id: &str, title: &str) -> Task {
     Task {
-      created_at: Utc::now(),
-      description: String::new(),
-      id: id.parse().unwrap(),
-      links: vec![],
-      metadata: toml::Table::new(),
-      resolved_at: None,
-      status: Status::Open,
-      tags: vec![],
       title: title.to_string(),
-      updated_at: Utc::now(),
+      ..crate::test_helpers::make_test_task(id)
     }
   }
 
@@ -521,52 +471,6 @@ mod tests {
       let loaded = crate::store::read_task(dir.path(), &task.id).unwrap();
 
       assert_eq!(task, loaded);
-    }
-  }
-
-  mod unresolve_task {
-    use super::*;
-
-    #[test]
-    fn it_clears_resolved_at() {
-      let dir = tempfile::tempdir().unwrap();
-      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "To Unresolve");
-      crate::store::write_task(dir.path(), &task).unwrap();
-      crate::store::resolve_task(dir.path(), &task.id).unwrap();
-
-      let resolved = crate::store::read_task(dir.path(), &task.id).unwrap();
-      assert!(resolved.resolved_at.is_some());
-
-      crate::store::unresolve_task(dir.path(), &task.id).unwrap();
-
-      let unresolved = crate::store::read_task(dir.path(), &task.id).unwrap();
-      assert!(unresolved.resolved_at.is_none());
-    }
-
-    #[test]
-    fn it_moves_file_from_resolved_to_active() {
-      let dir = tempfile::tempdir().unwrap();
-      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "To Unresolve");
-      crate::store::write_task(dir.path(), &task).unwrap();
-      crate::store::resolve_task(dir.path(), &task.id).unwrap();
-
-      assert!(!dir.path().join("tasks/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml").exists());
-      assert!(
-        dir
-          .path()
-          .join("tasks/resolved/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml")
-          .exists()
-      );
-
-      crate::store::unresolve_task(dir.path(), &task.id).unwrap();
-
-      assert!(dir.path().join("tasks/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml").exists());
-      assert!(
-        !dir
-          .path()
-          .join("tasks/resolved/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml")
-          .exists()
-      );
     }
   }
 }
