@@ -23,16 +23,16 @@ impl Group {
 ///
 /// Each group has a styled heading and rows of pre-formatted column values.
 /// Empty groups are skipped. Groups are separated by a blank line.
-pub struct GroupedList {
+pub struct GroupedList<'a> {
   groups: Vec<Group>,
-  theme: Theme,
+  theme: &'a Theme,
 }
 
-impl GroupedList {
-  pub fn new(groups: Vec<Group>, theme: &Theme) -> Self {
+impl<'a> GroupedList<'a> {
+  pub fn new(groups: Vec<Group>, theme: &'a Theme) -> Self {
     Self {
       groups,
-      theme: theme.clone(),
+      theme,
     }
   }
 
@@ -91,7 +91,7 @@ impl GroupedList {
   }
 }
 
-impl fmt::Display for GroupedList {
+impl fmt::Display for GroupedList<'_> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let mut buf = Vec::new();
     self.write_to(&mut buf).map_err(|_| fmt::Error)?;

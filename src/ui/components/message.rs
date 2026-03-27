@@ -54,17 +54,17 @@ crate::ui::macros::impl_display_via_write_to!(ConfigSet, theme);
 /// Confirmation message for create/update/archive actions.
 ///
 /// Produces output like: `Created artifact abcdefgh`
-pub struct Confirmation {
+pub struct Confirmation<'a> {
   entity: String,
-  id: Id,
+  id: &'a Id,
   verb: String,
 }
 
-impl Confirmation {
-  pub fn new(verb: &str, entity: &str, id: &Id) -> Self {
+impl<'a> Confirmation<'a> {
+  pub fn new(verb: &str, entity: &str, id: &'a Id) -> Self {
     Self {
       entity: entity.to_string(),
-      id: id.clone(),
+      id,
       verb: verb.to_string(),
     }
   }
@@ -81,7 +81,7 @@ impl Confirmation {
   }
 }
 
-crate::ui::macros::impl_display_via_write_to!(Confirmation, theme);
+crate::ui::macros::impl_display_via_write_to!(Confirmation<'_>, theme);
 
 /// Empty-list message for task list.
 ///
@@ -155,18 +155,18 @@ crate::ui::macros::impl_display_via_write_to!(InitCreated, theme);
 /// Link-added message for link actions.
 ///
 /// Produces output like: `Linked abcdefgh --blocks--> eeffgghh`
-pub struct LinkAdded {
+pub struct LinkAdded<'a> {
   rel: String,
-  source_id: Id,
-  target_id: Id,
+  source_id: &'a Id,
+  target_id: &'a Id,
 }
 
-impl LinkAdded {
-  pub fn new(source_id: &Id, rel: &str, target_id: &Id) -> Self {
+impl<'a> LinkAdded<'a> {
+  pub fn new(source_id: &'a Id, rel: &str, target_id: &'a Id) -> Self {
     Self {
       rel: rel.to_string(),
-      source_id: source_id.clone(),
-      target_id: target_id.clone(),
+      source_id,
+      target_id,
     }
   }
 
@@ -182,21 +182,21 @@ impl LinkAdded {
   }
 }
 
-crate::ui::macros::impl_display_via_write_to!(LinkAdded);
+crate::ui::macros::impl_display_via_write_to!(LinkAdded<'_>);
 
 /// Metadata-set message for meta set actions.
 ///
 /// Produces output like: `Set abcdefgh priority = "high"`
-pub struct MetadataSet {
-  id: Id,
+pub struct MetadataSet<'a> {
+  id: &'a Id,
   path: String,
   value: String,
 }
 
-impl MetadataSet {
-  pub fn new(id: &Id, path: &str, value: &str) -> Self {
+impl<'a> MetadataSet<'a> {
+  pub fn new(id: &'a Id, path: &str, value: &str) -> Self {
     Self {
-      id: id.clone(),
+      id,
       path: path.to_string(),
       value: value.to_string(),
     }
@@ -208,7 +208,7 @@ impl MetadataSet {
   }
 }
 
-crate::ui::macros::impl_display_via_write_to!(MetadataSet);
+crate::ui::macros::impl_display_via_write_to!(MetadataSet<'_>);
 
 /// No-results message for search.
 ///
@@ -235,19 +235,19 @@ crate::ui::macros::impl_display_via_write_to!(NoResults);
 /// Tag change message for tag/untag actions.
 ///
 /// Produces output like: `Tagged task abcdefgh: rust, cli`
-pub struct TagChange {
+pub struct TagChange<'a> {
   action: String,
   entity: String,
-  id: Id,
+  id: &'a Id,
   tags: Vec<String>,
 }
 
-impl TagChange {
-  pub fn new(action: &str, entity: &str, id: &Id, tags: &[String]) -> Self {
+impl<'a> TagChange<'a> {
+  pub fn new(action: &str, entity: &str, id: &'a Id, tags: &[String]) -> Self {
     Self {
       action: action.to_string(),
       entity: entity.to_string(),
-      id: id.clone(),
+      id,
       tags: tags.to_vec(),
     }
   }
@@ -259,7 +259,7 @@ impl TagChange {
   }
 }
 
-crate::ui::macros::impl_display_via_write_to!(TagChange);
+crate::ui::macros::impl_display_via_write_to!(TagChange<'_>);
 
 #[cfg(test)]
 mod tests {

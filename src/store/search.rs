@@ -27,30 +27,33 @@ pub fn search(data_dir: &Path, query: &str, show_all: bool) -> crate::Result<Sea
   let tasks: Vec<Task> = all_tasks
     .into_par_iter()
     .filter(|task| {
-      let searchable = format!(
-        "{} {} {} {} {}",
-        task.title,
-        task.description,
-        task.tags.join(" "),
-        task.status,
-        toml::to_string(&task.metadata).unwrap_or_default(),
-      );
-      searchable.to_lowercase().contains(&query_lower)
+      task.title.to_lowercase().contains(&query_lower)
+        || task.description.to_lowercase().contains(&query_lower)
+        || task.tags.iter().any(|t| t.to_lowercase().contains(&query_lower))
+        || task.status.to_string().to_lowercase().contains(&query_lower)
+        || toml::to_string(&task.metadata)
+          .unwrap_or_default()
+          .to_lowercase()
+          .contains(&query_lower)
     })
     .collect();
 
   let artifacts: Vec<Artifact> = all_artifacts
     .into_par_iter()
     .filter(|artifact| {
-      let searchable = format!(
-        "{} {} {} {} {}",
-        artifact.title,
-        artifact.body,
-        artifact.tags.join(" "),
-        artifact.kind.as_deref().unwrap_or(""),
-        yaml_serde::to_string(&artifact.metadata).unwrap_or_default(),
-      );
-      searchable.to_lowercase().contains(&query_lower)
+      artifact.title.to_lowercase().contains(&query_lower)
+        || artifact.body.to_lowercase().contains(&query_lower)
+        || artifact.tags.iter().any(|t| t.to_lowercase().contains(&query_lower))
+        || artifact
+          .kind
+          .as_deref()
+          .unwrap_or("")
+          .to_lowercase()
+          .contains(&query_lower)
+        || yaml_serde::to_string(&artifact.metadata)
+          .unwrap_or_default()
+          .to_lowercase()
+          .contains(&query_lower)
     })
     .collect();
 
