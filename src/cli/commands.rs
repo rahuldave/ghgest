@@ -6,3 +6,5 @@ pub mod search;
 pub mod self_update;
 pub mod task;
 pub mod version;
+
+pub(crate) mod json_utils;

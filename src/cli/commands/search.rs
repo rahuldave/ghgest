@@ -5,6 +5,7 @@ use serde::Serialize;
 use yansi::Paint;
 
 use crate::{
+  cli::commands::json_utils::artifact_to_json,
   config,
   config::Config,
   model::{Artifact, Task, task::STATUS_ORDER},
@@ -27,10 +28,17 @@ pub struct Command {
   /// Include archived/resolved items in search results
   #[arg(short = 'a', long = "all")]
   pub show_all: bool,
+  /// Expand results to include full detail (requires --json)
+  #[arg(short, long)]
+  pub expand: bool,
 }
 
 impl Command {
   pub fn call(&self, config: &Config, theme: &Theme) -> crate::Result<()> {
+    if self.expand && !self.json {
+      return Err(crate::error::Error::generic("--expand requires --json"));
+    }
+
     let data_dir = config::data_dir(config)?;
     let results: SearchResults = store::search(&data_dir, &self.query, self.show_all)?;
 
@@ -69,6 +77,10 @@ impl Command {
   }
 
   fn print_json(&self, results: &SearchResults) -> crate::Result<()> {
+    if self.expand {
+      return self.print_json_expanded(results);
+    }
+
     let output = JsonOutput {
       artifacts: results
         .artifacts
@@ -91,6 +103,20 @@ impl Command {
         })
         .collect(),
     };
+    println!("{}", serde_json::to_string_pretty(&output)?);
+    Ok(())
+  }
+
+  fn print_json_expanded(&self, results: &SearchResults) -> crate::Result<()> {
+    let tasks: Vec<serde_json::Value> = results
+      .tasks
+      .iter()
+      .map(serde_json::to_value)
+      .collect::<Result<_, _>>()?;
+    let output = serde_json::json!({
+      "artifacts": results.artifacts.iter().map(artifact_to_json).collect::<Vec<_>>(),
+      "tasks": tasks,
+    });
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
   }
@@ -200,6 +226,23 @@ mod tests {
     use crate::config::{Config, StorageConfig};
 
     #[test]
+    fn it_errors_when_expand_without_json() {
+      let dir = tempfile::tempdir().unwrap();
+      crate::store::ensure_dirs(dir.path()).unwrap();
+
+      let cmd = super::super::Command {
+        query: "anything".to_string(),
+        show_all: false,
+        json: false,
+        expand: true,
+      };
+      let config = make_config(dir.path());
+      let result = cmd.call(&config, &Theme::default());
+      assert!(result.is_err());
+      assert_eq!(result.unwrap_err().to_string(), "--expand requires --json");
+    }
+
+    #[test]
     fn it_excludes_resolved_by_default() {
       let dir = tempfile::tempdir().unwrap();
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Resolved Feature");
@@ -210,6 +253,7 @@ mod tests {
         query: "resolved".to_string(),
         show_all: false,
         json: true,
+        expand: false,
       };
       let config = make_config(dir.path());
       let result = cmd.call(&config, &Theme::default());
@@ -226,6 +270,7 @@ mod tests {
         query: "secret".to_string(),
         show_all: false,
         json: false,
+        expand: false,
       };
       let config = make_config(dir.path());
       let result = cmd.call(&config, &Theme::default());
@@ -242,6 +287,7 @@ mod tests {
         query: "important".to_string(),
         show_all: false,
         json: false,
+        expand: false,
       };
       let config = make_config(dir.path());
       let result = cmd.call(&config, &Theme::default());
@@ -257,6 +303,7 @@ mod tests {
         query: "nonexistent".to_string(),
         show_all: false,
         json: false,
+        expand: false,
       };
       let config = make_config(dir.path());
       let result = cmd.call(&config, &Theme::default());
@@ -274,6 +321,7 @@ mod tests {
         query: "resolved".to_string(),
         show_all: true,
         json: false,
+        expand: false,
       };
       let config = make_config(dir.path());
       let result = cmd.call(&config, &Theme::default());
@@ -298,6 +346,28 @@ mod tests {
     }
 
     #[test]
+    fn it_outputs_expanded_json() {
+      let dir = tempfile::tempdir().unwrap();
+      let mut task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Expand Task");
+      task.description = "detailed description".to_string();
+      crate::store::write_task(dir.path(), &task).unwrap();
+
+      let mut artifact = make_test_artifact("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Expand Note", "artifact body");
+      artifact.kind = Some("note".to_string());
+      crate::store::write_artifact(dir.path(), &artifact).unwrap();
+
+      let cmd = super::super::Command {
+        query: "expand".to_string(),
+        show_all: false,
+        json: true,
+        expand: true,
+      };
+      let config = make_config(dir.path());
+      let result = cmd.call(&config, &Theme::default());
+      assert!(result.is_ok());
+    }
+
+    #[test]
     fn it_outputs_json_when_flag_set() {
       let dir = tempfile::tempdir().unwrap();
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Important Feature");
@@ -307,6 +377,7 @@ mod tests {
         query: "important".to_string(),
         show_all: false,
         json: true,
+        expand: false,
       };
       let config = make_config(dir.path());
       let result = cmd.call(&config, &Theme::default());
@@ -322,6 +393,7 @@ mod tests {
         query: "nonexistent".to_string(),
         show_all: false,
         json: true,
+        expand: false,
       };
       let config = make_config(dir.path());
       let result = cmd.call(&config, &Theme::default());
