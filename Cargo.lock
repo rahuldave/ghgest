@@ -728,6 +728,7 @@ dependencies = [
  "rand 0.10.0",
  "rayon",
  "self_update",
+ "semver",
  "serde",
  "serde_json",
  "sha2 0.11.0",

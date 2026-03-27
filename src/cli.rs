@@ -33,7 +33,8 @@ pub(crate) struct Cli {
 impl Cli {
   fn call(&self, config: &Config) -> Result<()> {
     if self.print_version {
-      return commands::version::Command.call();
+      let theme = Theme::from_config(config);
+      return commands::version::Command.call(config, &theme);
     }
 
     let Some(command) = &self.command else {
@@ -77,7 +78,7 @@ impl Command {
       Self::Search(cmd) => cmd.call(config, theme),
       Self::SelfUpdate(cmd) => cmd.call(config, theme),
       Self::Task(cmd) => cmd.call(config, theme),
-      Self::Version(cmd) => cmd.call(),
+      Self::Version(cmd) => cmd.call(config, theme),
     }
   }
 }
