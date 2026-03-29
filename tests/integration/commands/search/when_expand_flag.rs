@@ -3,14 +3,48 @@ use predicates::prelude::*;
 use crate::support::helpers::GestCmd;
 
 #[test]
-fn it_fails_without_json_flag() {
+fn it_groups_tasks_by_status_in_expanded_output() {
   let env = GestCmd::new();
 
   env
-    .run(["search", "query", "--expand"])
+    .run([
+      "task",
+      "create",
+      "Bison habitat assessment",
+      "-d",
+      "assess bison habitat suitability",
+    ])
     .assert()
-    .failure()
-    .stderr(predicate::str::contains("--expand requires --json"));
+    .success();
+
+  let in_progress_output = env
+    .run([
+      "task",
+      "create",
+      "Bison relocation plan",
+      "-d",
+      "plan bison relocation route",
+    ])
+    .output()
+    .expect("failed to create in-progress task");
+
+  let in_progress_stdout = String::from_utf8_lossy(&in_progress_output.stdout);
+  let in_progress_id = in_progress_stdout
+    .split_whitespace()
+    .last()
+    .expect("expected task id in output");
+
+  env
+    .run(["task", "update", in_progress_id, "--status", "in-progress"])
+    .assert()
+    .success();
+
+  env
+    .run(["search", "bison", "--expand"])
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("open"))
+    .stdout(predicate::str::contains("in-progress"));
 }
 
 #[test]
@@ -92,6 +126,75 @@ fn it_includes_resolved_and_archived_items_with_all_flag() {
   assert_eq!(archived_artifact["body"], "archived map of penguin habitats");
   assert!(archived_artifact["created_at"].is_string(), "expected created_at");
   assert!(archived_artifact["updated_at"].is_string(), "expected updated_at");
+}
+
+#[test]
+fn it_renders_artifact_body_in_expanded_output() {
+  let env = GestCmd::new();
+
+  env
+    .run([
+      "artifact",
+      "create",
+      "-t",
+      "Walrus feeding schedule",
+      "-b",
+      "feed walruses three times daily",
+    ])
+    .assert()
+    .success();
+
+  env
+    .run(["search", "walrus", "--expand"])
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("Walrus feeding schedule"))
+    .stdout(predicate::str::contains("feed walruses three times daily"));
+}
+
+#[test]
+fn it_renders_expanded_output_without_json() {
+  let env = GestCmd::new();
+
+  env
+    .run([
+      "task",
+      "create",
+      "Otter habitat survey",
+      "-d",
+      "survey otter habitats along the coast",
+    ])
+    .assert()
+    .success();
+
+  env
+    .run(["search", "otter", "--expand"])
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("Otter habitat survey"))
+    .stdout(predicate::str::contains("─"));
+}
+
+#[test]
+fn it_renders_horizontal_rules_in_expanded_output() {
+  let env = GestCmd::new();
+
+  env
+    .run([
+      "task",
+      "create",
+      "Capybara census project",
+      "-d",
+      "count all capybaras in the region",
+    ])
+    .assert()
+    .success();
+
+  env
+    .run(["search", "capybara", "--expand"])
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("─"));
 }
 
 #[test]

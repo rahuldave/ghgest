@@ -11,7 +11,7 @@ use crate::{
   model::{Artifact, Task, task::STATUS_ORDER},
   store::{self, SearchResults},
   ui::{
-    components::{Group, GroupedList, NoResults},
+    components::{DetailGroup, Group, GroupedDetail, GroupedList, NoResults},
     theme::Theme,
     utils::{format_id, format_tags, shortest_unique_prefixes},
   },
@@ -22,23 +22,19 @@ use crate::{
 pub struct Command {
   /// Search query matched against titles, descriptions, and body content
   pub query: String,
+  /// Expand results to include full detail
+  #[arg(short, long)]
+  pub expand: bool,
   /// Output search results as JSON
   #[arg(short, long)]
   pub json: bool,
   /// Include archived/resolved items in search results
   #[arg(short = 'a', long = "all")]
   pub show_all: bool,
-  /// Expand results to include full detail (requires --json)
-  #[arg(short, long)]
-  pub expand: bool,
 }
 
 impl Command {
   pub fn call(&self, config: &Config, theme: &Theme) -> crate::Result<()> {
-    if self.expand && !self.json {
-      return Err(crate::error::Error::generic("--expand requires --json"));
-    }
-
     let data_dir = config::data_dir(config)?;
     let results: SearchResults = store::search(&data_dir, &self.query, self.show_all)?;
 
@@ -51,7 +47,63 @@ impl Command {
       return Ok(());
     }
 
-    self.print_grouped(&results, theme)?;
+    if self.expand {
+      self.print_expanded(&results, theme)?;
+    } else {
+      self.print_grouped(&results, theme)?;
+    }
+    Ok(())
+  }
+
+  fn print_expanded(&self, results: &SearchResults, theme: &Theme) -> crate::Result<()> {
+    let mut out = std::io::stdout();
+    let mut groups: Vec<DetailGroup> = Vec::new();
+
+    if !results.tasks.is_empty() {
+      writeln!(out, "{}\n", "Tasks".paint(theme.list_heading))?;
+      for status in STATUS_ORDER {
+        let items: Vec<&Task> = results.tasks.iter().filter(|t| t.status == *status).collect();
+        if !items.is_empty() {
+          groups.push(DetailGroup::Tasks {
+            heading: status.to_string(),
+            items,
+          });
+        }
+      }
+    }
+
+    if !results.artifacts.is_empty() {
+      if !results.tasks.is_empty() {
+        writeln!(out)?;
+      }
+      writeln!(out, "{}\n", "Artifacts".paint(theme.list_heading))?;
+
+      let mut kinds: Vec<Option<String>> = Vec::new();
+      for a in &results.artifacts {
+        if !kinds.contains(&a.kind) {
+          kinds.push(a.kind.clone());
+        }
+      }
+      kinds.sort_by(|a, b| match (a, b) {
+        (None, None) => std::cmp::Ordering::Equal,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (Some(a), Some(b)) => a.to_lowercase().cmp(&b.to_lowercase()),
+      });
+
+      for kind in &kinds {
+        let heading = kind.as_deref().unwrap_or("Other").to_string();
+        let items: Vec<&Artifact> = results.artifacts.iter().filter(|a| a.kind == *kind).collect();
+        if !items.is_empty() {
+          groups.push(DetailGroup::Artifacts {
+            heading,
+            items,
+          });
+        }
+      }
+    }
+
+    GroupedDetail::new(groups, theme).write_to(&mut out)?;
     Ok(())
   }
 
@@ -220,20 +272,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_errors_when_expand_without_json() {
+    fn it_expands_without_json() {
       let dir = tempfile::tempdir().unwrap();
-      crate::store::ensure_dirs(dir.path()).unwrap();
+      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Expand Me");
+      crate::store::write_task(dir.path(), &task).unwrap();
 
       let cmd = super::super::Command {
-        query: "anything".to_string(),
+        query: "expand".to_string(),
         show_all: false,
         json: false,
         expand: true,
       };
       let config = make_test_config(dir.path());
       let result = cmd.call(&config, &Theme::default());
-      assert!(result.is_err());
-      assert_eq!(result.unwrap_err().to_string(), "--expand requires --json");
+      assert!(result.is_ok());
     }
 
     #[test]
