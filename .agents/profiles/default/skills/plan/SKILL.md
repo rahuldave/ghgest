@@ -48,9 +48,14 @@ For **multi-issue**:
 5. For issues that affect CLI behavior (commands, flags, output format), include integration test
    acceptance criteria in the task description. Example: "Integration test verifies
    `gest task create --description` outputs the created task ID."
-6. Set orchestration metadata:
-   - `cargo run -- task meta set <task-id> wave <n>`
-   - `cargo run -- task meta set <task-id> parallel true/false`
+6. Set execution fields on each task:
+   - `cargo run -- task update <task-id> --phase <n>` -- phase number for parallel grouping
+   - `cargo run -- task update <task-id> --priority <0-4>` -- priority within the phase
+7. Set blocking dependencies: `cargo run -- task link <task-id> blocked-by <other-task-id>`
+8. Create an iteration and add all tasks:
+   - `cargo run -- iteration create "<plan title>"`
+   - `cargo run -- iteration link <iteration-id> child-of <spec-id> --artifact`
+   - `cargo run -- iteration add <iteration-id> <task-id>` for each task
 
 ### 5. Output
 
@@ -58,11 +63,12 @@ Present the task list with IDs to the user:
 
 - Link to the source spec
 - Link to ADR (if created)
-- Task list with titles, IDs, and dependency ordering
-- Parallelization notes (which tasks can be worked simultaneously)
+- Iteration ID
+- Task list with titles, IDs, phases, and dependency ordering
+- Parallelization notes (which tasks share a phase and can be worked simultaneously)
 
 ### 6. Next Step
 
-For multi-issue plans, print: `invoke /orchestrate <spec-id> when you're ready`
+For multi-issue plans, print: `invoke /orchestrate <iteration-id> when you're ready`
 
 For single issue plans, print: `invoke /implement <task-id> when you're ready`

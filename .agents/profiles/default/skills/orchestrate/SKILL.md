@@ -1,56 +1,59 @@
 ---
 name: orchestrate
-description: "Take a plan and execute it: create workspaces, dispatch /implement agents in parallel (e.g. /orchestrate <gest-id>)."
-args: "<gest-id>"
+description: "Take an iteration and execute it: dispatch /implement agents per phase (e.g. /orchestrate <iteration-id>)."
+args: "<iteration-id>"
 ---
 
 # Orchestrate
 
-Execute a multi-issue plan (gest spec artifact) by dispatching parallel implementation agents.
+Execute an iteration by dispatching implementation agents phase by phase.
 
 ## Instructions
 
-### 1. Read the Plan
+### 1. Read the Iteration
 
-Retrieve the spec artifact via `cargo run -- artifact show <id>`. Then find linked tasks via
-`cargo run -- task list --json` and filter for tasks whose `links` reference the artifact ID. Extract:
+Retrieve the iteration via `cargo run -- iteration show --json <id>`. Then read each task in the
+iteration via `cargo run -- task show --json <task-id>`.
 
-- Task list with dependency ordering
-- Parallelization notes
-- ADR reference (if any)
+Visualize the execution plan: `cargo run -- iteration graph <id>`.
 
-### 2. Build Waves
+Extract:
 
-Group tasks into waves using their gest metadata (`wave`, `parallel` keys):
+- Task list grouped by `phase` field
+- Blocking dependencies (`blocked-by` links)
+- Priority ordering within each phase
 
-- **Wave 1** -- tasks with `wave: 1` (run in parallel if `parallel: true`)
-- **Wave 2** -- tasks with `wave: 2`
-- **Wave N** -- and so on
+### 2. Build Phases
 
-Present the wave plan to the user for confirmation before proceeding.
+Group tasks by their `phase` field:
 
-### 3. Execute Waves
+- **Phase 1** -- tasks with `phase: 1` (run in parallel -- they are conflict-safe)
+- **Phase 2** -- tasks with `phase: 2`
+- **Phase N** -- and so on
 
-For each wave:
+Present the phase plan to the user for confirmation before proceeding.
 
-1. Create isolated worktrees for each task in the wave (delegate to **vcs-expert**)
-2. Dispatch `/implement <task-id>` into each worktree in parallel
-3. Wait for all agents in the wave to complete
+### 3. Execute Phases
+
+For each phase:
+
+1. Set `assigned_to` on each task: `cargo run -- task update <task-id> --assigned-to <agent-name>`
+2. Dispatch `/implement <task-id>` for each task in the phase
+3. Wait for all agents in the phase to complete
 4. Report results to the user (successes, failures, tasks needing attention)
-5. Merge completed worktrees back (delegate to **vcs-expert**)
 
-Only proceed to the next wave after the user confirms the current wave's results.
+Only proceed to the next phase after the user confirms the current phase's results.
 
 ### 4. Clean Up
 
-After all waves complete:
+After all phases complete:
 
-1. Remove worktrees (delegate to **vcs-expert**)
-2. Check for failed tasks -- any task still `in-progress` represents a failure. Report these to the
+1. Check for failed tasks -- any task still `in-progress` represents a failure. Report these to the
    user with their IDs and titles.
-3. Archive the spec artifact:
-   - If **all tasks** completed successfully (`done`): archive via
-     `cargo run -- artifact archive <spec-id>`
-   - If **any tasks** remain `in-progress`: do **not** archive the artifact. Flag this to the user
-     and list the incomplete tasks.
-4. Present a summary of all implemented tasks, including successes and failures
+2. Update the iteration status:
+   - If **all tasks** completed successfully (`done`):
+     `cargo run -- iteration update <iteration-id> --status completed`
+   - If **any tasks** remain `in-progress`:
+     `cargo run -- iteration update <iteration-id> --status failed`
+     Flag this to the user and list the incomplete tasks.
+3. Present a summary of all implemented tasks, including successes and failures
