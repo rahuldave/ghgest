@@ -1,0 +1,82 @@
+---
+name: orchestrate
+description: "Take an iteration and execute it: dispatch /implement agents per phase, always sequentially (e.g. /orchestrate <iteration-id>)."
+args: "<iteration-id>"
+---
+
+# Orchestrate (git-butler profile)
+
+Execute an iteration by dispatching implementation agents phase by phase. All tasks are executed
+sequentially in the main workspace.
+
+Git Butler's virtual branch model does not support parallel worktree isolation. Virtual branches
+operate within a single working directory, and multiple worktrees would conflict with Git Butler's
+state management. Therefore, all tasks are executed sequentially regardless of phase structure.
+
+## Instructions
+
+### 1. Read the Iteration
+
+Retrieve the iteration via `cargo run -- iteration show --json <id>`. Then read each task in the
+iteration via `cargo run -- task show --json <task-id>`.
+
+Visualize the execution plan: `cargo run -- iteration graph <id>`.
+
+Extract:
+
+- Task list grouped by `phase` field
+- Blocking dependencies (`blocked-by` links)
+- Priority ordering within each phase
+
+### 2. Decide Execution Strategy
+
+Analyze the iteration structure:
+
+- **Single task:** If there is only **1 task** in the entire iteration, run `/implement <task-id>`
+  directly. No phase logic needed. Skip to step 5 (Clean Up).
+- **Multiple tasks (any number of phases):** All tasks are executed **sequentially** in phase order,
+  respecting blocking dependencies. Within each phase, tasks are executed one after another in
+  priority order.
+
+Present the execution plan (phase breakdown and task order) to the user for confirmation before
+proceeding.
+
+### 3. Build Phases
+
+Group tasks by their `phase` field:
+
+- **Phase 1** -- tasks with `phase: 1`
+- **Phase 2** -- tasks with `phase: 2`
+- **Phase N** -- and so on
+
+Even though execution is always sequential, phase ordering and blocking dependencies must still be
+respected. A task in phase 2 must not start until all phase 1 tasks are complete.
+
+### 4. Execute Phases
+
+For each phase:
+
+1. Set `assigned_to` on each task:
+   `cargo run -- task update <task-id> --assigned-to implement-agent`
+
+2. For each task in the phase (in priority order):
+   - Run `/implement <task-id>` in the main workspace.
+   - Wait for the task to complete before starting the next.
+
+3. Report results to the user (successes, failures, tasks needing attention).
+
+Only proceed to the next phase after the user confirms the current phase's results.
+
+### 5. Clean Up
+
+After all phases complete:
+
+1. Check for failed tasks -- any task still `in-progress` represents a failure. Report these to the
+   user with their IDs and titles.
+2. Update the iteration status:
+   - If **all tasks** completed successfully (`done`):
+     `cargo run -- iteration update <iteration-id> --status completed`
+   - If **any tasks** remain `in-progress`:
+     `cargo run -- iteration update <iteration-id> --status failed`
+     Flag this to the user and list the incomplete tasks.
+3. Present a summary of all implemented tasks, including successes and failures.
