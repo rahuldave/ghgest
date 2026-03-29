@@ -23,7 +23,11 @@ impl<'a> Tags<'a> {
 
 impl fmt::Display for Tags<'_> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let formatted: Vec<String> = self.tags.iter().map(|t| format!("@{t}").paint(self.theme.tag).to_string()).collect();
+    let formatted: Vec<String> = self
+      .tags
+      .iter()
+      .map(|t| format!("@{t}").paint(self.theme.tag).to_string())
+      .collect();
     write!(f, "{}", formatted.join(" "))
   }
 }

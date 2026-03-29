@@ -10,9 +10,9 @@ use crate::{
   },
   store,
   ui::{
-    components::{EmptyList, Group, GroupedList},
+    components::{EmptyList, Group, GroupedList, IterationStatus, ListRow},
     theme::Theme,
-    utils::{format_id, format_iteration_status, format_tags, shortest_unique_prefixes},
+    utils::shortest_unique_prefixes,
   },
 };
 
@@ -62,7 +62,6 @@ impl Command {
 
     let all_ids: Vec<String> = iterations.iter().map(|i| i.id.to_string()).collect();
     let prefixes = shortest_unique_prefixes(&all_ids);
-    let max_display = prefixes.iter().copied().max().unwrap_or(8);
 
     let groups: Vec<Group> = STATUS_ORDER
       .iter()
@@ -71,9 +70,9 @@ impl Command {
           .iter()
           .enumerate()
           .filter(|(_, i)| &i.status == status)
-          .map(|(idx, i)| format_row(i, prefixes[idx], max_display, theme))
+          .map(|(idx, i)| format_row(i, prefixes[idx], theme))
           .collect();
-        Group::new(format_iteration_status(status, theme), rows)
+        Group::new(IterationStatus::new(status, theme).to_string(), rows)
       })
       .collect();
 
@@ -82,18 +81,13 @@ impl Command {
   }
 }
 
-fn format_row(iteration: &Iteration, prefix_len: usize, max_display: usize, theme: &Theme) -> Vec<String> {
-  let id = format_id(&iteration.id, prefix_len, Some(max_display), theme);
+fn format_row(iteration: &Iteration, prefix_len: usize, theme: &Theme) -> Vec<String> {
   let title = iteration.title.paint(theme.md_heading).to_string();
   let task_count = format!("[{} tasks]", iteration.tasks.len())
     .paint(theme.muted)
     .to_string();
 
-  let mut row = vec![id, title, task_count];
-
-  if !iteration.tags.is_empty() {
-    row.push(format_tags(&iteration.tags, theme));
-  }
-
-  row
+  ListRow::new(&iteration.id, prefix_len, &title, &iteration.tags, theme)
+    .extra(task_count)
+    .build()
 }

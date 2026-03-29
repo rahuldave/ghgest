@@ -11,9 +11,9 @@ use crate::{
   model::{Artifact, Task, task::STATUS_ORDER},
   store::{self, SearchResults},
   ui::{
-    components::{DetailGroup, Group, GroupedDetail, GroupedList, NoResults},
+    components::{DetailGroup, Group, GroupedDetail, GroupedList, ListRow, NoResults},
     theme::Theme,
-    utils::{format_id, format_tags, shortest_unique_prefixes},
+    utils::shortest_unique_prefixes,
   },
 };
 
@@ -223,14 +223,7 @@ fn build_artifact_groups(artifacts: &[Artifact], theme: &Theme) -> Vec<Group> {
         .iter()
         .zip(&prefix_lens)
         .filter(|(a, _)| a.kind == *kind)
-        .map(|(a, &plen)| {
-          let mut row = vec![format_id(&a.id, plen, Some(8), theme), a.title.clone()];
-          let tags = format_tags(&a.tags, theme);
-          if !tags.is_empty() {
-            row.push(tags);
-          }
-          row
-        })
+        .map(|(a, &plen)| ListRow::new(&a.id, plen, &a.title, &a.tags, theme).build())
         .collect();
       Group::new(heading, rows)
     })
@@ -248,14 +241,7 @@ fn build_task_groups(tasks: &[Task], theme: &Theme) -> Vec<Group> {
         .iter()
         .zip(&prefix_lens)
         .filter(|(t, _)| t.status == *status)
-        .map(|(t, &plen)| {
-          let mut row = vec![format_id(&t.id, plen, Some(8), theme), t.title.clone()];
-          let tags = format_tags(&t.tags, theme);
-          if !tags.is_empty() {
-            row.push(tags);
-          }
-          row
-        })
+        .map(|(t, &plen)| ListRow::new(&t.id, plen, &t.title, &t.tags, theme).build())
         .collect();
       Group::new(status.to_string(), rows)
     })

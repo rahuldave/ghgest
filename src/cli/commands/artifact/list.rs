@@ -8,9 +8,9 @@ use crate::{
   model::ArtifactFilter,
   store,
   ui::{
-    components::{EmptyList, Group, GroupedList},
+    components::{EmptyList, Group, GroupedList, ListRow},
     theme::Theme,
-    utils::{format_id, format_tags, shortest_unique_prefixes},
+    utils::shortest_unique_prefixes,
   },
 };
 
@@ -115,11 +115,7 @@ impl Command {
 }
 
 fn build_row(artifact: &crate::model::Artifact, prefix_len: usize, theme: &Theme) -> Vec<String> {
-  vec![
-    format_id(&artifact.id, prefix_len, Some(8), theme),
-    artifact.title.clone(),
-    format_tags(&artifact.tags, theme),
-  ]
+  ListRow::new(&artifact.id, prefix_len, &artifact.title, &artifact.tags, theme).build()
 }
 
 fn capitalize(s: &str) -> String {

@@ -8,7 +8,7 @@ use crate::{
   config::Config,
   model::{Task, link::RelationshipType},
   store,
-  ui::theme::Theme,
+  ui::{components::Id, theme::Theme, utils::shortest_unique_prefixes},
 };
 
 /// Display the phased execution graph for an iteration
@@ -111,6 +111,15 @@ fn render_graph(w: &mut impl std::io::Write, title: &str, tasks: &[Task], theme:
   writeln!(w, "{}", title.paint(theme.md_heading))?;
   writeln!(w)?;
 
+  // Compute shortest unique prefixes for all tasks
+  let id_strings: Vec<String> = tasks.iter().map(|t| t.id.to_string()).collect();
+  let prefix_lens = shortest_unique_prefixes(&id_strings);
+  let prefix_map: std::collections::HashMap<String, usize> = id_strings
+    .iter()
+    .zip(&prefix_lens)
+    .map(|(id, &len)| (id.clone(), len))
+    .collect();
+
   // Group tasks by phase
   let mut phases: BTreeMap<u16, Vec<&Task>> = BTreeMap::new();
   let mut unphased: Vec<&Task> = Vec::new();
@@ -134,11 +143,18 @@ fn render_graph(w: &mut impl std::io::Write, title: &str, tasks: &[Task], theme:
   for (phase_num, phase_tasks) in &phases {
     phase_idx += 1;
     let is_last = phase_idx == total_phases;
-    render_phase(w, &format!("Phase {phase_num}"), phase_tasks, is_last, theme)?;
+    render_phase(
+      w,
+      &format!("Phase {phase_num}"),
+      phase_tasks,
+      is_last,
+      &prefix_map,
+      theme,
+    )?;
   }
 
   if !unphased.is_empty() {
-    render_phase(w, "Unphased", &unphased, true, theme)?;
+    render_phase(w, "Unphased", &unphased, true, &prefix_map, theme)?;
   }
 
   Ok(())
@@ -149,6 +165,7 @@ fn render_phase(
   label: &str,
   tasks: &[&Task],
   is_last: bool,
+  prefix_map: &std::collections::HashMap<String, usize>,
   theme: &Theme,
 ) -> std::io::Result<()> {
   writeln!(
@@ -176,8 +193,10 @@ fn render_phase(
       parts.push(format!("[P{}]", p).paint(theme.muted).to_string());
     }
 
-    // Short ID
-    parts.push(task.id.short().paint(theme.id_prefix).to_string());
+    // ID with prefix highlighting
+    let id_str = task.id.to_string();
+    let prefix_len = prefix_map.get(&id_str).copied().unwrap_or(1);
+    parts.push(Id::new(&task.id, prefix_len, theme).to_string());
 
     // Title
     parts.push(format!("\"{}\"", task.title));

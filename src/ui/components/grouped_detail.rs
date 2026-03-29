@@ -5,7 +5,7 @@ use yansi::Paint;
 use crate::{
   model::{Artifact, Task},
   ui::{
-    components::detail::{ArtifactDetail, TaskDetail},
+    components::{ArtifactDetail, TaskDetail},
     theme::Theme,
   },
 };

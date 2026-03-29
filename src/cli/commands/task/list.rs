@@ -9,9 +9,9 @@ use crate::{
   },
   store,
   ui::{
-    components::{EmptyList, Group, GroupedList, Indicators},
+    components::{EmptyList, Group, GroupedList, Indicators, ListRow},
     theme::Theme,
-    utils::{format_id, format_tags, shortest_unique_prefixes},
+    utils::shortest_unique_prefixes,
   },
 };
 
@@ -93,7 +93,6 @@ impl Command {
 fn build_row(task: &Task, prefix_map: &std::collections::HashMap<String, usize>, theme: &Theme) -> Vec<String> {
   let id_str = task.id.to_string();
   let prefix_len = prefix_map.get(&id_str).copied().unwrap_or(1);
-  let id_cell = format_id(&task.id, prefix_len, Some(8), theme);
 
   let status_marker = if task.resolved_at.is_some() {
     match task.status {
@@ -105,11 +104,10 @@ fn build_row(task: &Task, prefix_map: &std::collections::HashMap<String, usize>,
     ""
   };
   let title_cell = format!("{}{}", task.title, status_marker);
-  let tags_cell = format_tags(&task.tags, theme);
 
-  let indicators_cell = Indicators::new(&task.links, theme).to_string();
-
-  vec![id_cell, title_cell, tags_cell, indicators_cell]
+  ListRow::new(&task.id, prefix_len, &title_cell, &task.tags, theme)
+    .extra(Indicators::new(&task.links, theme).to_string())
+    .build()
 }
 
 fn status_heading(status: &Status) -> &'static str {
