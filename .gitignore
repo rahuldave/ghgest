@@ -27,7 +27,7 @@ Thumbs.db
 # AI / LLM tooling
 # Ignore assembled output (created by setup script)
 .agents/*
-!.agents/profiles/*
+!.agents/profiles
 .claude
 .codex
 .cursor
