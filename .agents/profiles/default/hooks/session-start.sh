@@ -23,7 +23,7 @@ Before responding, check if any of the following skills apply to the user's requ
 - `/changelog` — generate or update the CHANGELOG.md from commits since latest release
 
 ### Core Principles
-1. **Delegate VCS operations** to the **vcs-expert** agent — never run git/jj/git-butler commands directly
+1. **VCS commands are inline in skills** — follow the commands specified in each skill, do not delegate to a separate agent
 2. **Delegate task execution** to the **task-runner** agent — never run build/test/lint commands directly
 3. **Human stays in the loop** — present options and ask, don't auto-decide
 4. **Tests are the source of truth** — never modify existing tests unless explicitly asked
