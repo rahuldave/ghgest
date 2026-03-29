@@ -1,5 +1,3 @@
-use yansi::Paint;
-
 use super::theme::Theme;
 use crate::model::{Id, Status, iteration};
 
@@ -38,29 +36,28 @@ pub fn format_id(id: &Id, prefix_len: usize, _max_display_len: Option<usize>, th
   super::components::Id::new(id, prefix_len, theme).to_string()
 }
 
+/// Formats an iteration status with theme-appropriate colors.
+///
+/// **Deprecated**: use [`super::components::IterationStatus`] directly instead. This function
+/// delegates to the `IterationStatus` component.
 pub fn format_iteration_status(status: &iteration::Status, theme: &Theme) -> String {
-  match status {
-    iteration::Status::Active => status.to_string().paint(theme.status_in_progress).to_string(),
-    iteration::Status::Completed => status.to_string().paint(theme.status_done).to_string(),
-    iteration::Status::Failed => status.to_string().paint(theme.status_cancelled).to_string(),
-  }
+  super::components::IterationStatus::new(status, theme).to_string()
 }
 
+/// Formats a task status with theme-appropriate colors.
+///
+/// **Deprecated**: use [`super::components::TaskStatus`] directly instead. This function delegates
+/// to the `TaskStatus` component.
 pub fn format_status(status: &Status, theme: &Theme) -> String {
-  match status {
-    Status::Open => status.to_string().paint(theme.status_open).to_string(),
-    Status::InProgress => status.to_string().paint(theme.status_in_progress).to_string(),
-    Status::Done => status.to_string().paint(theme.status_done).to_string(),
-    Status::Cancelled => status.to_string().paint(theme.status_cancelled).to_string(),
-  }
+  super::components::TaskStatus::new(status, theme).to_string()
 }
 
+/// Formats tags as `@tag` strings separated by spaces.
+///
+/// **Deprecated**: use [`super::components::Tags`] directly instead. This function delegates to the
+/// `Tags` component.
 pub fn format_tags(tags: &[String], theme: &Theme) -> String {
-  tags
-    .iter()
-    .map(|t| format!("@{}", t).paint(theme.tag).to_string())
-    .collect::<Vec<_>>()
-    .join(" ")
+  super::components::Tags::new(tags, theme).to_string()
 }
 
 pub fn shortest_unique_prefixes(ids: &[String]) -> Vec<usize> {
@@ -186,31 +183,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_contains_status_text_for_cancelled() {
-      let theme = Theme::default();
-      let result = format_status(&Status::Cancelled, &theme);
-      assert!(result.contains("cancelled"), "Should contain 'cancelled'");
-    }
-
-    #[test]
-    fn it_contains_status_text_for_done() {
-      let theme = Theme::default();
-      let result = format_status(&Status::Done, &theme);
-      assert!(result.contains("done"), "Should contain 'done'");
-    }
-
-    #[test]
-    fn it_contains_status_text_for_in_progress() {
-      let theme = Theme::default();
-      let result = format_status(&Status::InProgress, &theme);
-      assert!(result.contains("in-progress"), "Should contain 'in-progress'");
-    }
-
-    #[test]
-    fn it_contains_status_text_for_open() {
+    fn it_delegates_to_task_status_component() {
       let theme = Theme::default();
       let result = format_status(&Status::Open, &theme);
       assert!(result.contains("open"), "Should contain 'open'");
+    }
+
+    #[test]
+    fn it_delegates_to_task_status_component_for_all_variants() {
+      let theme = Theme::default();
+      assert!(format_status(&Status::InProgress, &theme).contains("in-progress"));
+      assert!(format_status(&Status::Done, &theme).contains("done"));
+      assert!(format_status(&Status::Cancelled, &theme).contains("cancelled"));
     }
   }
 
