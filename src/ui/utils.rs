@@ -30,14 +30,12 @@ pub fn display_width(s: &str) -> usize {
   width
 }
 
-pub fn format_id(id: &Id, prefix_len: usize, max_display_len: Option<usize>, theme: &Theme) -> String {
-  let full = id.to_string();
-  let s = match max_display_len {
-    Some(n) => &full[..n.min(full.len())],
-    None => &full,
-  };
-  let (prefix, rest) = s.split_at(prefix_len.min(s.len()));
-  format!("{}{}", prefix.paint(theme.id_prefix), rest.paint(theme.id_rest))
+/// Formats an entity ID with prefix highlighting.
+///
+/// **Deprecated**: use [`super::components::Id`] directly instead. This function delegates to the
+/// `Id` component and ignores `max_display_len` (the component enforces a fixed minimum of 8).
+pub fn format_id(id: &Id, prefix_len: usize, _max_display_len: Option<usize>, theme: &Theme) -> String {
+  super::components::Id::new(id, prefix_len, theme).to_string()
 }
 
 pub fn format_iteration_status(status: &iteration::Status, theme: &Theme) -> String {
@@ -165,61 +163,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_clamps_prefix_to_id_length() {
-      let id: Id = "zyxwvutsrqponmlkzyxwvutsrqponmlk".parse().unwrap();
-      let theme = Theme::default();
-      let formatted = format_id(&id, 100, None, &theme);
-      assert!(
-        formatted.contains("zyxwvutsrqponmlkzyxwvutsrqponmlk"),
-        "Should contain full ID when prefix exceeds length"
-      );
-    }
-
-    #[test]
-    fn it_contains_both_prefix_and_remainder() {
-      let id: Id = "zyxwvutsrqponmlkzyxwvutsrqponmlk".parse().unwrap();
-      let theme = Theme::default();
-      let formatted = format_id(&id, 3, None, &theme);
-      assert!(formatted.contains("zyx"), "Should contain the prefix text");
-      assert!(
-        formatted.contains("wvutsrqponmlkzyxwvutsrqponmlk"),
-        "Should contain the remainder text"
-      );
-    }
-
-    #[test]
-    fn it_handles_exact_prefix_length() {
-      let id: Id = "zyxwvutsrqponmlkzyxwvutsrqponmlk".parse().unwrap();
-      let theme = Theme::default();
-      let formatted = format_id(&id, 32, None, &theme);
-      assert!(
-        formatted.contains("zyxwvutsrqponmlkzyxwvutsrqponmlk"),
-        "Should contain full ID when prefix is full length"
-      );
-    }
-
-    #[test]
-    fn it_handles_prefix_length_of_zero() {
-      let id: Id = "zyxwvutsrqponmlkzyxwvutsrqponmlk".parse().unwrap();
-      let theme = Theme::default();
-      let formatted = format_id(&id, 0, None, &theme);
-      assert!(
-        formatted.contains("zyxwvutsrqponmlkzyxwvutsrqponmlk"),
-        "Should contain full ID with zero prefix"
-      );
-    }
-
-    #[test]
-    fn it_truncates_to_max_display_len() {
+    fn it_delegates_to_id_component() {
       let id: Id = "zyxwvutsrqponmlkzyxwvutsrqponmlk".parse().unwrap();
       let theme = Theme::default();
       let formatted = format_id(&id, 3, Some(8), &theme);
+      assert_eq!(display_width(&formatted), 8);
       assert!(formatted.contains("zyx"), "Should contain the prefix text");
-      assert!(formatted.contains("wvuts"), "Should contain truncated remainder");
-      assert!(
-        !formatted.contains("rqponmlk"),
-        "Should not contain chars beyond max_display_len"
-      );
+      assert!(formatted.contains("wvuts"), "Should contain the remainder text");
+    }
+
+    #[test]
+    fn it_always_renders_8_chars_regardless_of_max_display_len() {
+      let id: Id = "zyxwvutsrqponmlkzyxwvutsrqponmlk".parse().unwrap();
+      let theme = Theme::default();
+      // max_display_len is ignored; component enforces min 8
+      let formatted = format_id(&id, 3, None, &theme);
+      assert_eq!(display_width(&formatted), 8);
     }
   }
 
