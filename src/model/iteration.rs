@@ -1,0 +1,205 @@
+use std::{fmt, str::FromStr};
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+
+use super::{id::Id, link::Link};
+
+/// Canonical display ordering for iteration statuses.
+pub const STATUS_ORDER: &[Status] = &[Status::Active, Status::Completed, Status::Failed];
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct NewIteration {
+  pub description: String,
+  #[serde(default)]
+  pub links: Vec<Link>,
+  #[serde(default)]
+  pub metadata: toml::Table,
+  pub status: Status,
+  #[serde(default)]
+  pub tags: Vec<String>,
+  #[serde(default)]
+  pub tasks: Vec<String>,
+  pub title: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub enum Status {
+  #[default]
+  #[serde(rename = "active")]
+  Active,
+  #[serde(rename = "completed")]
+  Completed,
+  #[serde(rename = "failed")]
+  Failed,
+}
+
+impl Status {
+  pub fn is_terminal(&self) -> bool {
+    matches!(self, Self::Completed | Self::Failed)
+  }
+}
+
+impl fmt::Display for Status {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let s = match self {
+      Self::Active => "active",
+      Self::Completed => "completed",
+      Self::Failed => "failed",
+    };
+    f.write_str(s)
+  }
+}
+
+impl FromStr for Status {
+  type Err = String;
+
+  fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+    match s {
+      "active" => Ok(Self::Active),
+      "completed" => Ok(Self::Completed),
+      "failed" => Ok(Self::Failed),
+      other => Err(format!("unknown status: {other}")),
+    }
+  }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct Iteration {
+  #[serde(with = "completed_at_serde")]
+  pub completed_at: Option<DateTime<Utc>>,
+  pub created_at: DateTime<Utc>,
+  pub description: String,
+  pub id: Id,
+  #[serde(default)]
+  pub links: Vec<Link>,
+  #[serde(default)]
+  pub metadata: toml::Table,
+  pub status: Status,
+  #[serde(default)]
+  pub tags: Vec<String>,
+  #[serde(default)]
+  pub tasks: Vec<String>,
+  pub title: String,
+  pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct IterationFilter {
+  pub all: bool,
+  pub status: Option<Status>,
+  pub tag: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct IterationPatch {
+  pub description: Option<String>,
+  pub metadata: Option<toml::Table>,
+  pub status: Option<Status>,
+  pub tags: Option<Vec<String>>,
+  pub title: Option<String>,
+}
+
+mod completed_at_serde {
+  use chrono::{DateTime, Utc};
+  use serde::{self, Deserialize, Deserializer, Serializer};
+
+  pub fn serialize<S>(value: &Option<DateTime<Utc>>, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: Serializer,
+  {
+    match value {
+      Some(dt) => serializer.serialize_str(&dt.to_rfc3339()),
+      None => serializer.serialize_str(""),
+    }
+  }
+
+  pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
+  where
+    D: Deserializer<'de>,
+  {
+    let s = String::deserialize(deserializer)?;
+    if s.is_empty() {
+      Ok(None)
+    } else {
+      DateTime::parse_from_rfc3339(&s)
+        .map(|dt| Some(dt.with_timezone(&Utc)))
+        .map_err(serde::de::Error::custom)
+    }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  mod status {
+    use super::*;
+
+    mod display {
+      use pretty_assertions::assert_eq;
+
+      use super::*;
+
+      #[test]
+      fn it_formats_as_lowercase() {
+        assert_eq!(Status::Active.to_string(), "active");
+        assert_eq!(Status::Completed.to_string(), "completed");
+        assert_eq!(Status::Failed.to_string(), "failed");
+      }
+    }
+
+    mod from_str {
+      use pretty_assertions::assert_eq;
+
+      use super::*;
+
+      #[test]
+      fn it_parses_valid_statuses() {
+        assert_eq!("active".parse::<Status>().unwrap(), Status::Active);
+        assert_eq!("completed".parse::<Status>().unwrap(), Status::Completed);
+        assert_eq!("failed".parse::<Status>().unwrap(), Status::Failed);
+      }
+
+      #[test]
+      fn it_rejects_unknown() {
+        assert!("invalid".parse::<Status>().is_err());
+      }
+    }
+  }
+
+  mod iteration {
+    use super::*;
+
+    mod roundtrip {
+      use pretty_assertions::assert_eq;
+
+      use super::*;
+
+      #[test]
+      fn it_roundtrips_through_toml() {
+        let now = Utc::now();
+        let iteration = Iteration {
+          completed_at: None,
+          created_at: now,
+          description: "An iteration description".to_string(),
+          id: "zyxwvutsrqponmlkzyxwvutsrqponmlk".parse().unwrap(),
+          links: vec![Link {
+            ref_: "artifacts/zyxwvutsrqponmlkzyxwvutsrqponmlk".to_string(),
+            rel: crate::model::link::RelationshipType::ChildOf,
+          }],
+          metadata: toml::Table::new(),
+          status: Status::Active,
+          tags: vec!["sprint-1".to_string()],
+          tasks: vec!["tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk".to_string()],
+          title: "Test Iteration".to_string(),
+          updated_at: now,
+        };
+
+        let toml_str = toml::to_string(&iteration).unwrap();
+        let roundtripped: Iteration = toml::from_str(&toml_str).unwrap();
+        assert_eq!(iteration, roundtripped);
+      }
+    }
+  }
+}
