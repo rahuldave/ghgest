@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [v0.3.0] - 2026-03-30
+
+### Changed
+
+- **Breaking:** Configuration files are now TOML only — JSON and YAML configs are no longer supported
+- **Breaking:** `gest init` now creates the global data store by default; use `gest init --local` for in-repo `.gest/` mode
+- Complete UI overhaul with an atomic architecture (atoms, composites, views) for consistent, aligned rendering across all commands
+
 ## [v0.2.3] - 2026-03-29
 
 ### Added
@@ -66,8 +74,9 @@ Initial release
 [#4]: https://github.com/aaronmallen/gest/issues/4
 [#5]: https://github.com/aaronmallen/gest/issues/5
 
-[Unreleased]: https://github.com/aaronmallen/gest/compare/0.2.3...main
+[Unreleased]: https://github.com/aaronmallen/gest/compare/0.3.0...main
 [v0.2.0]: https://github.com/aaronmallen/gest/compare/0.1.0...0.2.0
 [v0.2.1]: https://github.com/aaronmallen/gest/compare/0.2.0...0.2.1
 [v0.2.2]: https://github.com/aaronmallen/gest/compare/0.2.1...0.2.2
 [v0.2.3]: https://github.com/aaronmallen/gest/compare/0.2.2...0.2.3
+[v0.3.0]: https://github.com/aaronmallen/gest/compare/0.2.3...0.3.0
