@@ -1,13 +1,11 @@
-use std::path::Path;
-
 use chrono::Utc;
 use clap::Args;
 
 use crate::{
-  cli,
+  cli::{self, AppContext},
   model::link::{Link, RelationshipType},
   store,
-  ui::{composites::success_message::SuccessMessage, theme::Theme},
+  ui::composites::success_message::SuccessMessage,
 };
 
 /// Create a relationship between an iteration and another entity.
@@ -27,7 +25,9 @@ pub struct Command {
 
 impl Command {
   /// Write the link to the source iteration; for iteration targets, also write the reciprocal.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let id = store::resolve_iteration_id(data_dir, &self.id, false)?;
 
     let target_id = if self.artifact {
@@ -69,7 +69,7 @@ impl Command {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::test_helpers::{make_test_artifact, make_test_config, make_test_iteration};
+  use crate::test_helpers::{make_test_artifact, make_test_context, make_test_iteration};
 
   mod call {
     use pretty_assertions::assert_eq;
@@ -79,12 +79,11 @@ mod tests {
     #[test]
     fn it_links_iteration_to_artifact() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let source = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       let target = make_test_artifact("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
-      store::write_iteration(&data_dir, &source).unwrap();
-      store::write_artifact(&data_dir, &target).unwrap();
+      store::write_iteration(&ctx.data_dir, &source).unwrap();
+      store::write_artifact(&ctx.data_dir, &target).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -92,9 +91,9 @@ mod tests {
         target_id: "kkkk".to_string(),
         artifact: true,
       };
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_iteration(&data_dir, &source.id).unwrap();
+      let loaded = store::read_iteration(&ctx.data_dir, &source.id).unwrap();
       assert_eq!(loaded.links.len(), 1);
       assert_eq!(loaded.links[0].ref_, "artifacts/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
     }
@@ -102,12 +101,11 @@ mod tests {
     #[test]
     fn it_links_iteration_to_iteration_with_reciprocal() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let source = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       let target = make_test_iteration("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
-      store::write_iteration(&data_dir, &source).unwrap();
-      store::write_iteration(&data_dir, &target).unwrap();
+      store::write_iteration(&ctx.data_dir, &source).unwrap();
+      store::write_iteration(&ctx.data_dir, &target).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -115,13 +113,13 @@ mod tests {
         target_id: "kkkk".to_string(),
         artifact: false,
       };
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_iteration(&data_dir, &source.id).unwrap();
+      let loaded = store::read_iteration(&ctx.data_dir, &source.id).unwrap();
       assert_eq!(loaded.links.len(), 1);
       assert_eq!(loaded.links[0].rel, RelationshipType::RelatesTo);
 
-      let loaded_target = store::read_iteration(&data_dir, &target.id).unwrap();
+      let loaded_target = store::read_iteration(&ctx.data_dir, &target.id).unwrap();
       assert_eq!(loaded_target.links.len(), 1);
       assert_eq!(loaded_target.links[0].rel, RelationshipType::RelatesTo);
     }

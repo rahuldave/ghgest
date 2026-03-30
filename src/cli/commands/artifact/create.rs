@@ -1,12 +1,12 @@
-use std::{io::IsTerminal, path::Path};
+use std::io::IsTerminal;
 
 use clap::Args;
 
 use crate::{
-  cli,
+  cli::{self, AppContext},
   model::NewArtifact,
   store,
-  ui::{theme::Theme, views::artifact::ArtifactCreateView},
+  ui::views::artifact::ArtifactCreateView,
 };
 
 /// Create a new artifact from inline text, a source file, an editor, or stdin.
@@ -33,7 +33,9 @@ pub struct Command {
 
 impl Command {
   /// Build a `NewArtifact`, persist it, and print the creation summary.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let metadata = {
       let pairs = crate::cli::helpers::split_key_value_pairs(&self.metadata)?;
       let mut mapping = yaml_serde::Mapping::new();
@@ -102,13 +104,12 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use super::*;
-    use crate::test_helpers::make_test_config;
+    use crate::test_helpers::make_test_context;
 
     #[test]
     fn it_creates_an_artifact_from_source_file() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let source_path = dir.path().join("source.md");
       std::fs::write(&source_path, "# From File\n\nFile content.").unwrap();
@@ -122,10 +123,10 @@ mod tests {
         tags: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
       let filter = crate::model::ArtifactFilter::default();
-      let artifacts = store::list_artifacts(&data_dir, &filter).unwrap();
+      let artifacts = store::list_artifacts(&ctx.data_dir, &filter).unwrap();
       assert_eq!(artifacts.len(), 1);
       assert_eq!(artifacts[0].body, "# From File\n\nFile content.");
     }
@@ -133,8 +134,7 @@ mod tests {
     #[test]
     fn it_creates_an_artifact_with_all_flags() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let cmd = Command {
         title: "Full Artifact".to_string(),
@@ -145,10 +145,10 @@ mod tests {
         tags: Some("rust,cli".to_string()),
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
       let filter = crate::model::ArtifactFilter::default();
-      let artifacts = store::list_artifacts(&data_dir, &filter).unwrap();
+      let artifacts = store::list_artifacts(&ctx.data_dir, &filter).unwrap();
       assert_eq!(artifacts.len(), 1);
 
       let artifact = &artifacts[0];
@@ -161,8 +161,7 @@ mod tests {
     #[test]
     fn it_creates_an_artifact_with_defaults() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let cmd = Command {
         title: "My Artifact".to_string(),
@@ -173,10 +172,10 @@ mod tests {
         tags: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
       let filter = crate::model::ArtifactFilter::default();
-      let artifacts = store::list_artifacts(&data_dir, &filter).unwrap();
+      let artifacts = store::list_artifacts(&ctx.data_dir, &filter).unwrap();
       assert_eq!(artifacts.len(), 1);
       assert_eq!(artifacts[0].title, "My Artifact");
     }

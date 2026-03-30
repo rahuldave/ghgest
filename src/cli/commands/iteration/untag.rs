@@ -1,11 +1,10 @@
-use std::path::Path;
-
 use chrono::Utc;
 use clap::Args;
 
 use crate::{
-  cli, store,
-  ui::{composites::success_message::SuccessMessage, theme::Theme},
+  cli::{self, AppContext},
+  store,
+  ui::composites::success_message::SuccessMessage,
 };
 
 /// Remove tags from an iteration.
@@ -19,7 +18,9 @@ pub struct Command {
 
 impl Command {
   /// Remove the specified tags from the iteration's tag set.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let id = store::resolve_iteration_id(data_dir, &self.id, false)?;
     let mut iteration = store::read_iteration(data_dir, &id)?;
 
@@ -38,7 +39,7 @@ impl Command {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::test_helpers::{make_test_config, make_test_iteration};
+  use crate::test_helpers::{make_test_context, make_test_iteration};
 
   mod call {
     use pretty_assertions::assert_eq;
@@ -48,38 +49,36 @@ mod tests {
     #[test]
     fn it_handles_nonexistent_tags_gracefully() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let mut iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       iteration.tags = vec!["sprint".to_string()];
-      store::write_iteration(&data_dir, &iteration).unwrap();
+      store::write_iteration(&ctx.data_dir, &iteration).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         tags: vec!["nonexistent".to_string()],
       };
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_iteration(&data_dir, &iteration.id).unwrap();
+      let loaded = store::read_iteration(&ctx.data_dir, &iteration.id).unwrap();
       assert_eq!(loaded.tags, vec!["sprint".to_string()]);
     }
 
     #[test]
     fn it_removes_tags() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let mut iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       iteration.tags = vec!["sprint".to_string(), "q1".to_string(), "keep".to_string()];
-      store::write_iteration(&data_dir, &iteration).unwrap();
+      store::write_iteration(&ctx.data_dir, &iteration).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         tags: vec!["sprint".to_string(), "q1".to_string()],
       };
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_iteration(&data_dir, &iteration.id).unwrap();
+      let loaded = store::read_iteration(&ctx.data_dir, &iteration.id).unwrap();
       assert_eq!(loaded.tags, vec!["keep".to_string()]);
     }
   }

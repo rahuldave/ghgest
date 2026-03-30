@@ -1,12 +1,10 @@
-use std::path::Path;
-
 use clap::Args;
 
 use crate::{
-  cli,
+  cli::{self, AppContext},
   model::{IterationPatch, iteration::Status},
   store,
-  ui::{composites::success_message::SuccessMessage, theme::Theme},
+  ui::composites::success_message::SuccessMessage,
 };
 
 /// Update an iteration's title, description, status, tags, or metadata.
@@ -33,7 +31,9 @@ pub struct Command {
 
 impl Command {
   /// Apply the provided patch fields to the iteration and persist the result.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let id = store::resolve_iteration_id(data_dir, &self.id, true)?;
 
     let status = self
@@ -76,7 +76,7 @@ mod tests {
   use super::*;
   use crate::{
     store,
-    test_helpers::{make_test_config, make_test_iteration},
+    test_helpers::{make_test_context, make_test_iteration},
   };
 
   mod call {
@@ -87,10 +87,9 @@ mod tests {
     #[test]
     fn it_adds_metadata() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_iteration(&data_dir, &iteration).unwrap();
+      store::write_iteration(&ctx.data_dir, &iteration).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -101,19 +100,18 @@ mod tests {
         title: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let updated = store::read_iteration(&data_dir, &iteration.id).unwrap();
+      let updated = store::read_iteration(&ctx.data_dir, &iteration.id).unwrap();
       assert_eq!(updated.metadata.get("team").unwrap().as_str().unwrap(), "backend");
     }
 
     #[test]
     fn it_updates_status_to_completed() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_iteration(&data_dir, &iteration).unwrap();
+      store::write_iteration(&ctx.data_dir, &iteration).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -124,9 +122,9 @@ mod tests {
         title: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let updated = store::read_iteration(&data_dir, &iteration.id).unwrap();
+      let updated = store::read_iteration(&ctx.data_dir, &iteration.id).unwrap();
       assert_eq!(updated.status, Status::Completed);
       assert!(updated.completed_at.is_some());
     }
@@ -134,10 +132,9 @@ mod tests {
     #[test]
     fn it_updates_title() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_iteration(&data_dir, &iteration).unwrap();
+      store::write_iteration(&ctx.data_dir, &iteration).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -148,9 +145,9 @@ mod tests {
         title: Some("New Title".to_string()),
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let updated = store::read_iteration(&data_dir, &iteration.id).unwrap();
+      let updated = store::read_iteration(&ctx.data_dir, &iteration.id).unwrap();
       assert_eq!(updated.title, "New Title");
     }
   }

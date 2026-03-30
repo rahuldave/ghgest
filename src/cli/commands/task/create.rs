@@ -1,12 +1,12 @@
-use std::{io::IsTerminal, path::Path};
+use std::io::IsTerminal;
 
 use clap::Args;
 
 use crate::{
-  cli,
+  cli::{self, AppContext},
   model::{NewTask, task::Status},
   store,
-  ui::{theme::Theme, views::task::TaskCreateView},
+  ui::views::task::TaskCreateView,
 };
 
 /// Create a new task with optional metadata, tags, and status.
@@ -39,7 +39,9 @@ pub struct Command {
 
 impl Command {
   /// Persist a new task and print a confirmation view.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let status = match &self.status {
       Some(s) => s.parse::<Status>().map_err(cli::Error::generic)?,
       None => Status::Open,
@@ -122,13 +124,12 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use super::*;
-    use crate::test_helpers::make_test_config;
+    use crate::test_helpers::make_test_context;
 
     #[test]
     fn it_creates_a_task_with_all_flags() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let cmd = Command {
         title: "Full Task".to_string(),
@@ -141,10 +142,10 @@ mod tests {
         tags: Some("rust,cli".to_string()),
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
       let filter = crate::model::TaskFilter::default();
-      let tasks = store::list_tasks(&data_dir, &filter).unwrap();
+      let tasks = store::list_tasks(&ctx.data_dir, &filter).unwrap();
       assert_eq!(tasks.len(), 1);
 
       let task = &tasks[0];
@@ -162,8 +163,7 @@ mod tests {
     #[test]
     fn it_creates_a_task_with_defaults() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let cmd = Command {
         title: "My Task".to_string(),
@@ -176,10 +176,10 @@ mod tests {
         tags: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
       let filter = crate::model::TaskFilter::default();
-      let tasks = store::list_tasks(&data_dir, &filter).unwrap();
+      let tasks = store::list_tasks(&ctx.data_dir, &filter).unwrap();
       assert_eq!(tasks.len(), 1);
       assert_eq!(tasks[0].title, "My Task");
       assert_eq!(tasks[0].status, Status::Open);
@@ -189,8 +189,7 @@ mod tests {
     #[test]
     fn it_resolves_task_created_with_cancelled_status() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let cmd = Command {
         title: "Cancelled Task".to_string(),
@@ -203,17 +202,17 @@ mod tests {
         tags: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
       let filter = crate::model::TaskFilter::default();
-      let tasks = store::list_tasks(&data_dir, &filter).unwrap();
+      let tasks = store::list_tasks(&ctx.data_dir, &filter).unwrap();
       assert_eq!(tasks.len(), 0);
 
       let filter = crate::model::TaskFilter {
         all: true,
         ..Default::default()
       };
-      let tasks = store::list_tasks(&data_dir, &filter).unwrap();
+      let tasks = store::list_tasks(&ctx.data_dir, &filter).unwrap();
       assert_eq!(tasks.len(), 1);
       assert_eq!(tasks[0].status, Status::Cancelled);
       assert!(tasks[0].resolved_at.is_some());
@@ -222,8 +221,7 @@ mod tests {
     #[test]
     fn it_resolves_task_created_with_done_status() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let cmd = Command {
         title: "Done Task".to_string(),
@@ -236,17 +234,17 @@ mod tests {
         tags: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
       let filter = crate::model::TaskFilter::default();
-      let tasks = store::list_tasks(&data_dir, &filter).unwrap();
+      let tasks = store::list_tasks(&ctx.data_dir, &filter).unwrap();
       assert_eq!(tasks.len(), 0);
 
       let filter = crate::model::TaskFilter {
         all: true,
         ..Default::default()
       };
-      let tasks = store::list_tasks(&data_dir, &filter).unwrap();
+      let tasks = store::list_tasks(&ctx.data_dir, &filter).unwrap();
       assert_eq!(tasks.len(), 1);
       assert_eq!(tasks[0].title, "Done Task");
       assert_eq!(tasks[0].status, Status::Done);

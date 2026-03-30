@@ -1,14 +1,13 @@
-use std::{collections::BTreeMap, path::Path};
+use std::collections::BTreeMap;
 
 use clap::Args;
 
 use crate::{
-  cli,
+  cli::{self, AppContext},
   model::link::RelationshipType,
   store,
   ui::{
     composites::iteration_graph::{PhaseData, TaskData},
-    theme::Theme,
     views::iteration::IterationGraphView,
   },
 };
@@ -33,7 +32,9 @@ struct TaskRow {
 
 impl Command {
   /// Load iteration tasks, group by phase, and render the execution graph.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let id = store::resolve_iteration_id(data_dir, &self.id, true)?;
     let iteration = store::read_iteration(data_dir, &id)?;
 
@@ -106,7 +107,7 @@ mod tests {
   use crate::{
     model::task::Status,
     store,
-    test_helpers::{make_test_config, make_test_iteration, make_test_task},
+    test_helpers::{make_test_context, make_test_iteration, make_test_task},
   };
 
   mod call {
@@ -115,48 +116,46 @@ mod tests {
     #[test]
     fn it_renders_empty_graph() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_iteration(&data_dir, &iteration).unwrap();
+      store::write_iteration(&ctx.data_dir, &iteration).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_renders_graph_with_tasks() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let mut t1 = make_test_task("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
       t1.title = "First task".to_string();
       t1.phase = Some(1);
       t1.status = Status::Done;
-      store::write_task(&data_dir, &t1).unwrap();
+      store::write_task(&ctx.data_dir, &t1).unwrap();
 
       let mut t2 = make_test_task("nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn");
       t2.title = "Second task".to_string();
       t2.phase = Some(2);
       t2.status = Status::Open;
-      store::write_task(&data_dir, &t2).unwrap();
+      store::write_task(&ctx.data_dir, &t2).unwrap();
 
       let mut iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       iteration.tasks = vec![
         "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk".to_string(),
         "tasks/nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn".to_string(),
       ];
-      store::write_iteration(&data_dir, &iteration).unwrap();
+      store::write_iteration(&ctx.data_dir, &iteration).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
   }
 }

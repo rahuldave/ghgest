@@ -1,8 +1,9 @@
-use std::path::Path;
-
 use clap::Args;
 
-use crate::{cli, store};
+use crate::{
+  cli::{self, AppContext},
+  store,
+};
 
 /// Retrieve a single metadata value from an iteration.
 #[derive(Debug, Args)]
@@ -15,7 +16,8 @@ pub struct Command {
 
 impl Command {
   /// Resolve the iteration, walk the metadata table by dot-path, and print the value.
-  pub fn call(&self, data_dir: &Path) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
     let id = store::resolve_iteration_id(data_dir, &self.id, false)?;
     let iteration = store::read_iteration(data_dir, &id)?;
 
@@ -69,40 +71,38 @@ mod tests {
 
   mod call {
     use super::*;
-    use crate::test_helpers::{make_test_config, make_test_iteration};
+    use crate::test_helpers::{make_test_context, make_test_iteration};
 
     #[test]
     fn it_errors_on_missing_path() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_iteration(&data_dir, &iteration).unwrap();
+      store::write_iteration(&ctx.data_dir, &iteration).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         path: "nonexistent".to_string(),
       };
-      let result = cmd.call(&data_dir);
+      let result = cmd.call(&ctx);
       assert!(result.is_err());
     }
 
     #[test]
     fn it_reads_metadata_value() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let mut iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       iteration
         .metadata
         .insert("priority".to_string(), toml::Value::String("high".to_string()));
-      store::write_iteration(&data_dir, &iteration).unwrap();
+      store::write_iteration(&ctx.data_dir, &iteration).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         path: "priority".to_string(),
       };
-      cmd.call(&data_dir).unwrap();
+      cmd.call(&ctx).unwrap();
     }
   }
 }

@@ -1,10 +1,9 @@
-use std::path::Path;
-
 use clap::Args;
 
 use crate::{
-  cli, store,
-  ui::{theme::Theme, views::task::TaskDetailView},
+  cli::{self, AppContext},
+  store,
+  ui::views::task::TaskDetailView,
 };
 
 /// Display a task's full details, description, and links.
@@ -19,7 +18,9 @@ pub struct Command {
 
 impl Command {
   /// Resolve the task by ID prefix and render its detail view.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let id = store::resolve_task_id(data_dir, &self.id, true)?;
     let task = store::read_task(data_dir, &id)?;
 
@@ -79,7 +80,7 @@ mod tests {
   use crate::{
     model::link::{Link, RelationshipType},
     store,
-    test_helpers::{make_test_config, make_test_task},
+    test_helpers::{make_test_context, make_test_task},
   };
 
   mod call {
@@ -88,8 +89,7 @@ mod tests {
     #[test]
     fn it_resolves_resolved_task() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let mut task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       task.description = "A test description".to_string();
       task.tags = vec!["rust".to_string()];
@@ -98,47 +98,45 @@ mod tests {
         rel: RelationshipType::RelatesTo,
       }];
       task.title = "Test Task".to_string();
-      store::write_task(&data_dir, &task).unwrap();
-      store::resolve_task(&data_dir, &task.id).unwrap();
+      store::write_task(&ctx.data_dir, &task).unwrap();
+      store::resolve_task(&ctx.data_dir, &task.id).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         json: false,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_shows_task_as_json() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_task(&data_dir, &task).unwrap();
+      store::write_task(&ctx.data_dir, &task).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         json: true,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_shows_task_detail() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_task(&data_dir, &task).unwrap();
+      store::write_task(&ctx.data_dir, &task).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         json: false,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
   }
 }

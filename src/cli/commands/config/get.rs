@@ -1,6 +1,9 @@
 use clap::Args;
 
-use crate::{cli, config::Settings};
+use crate::{
+  cli::{self, AppContext},
+  config::Settings,
+};
 
 /// Retrieve a single configuration value by dot-delimited key.
 #[derive(Debug, Args)]
@@ -11,8 +14,8 @@ pub struct Command {
 
 impl Command {
   /// Print the resolved value for the requested key.
-  pub fn call(&self, settings: &Settings) -> cli::Result<()> {
-    let value = resolve_key(settings, &self.key)?;
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let value = resolve_key(&ctx.settings, &self.key)?;
     println!("{value}");
     Ok(())
   }

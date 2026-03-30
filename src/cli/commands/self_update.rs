@@ -3,8 +3,8 @@ use std::io::Write;
 use clap::Args;
 
 use crate::{
-  cli,
-  ui::{composites::success_message::SuccessMessage, theme::Theme},
+  cli::{self, AppContext},
+  ui::composites::success_message::SuccessMessage,
 };
 
 const BIN_NAME: &str = "gest";
@@ -22,7 +22,7 @@ pub struct Command {
 
 impl Command {
   /// Fetch releases, prompt for confirmation, and perform the in-place binary update.
-  pub fn call(&self, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
     let releases = self_update::backends::github::ReleaseList::configure()
       .repo_owner(REPO_OWNER)
       .repo_name(REPO_NAME)
@@ -39,7 +39,7 @@ impl Command {
 
     if target_version == CURRENT_VERSION {
       let msg = format!("Already on version {CURRENT_VERSION}");
-      println!("{}", SuccessMessage::new(&msg, theme));
+      println!("{}", SuccessMessage::new(&msg, &ctx.theme));
       return Ok(());
     }
 
@@ -71,7 +71,7 @@ impl Command {
       .map_err(|e| cli::Error::generic(e.to_string()))?;
 
     let msg = format!("Updated to version {}", status.version());
-    println!("{}", SuccessMessage::new(&msg, theme));
+    println!("{}", SuccessMessage::new(&msg, &ctx.theme));
 
     Ok(())
   }

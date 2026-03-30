@@ -1,11 +1,10 @@
-use std::path::Path;
-
 use chrono::Utc;
 use clap::Args;
 
 use crate::{
-  cli, store,
-  ui::{composites::success_message::SuccessMessage, theme::Theme},
+  cli::{self, AppContext},
+  store,
+  ui::composites::success_message::SuccessMessage,
 };
 
 /// Add tags to a task, deduplicating with any existing tags.
@@ -19,7 +18,9 @@ pub struct Command {
 
 impl Command {
   /// Merge the given tags into the task and persist.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let id = store::resolve_task_id(data_dir, &self.id, false)?;
     let mut task = store::read_task(data_dir, &id)?;
 
@@ -38,7 +39,7 @@ impl Command {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::test_helpers::{make_test_config, make_test_task};
+  use crate::test_helpers::{make_test_context, make_test_task};
 
   mod call {
     use pretty_assertions::assert_eq;
@@ -48,37 +49,35 @@ mod tests {
     #[test]
     fn it_adds_tags() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_task(&data_dir, &task).unwrap();
+      store::write_task(&ctx.data_dir, &task).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         tags: vec!["rust".to_string(), "cli".to_string()],
       };
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_task(&data_dir, &task.id).unwrap();
+      let loaded = store::read_task(&ctx.data_dir, &task.id).unwrap();
       assert_eq!(loaded.tags, vec!["rust".to_string(), "cli".to_string()]);
     }
 
     #[test]
     fn it_deduplicates_tags() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let mut task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       task.tags = vec!["rust".to_string()];
-      store::write_task(&data_dir, &task).unwrap();
+      store::write_task(&ctx.data_dir, &task).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         tags: vec!["rust".to_string(), "cli".to_string()],
       };
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_task(&data_dir, &task.id).unwrap();
+      let loaded = store::read_task(&ctx.data_dir, &task.id).unwrap();
       assert_eq!(loaded.tags, vec!["rust".to_string(), "cli".to_string()]);
     }
   }

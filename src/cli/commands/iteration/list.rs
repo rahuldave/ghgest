@@ -1,14 +1,11 @@
-use std::path::Path;
-
 use clap::Args;
 
 use crate::{
-  cli,
+  cli::{self, AppContext},
   model::{IterationFilter, iteration::Status},
   store,
   ui::{
     composites::empty_list::EmptyList,
-    theme::Theme,
     views::iteration::{IterationListData, IterationListView},
   },
 };
@@ -32,7 +29,9 @@ pub struct Command {
 
 impl Command {
   /// Query iterations from the store and render as a table or JSON.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let status = match &self.status {
       Some(s) => Some(s.parse::<Status>().map_err(cli::Error::generic)?),
       None => None,
@@ -87,7 +86,7 @@ fn compute_phase_count(_tasks: &[String]) -> usize {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::test_helpers::{make_test_config, make_test_iteration};
+  use crate::test_helpers::{make_test_context, make_test_iteration};
 
   mod call {
     use pretty_assertions::assert_eq;
@@ -97,14 +96,13 @@ mod tests {
     #[test]
     fn it_filters_by_status() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let i1 = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       let mut i2 = make_test_iteration("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
       i2.title = "Failed one".to_string();
       i2.status = crate::model::iteration::Status::Failed;
-      store::write_iteration(&data_dir, &i1).unwrap();
-      store::write_iteration(&data_dir, &i2).unwrap();
+      store::write_iteration(&ctx.data_dir, &i1).unwrap();
+      store::write_iteration(&ctx.data_dir, &i2).unwrap();
 
       let cmd = Command {
         show_all: false,
@@ -113,13 +111,13 @@ mod tests {
         tag: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
       let filter = IterationFilter {
         status: Some(Status::Failed),
         ..Default::default()
       };
-      let iterations = store::list_iterations(&data_dir, &filter).unwrap();
+      let iterations = store::list_iterations(&ctx.data_dir, &filter).unwrap();
       assert_eq!(iterations.len(), 1);
       assert_eq!(iterations[0].title, "Failed one");
     }
@@ -127,8 +125,7 @@ mod tests {
     #[test]
     fn it_handles_empty_list() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let cmd = Command {
         show_all: false,
@@ -137,16 +134,15 @@ mod tests {
         tag: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_lists_iterations() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let i1 = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_iteration(&data_dir, &i1).unwrap();
+      store::write_iteration(&ctx.data_dir, &i1).unwrap();
 
       let cmd = Command {
         show_all: false,
@@ -155,16 +151,15 @@ mod tests {
         tag: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_outputs_json() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_iteration(&data_dir, &iteration).unwrap();
+      store::write_iteration(&ctx.data_dir, &iteration).unwrap();
 
       let cmd = Command {
         show_all: false,
@@ -173,7 +168,7 @@ mod tests {
         tag: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
   }
 }

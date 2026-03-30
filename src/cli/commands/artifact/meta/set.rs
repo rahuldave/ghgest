@@ -1,11 +1,10 @@
-use std::path::Path;
-
 use chrono::Utc;
 use clap::Args;
 
 use crate::{
-  cli, store,
-  ui::{composites::success_message::SuccessMessage, theme::Theme},
+  cli::{self, AppContext},
+  store,
+  ui::composites::success_message::SuccessMessage,
 };
 
 /// Set a metadata value on an artifact using a dot-delimited key path.
@@ -21,7 +20,9 @@ pub struct Command {
 
 impl Command {
   /// Resolve the artifact, set the metadata key to the given value, and persist.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let id = store::resolve_artifact_id(data_dir, &self.id, false)?;
     let mut artifact = store::read_artifact(data_dir, &id)?;
 
@@ -96,24 +97,23 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use super::*;
-    use crate::test_helpers::{make_test_artifact, make_test_config};
+    use crate::test_helpers::{make_test_artifact, make_test_context};
 
     #[test]
     fn it_sets_metadata_value() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_artifact(&data_dir, &artifact).unwrap();
+      store::write_artifact(&ctx.data_dir, &artifact).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         path: "priority".to_string(),
         value: "high".to_string(),
       };
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_artifact(&data_dir, &artifact.id).unwrap();
+      let loaded = store::read_artifact(&ctx.data_dir, &artifact.id).unwrap();
       assert_eq!(
         loaded.metadata.get(yaml_serde::Value::String("priority".to_string())),
         Some(&yaml_serde::Value::String("high".to_string()))
@@ -123,19 +123,18 @@ mod tests {
     #[test]
     fn it_sets_nested_metadata_value() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_artifact(&data_dir, &artifact).unwrap();
+      store::write_artifact(&ctx.data_dir, &artifact).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         path: "config.timeout".to_string(),
         value: "30".to_string(),
       };
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_artifact(&data_dir, &artifact.id).unwrap();
+      let loaded = store::read_artifact(&ctx.data_dir, &artifact.id).unwrap();
       let config_key = yaml_serde::Value::String("config".to_string());
       let config_val = loaded.metadata.get(config_key).unwrap();
       if let yaml_serde::Value::Mapping(m) = config_val {

@@ -2,7 +2,7 @@ use std::thread;
 
 use clap::Args;
 
-use crate::ui::{composites::banner::Banner, theme::Theme};
+use crate::{cli::AppContext, ui::composites::banner::Banner};
 
 /// Print the current version, platform info, and check for available updates.
 #[derive(Args, Debug)]
@@ -10,7 +10,7 @@ pub struct Command;
 
 impl Command {
   /// Display a version banner, appending an update notice if a newer release exists.
-  pub fn call(&self, theme: &Theme) -> crate::cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> crate::cli::Result<()> {
     let check_handle = thread::spawn(|| -> Option<String> {
       let releases = self_update::backends::github::ReleaseList::configure()
         .repo_owner("aaronmallen")
@@ -35,7 +35,7 @@ impl Command {
       "",
       "",
       "aaronmallen",
-      theme,
+      &ctx.theme,
     );
 
     if let Ok(Some(latest_version)) = check_handle.join() {

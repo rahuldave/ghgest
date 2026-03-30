@@ -1,9 +1,8 @@
 use clap::Args;
 
 use crate::{
-  cli,
-  config::Settings,
-  ui::{theme::Theme, views::system::ConfigView},
+  cli::{self, AppContext},
+  ui::views::system::ConfigView,
 };
 
 /// Display the merged configuration and discovered config file sources.
@@ -12,13 +11,12 @@ pub struct Command;
 
 impl Command {
   /// Render active settings, data directory, log level, and config file locations.
-  pub fn call(&self, settings: &Settings, theme: &Theme) -> cli::Result<()> {
-    let cwd = std::env::current_dir()?;
-    let data_dir_path = settings.storage().data_dir(cwd)?;
-    let data_dir = data_dir_path.display().to_string();
-    let log_level = settings.log().level().unwrap_or("warn");
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = ctx.data_dir.display().to_string();
+    let log_level = ctx.settings.log().level().unwrap_or("warn");
 
-    let mut view = ConfigView::new(&data_dir, log_level, theme).has_color_overrides(!settings.colors().is_empty());
+    let mut view =
+      ConfigView::new(&data_dir, log_level, &ctx.theme).has_color_overrides(!ctx.settings.colors().is_empty());
 
     if let Some(config_home) = dir_spec::config_home() {
       let global = config_home.join("gest/config.toml");
@@ -50,12 +48,14 @@ mod tests {
 
   mod call {
     use super::*;
+    use crate::test_helpers::make_test_context;
 
     #[test]
     fn it_succeeds_with_default_config() {
-      let settings = Settings::default();
+      let dir = tempfile::tempdir().unwrap();
+      let ctx = make_test_context(dir.path());
       let cmd = Command;
-      cmd.call(&settings, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
   }
 }

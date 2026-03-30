@@ -3,9 +3,18 @@ pub mod helpers;
 
 mod commands;
 
+use std::path::PathBuf;
+
 use clap::{ArgAction, Parser, Subcommand};
 
 use crate::{config::Settings, ui::theme::Theme};
+
+/// Bundles all runtime context that commands need: resolved settings, theme, and data directory.
+pub(crate) struct AppContext {
+  pub(crate) data_dir: PathBuf,
+  pub(crate) settings: Settings,
+  pub(crate) theme: Theme,
+}
 
 /// Unified error type for CLI operations, wrapping config, I/O, and store errors.
 #[derive(Debug, thiserror::Error)]
@@ -48,10 +57,15 @@ pub(crate) struct Cli {
 }
 
 impl Cli {
-  fn call(&self, settings: &Settings) -> Result<()> {
+  fn call(&self, settings: Settings) -> Result<()> {
     if self.print_version {
-      let theme = Theme::from_config(settings);
-      return commands::version::Command.call(&theme);
+      let theme = Theme::from_config(&settings);
+      let ctx = AppContext {
+        data_dir: PathBuf::new(),
+        settings,
+        theme,
+      };
+      return commands::version::Command.call(&ctx);
     }
 
     let Some(command) = &self.command else {
@@ -62,7 +76,7 @@ impl Cli {
 
     let env_level = crate::config::env::GEST_LOG_LEVEL.value().ok();
     let level = crate::logger::resolve_level(self.verbose, env_level.as_deref(), settings.log().level());
-    let theme = Theme::from_config(settings);
+    let theme = Theme::from_config(&settings);
     crate::logger::init(level, &theme);
 
     let cwd = std::env::current_dir()?;
@@ -71,7 +85,12 @@ impl Cli {
     log::debug!("log level set to {level}");
     log::debug!("data directory: {}", data_dir.display());
 
-    command.call(settings, &theme, &data_dir)
+    let ctx = AppContext {
+      data_dir,
+      settings,
+      theme,
+    };
+    command.call(&ctx)
   }
 }
 
@@ -89,17 +108,17 @@ enum Command {
 }
 
 impl Command {
-  fn call(&self, settings: &Settings, theme: &Theme, data_dir: &std::path::Path) -> Result<()> {
+  fn call(&self, ctx: &AppContext) -> Result<()> {
     match self {
-      Self::Artifact(cmd) => cmd.call(settings, theme, data_dir),
-      Self::Config(cmd) => cmd.call(settings, theme),
-      Self::Generate(cmd) => cmd.call(),
-      Self::Init(cmd) => cmd.call(theme),
-      Self::Iteration(cmd) => cmd.call(settings, theme, data_dir),
-      Self::Search(cmd) => cmd.call(data_dir, theme),
-      Self::SelfUpdate(cmd) => cmd.call(theme),
-      Self::Task(cmd) => cmd.call(settings, theme, data_dir),
-      Self::Version(cmd) => cmd.call(theme),
+      Self::Artifact(cmd) => cmd.call(ctx),
+      Self::Config(cmd) => cmd.call(ctx),
+      Self::Generate(cmd) => cmd.call(ctx),
+      Self::Init(cmd) => cmd.call(ctx),
+      Self::Iteration(cmd) => cmd.call(ctx),
+      Self::Search(cmd) => cmd.call(ctx),
+      Self::SelfUpdate(cmd) => cmd.call(ctx),
+      Self::Task(cmd) => cmd.call(ctx),
+      Self::Version(cmd) => cmd.call(ctx),
     }
   }
 }
@@ -112,7 +131,7 @@ pub fn run() -> Result<()> {
 
   let cwd = std::env::current_dir()?;
   let settings = crate::config::load(&cwd)?;
-  Cli::parse().call(&settings)
+  Cli::parse().call(settings)
 }
 
 /// Count `-v` / `--verbose` occurrences in an argument iterator, stopping at `--`.

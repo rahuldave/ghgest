@@ -1,10 +1,9 @@
-use std::path::Path;
-
 use clap::Args;
 
 use crate::{
-  cli, store,
-  ui::{composites::artifact_detail::ArtifactDetail, theme::Theme, views::artifact::ArtifactDetailView},
+  cli::{self, AppContext},
+  store,
+  ui::{composites::artifact_detail::ArtifactDetail, views::artifact::ArtifactDetailView},
 };
 
 /// Display an artifact's full details and rendered body.
@@ -19,7 +18,9 @@ pub struct Command {
 
 impl Command {
   /// Resolve the artifact and print its detail view or JSON representation.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let id = store::resolve_artifact_id(data_dir, &self.id, true)?;
     let artifact = store::read_artifact(data_dir, &id)?;
 
@@ -52,7 +53,7 @@ mod tests {
   use super::*;
   use crate::{
     store,
-    test_helpers::{make_test_artifact, make_test_config},
+    test_helpers::{make_test_artifact, make_test_context},
   };
 
   mod call {
@@ -61,53 +62,50 @@ mod tests {
     #[test]
     fn it_shows_archived_artifact() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_artifact(&data_dir, &artifact).unwrap();
-      store::archive_artifact(&data_dir, &artifact.id).unwrap();
+      store::write_artifact(&ctx.data_dir, &artifact).unwrap();
+      store::archive_artifact(&ctx.data_dir, &artifact.id).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         json: false,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_shows_artifact_as_json() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_artifact(&data_dir, &artifact).unwrap();
+      store::write_artifact(&ctx.data_dir, &artifact).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         json: true,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_shows_artifact_detail() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let mut artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       artifact.title = "Test Artifact".to_string();
       artifact.body = "# Hello\n\nSome content.".to_string();
       artifact.tags = vec!["spec".to_string()];
-      store::write_artifact(&data_dir, &artifact).unwrap();
+      store::write_artifact(&ctx.data_dir, &artifact).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         json: false,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
   }
 }

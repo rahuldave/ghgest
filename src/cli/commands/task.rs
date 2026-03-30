@@ -9,11 +9,9 @@ mod tag;
 mod untag;
 mod update;
 
-use std::path::Path;
-
 use clap::{Args, Subcommand};
 
-use crate::{cli, config::Settings, ui::theme::Theme};
+use crate::cli::{self, AppContext};
 
 /// Top-level CLI command that dispatches to task subcommands.
 #[derive(Debug, Args)]
@@ -36,16 +34,16 @@ enum TaskCommand {
 
 impl Command {
   /// Route to the appropriate task subcommand.
-  pub fn call(&self, _settings: &Settings, theme: &Theme, data_dir: &Path) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
     match &self.command {
-      TaskCommand::Create(cmd) => cmd.call(data_dir, theme),
-      TaskCommand::Link(cmd) => cmd.call(data_dir, theme),
-      TaskCommand::List(cmd) => cmd.call(data_dir, theme),
-      TaskCommand::Meta(cmd) => cmd.call(data_dir, theme),
-      TaskCommand::Show(cmd) => cmd.call(data_dir, theme),
-      TaskCommand::Tag(cmd) => cmd.call(data_dir, theme),
-      TaskCommand::Untag(cmd) => cmd.call(data_dir, theme),
-      TaskCommand::Update(cmd) => cmd.call(data_dir, theme),
+      TaskCommand::Create(cmd) => cmd.call(ctx),
+      TaskCommand::Link(cmd) => cmd.call(ctx),
+      TaskCommand::List(cmd) => cmd.call(ctx),
+      TaskCommand::Meta(cmd) => cmd.call(ctx),
+      TaskCommand::Show(cmd) => cmd.call(ctx),
+      TaskCommand::Tag(cmd) => cmd.call(ctx),
+      TaskCommand::Untag(cmd) => cmd.call(ctx),
+      TaskCommand::Update(cmd) => cmd.call(ctx),
     }
   }
 }

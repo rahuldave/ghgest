@@ -6,7 +6,7 @@ mod show;
 
 use clap::{Args, Subcommand};
 
-use crate::{cli, config::Settings, ui::theme::Theme};
+use crate::cli::{self, AppContext};
 
 /// Entry point for the `config` subcommand tree.
 #[derive(Debug, Args)]
@@ -24,11 +24,11 @@ enum ConfigCommand {
 
 impl Command {
   /// Dispatch to the appropriate config subcommand.
-  pub fn call(&self, settings: &Settings, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
     match &self.command {
-      ConfigCommand::Get(cmd) => cmd.call(settings),
-      ConfigCommand::Set(cmd) => cmd.call(theme),
-      ConfigCommand::Show(cmd) => cmd.call(settings, theme),
+      ConfigCommand::Get(cmd) => cmd.call(ctx),
+      ConfigCommand::Set(cmd) => cmd.call(ctx),
+      ConfigCommand::Show(cmd) => cmd.call(ctx),
     }
   }
 }

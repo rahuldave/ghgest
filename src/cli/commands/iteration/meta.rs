@@ -1,11 +1,9 @@
 mod get;
 mod set;
 
-use std::path::Path;
-
 use clap::{Args, Subcommand};
 
-use crate::{cli, ui::theme::Theme};
+use crate::cli::{self, AppContext};
 
 /// Read or write iteration metadata fields.
 #[derive(Debug, Args)]
@@ -22,10 +20,10 @@ enum MetaCommand {
 
 impl Command {
   /// Dispatch to the `get` or `set` metadata subcommand.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
     match &self.command {
-      MetaCommand::Get(cmd) => cmd.call(data_dir),
-      MetaCommand::Set(cmd) => cmd.call(data_dir, theme),
+      MetaCommand::Get(cmd) => cmd.call(ctx),
+      MetaCommand::Set(cmd) => cmd.call(ctx),
     }
   }
 }

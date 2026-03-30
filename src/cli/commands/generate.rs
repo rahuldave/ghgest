@@ -5,7 +5,7 @@ mod man_pages;
 
 use clap::{Args, Subcommand};
 
-use crate::cli;
+use crate::cli::{self, AppContext};
 
 /// Entry point for the `generate` subcommand tree.
 #[derive(Debug, Args)]
@@ -22,7 +22,7 @@ enum GenerateCommand {
 
 impl Command {
   /// Dispatch to the appropriate generate subcommand.
-  pub fn call(&self) -> cli::Result<()> {
+  pub fn call(&self, _ctx: &AppContext) -> cli::Result<()> {
     match &self.command {
       GenerateCommand::Completions(cmd) => cmd.call(),
       GenerateCommand::ManPages(cmd) => cmd.call(),

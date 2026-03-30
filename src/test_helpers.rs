@@ -30,6 +30,18 @@ pub fn make_test_config(data_dir: PathBuf) -> Settings {
   toml::from_str(&format!("[storage]\ndata_dir = \"{}\"", data_dir.display())).unwrap()
 }
 
+/// Build an [`AppContext`] rooted at the given base directory with default theme and settings.
+pub fn make_test_context(base: &std::path::Path) -> crate::cli::AppContext {
+  let settings = make_test_config(base.to_path_buf());
+  let data_dir = settings.storage().data_dir(base.to_path_buf()).unwrap();
+  let theme = crate::ui::theme::Theme::default();
+  crate::cli::AppContext {
+    data_dir,
+    settings,
+    theme,
+  }
+}
+
 /// Create a minimal [`Iteration`] with sensible defaults for the given encoded ID.
 pub fn make_test_iteration(id: &str) -> Iteration {
   let now = Utc::now();

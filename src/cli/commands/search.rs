@@ -1,9 +1,7 @@
-use std::path::Path;
-
 use clap::Args;
 
 use crate::{
-  cli,
+  cli::{self, AppContext},
   model::{link::RelationshipType, task::Status},
   store,
   ui::{
@@ -31,8 +29,8 @@ pub struct Command {
 
 impl Command {
   /// Execute the search and render results to stdout.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
-    let results = store::search(data_dir, &self.query, self.show_all)?;
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let results = store::search(&ctx.data_dir, &self.query, self.show_all)?;
 
     if self.json {
       let json_value = serde_json::json!({
@@ -45,12 +43,12 @@ impl Command {
       return Ok(());
     }
 
-    let items = build_search_items(&results, theme);
+    let items = build_search_items(&results, &ctx.theme);
 
     if self.expand {
-      println!("{}", SearchExpandedView::new(&self.query, &items, theme));
+      println!("{}", SearchExpandedView::new(&self.query, &items, &ctx.theme));
     } else {
-      println!("{}", SearchView::new(&self.query, &items, theme));
+      println!("{}", SearchView::new(&self.query, &items, &ctx.theme));
     }
 
     Ok(())
@@ -141,7 +139,7 @@ mod tests {
   use crate::{
     model::{Artifact, Task, task::Status},
     store,
-    test_helpers::{make_test_artifact, make_test_config, make_test_task},
+    test_helpers::{make_test_artifact, make_test_context, make_test_task},
   };
 
   mod call {
@@ -150,8 +148,7 @@ mod tests {
     #[test]
     fn it_handles_no_results() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let cmd = Command {
         query: "nonexistent".to_string(),
@@ -160,21 +157,20 @@ mod tests {
         expand: false,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_includes_resolved_with_all_flag() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let task = Task {
         title: "done task".to_string(),
         status: Status::Done,
         ..make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk")
       };
-      store::write_task(&data_dir, &task).unwrap();
+      store::write_task(&ctx.data_dir, &task).unwrap();
 
       let cmd = Command {
         query: "done".to_string(),
@@ -183,21 +179,20 @@ mod tests {
         expand: false,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_outputs_json() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let task = Task {
         title: "json task".to_string(),
         status: Status::Open,
         ..make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk")
       };
-      store::write_task(&data_dir, &task).unwrap();
+      store::write_task(&ctx.data_dir, &task).unwrap();
 
       let cmd = Command {
         query: "json".to_string(),
@@ -206,14 +201,13 @@ mod tests {
         expand: false,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_renders_expanded_view() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let task = Task {
         title: "expanded task".to_string(),
@@ -221,7 +215,7 @@ mod tests {
         status: Status::InProgress,
         ..make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk")
       };
-      store::write_task(&data_dir, &task).unwrap();
+      store::write_task(&ctx.data_dir, &task).unwrap();
 
       let cmd = Command {
         query: "expanded".to_string(),
@@ -230,21 +224,20 @@ mod tests {
         expand: true,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_returns_matching_artifacts() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let artifact = Artifact {
         title: "schema design".to_string(),
         body: "Defines the canonical probe schema".to_string(),
         ..make_test_artifact("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk")
       };
-      store::write_artifact(&data_dir, &artifact).unwrap();
+      store::write_artifact(&ctx.data_dir, &artifact).unwrap();
 
       let cmd = Command {
         query: "schema".to_string(),
@@ -253,21 +246,20 @@ mod tests {
         expand: false,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_returns_matching_tasks() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let task = Task {
         title: "streaming adapter".to_string(),
         status: Status::Open,
         ..make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk")
       };
-      store::write_task(&data_dir, &task).unwrap();
+      store::write_task(&ctx.data_dir, &task).unwrap();
 
       let cmd = Command {
         query: "streaming".to_string(),
@@ -276,7 +268,7 @@ mod tests {
         expand: false,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
   }
 

@@ -1,12 +1,10 @@
-use std::path::Path;
-
 use clap::Args;
 
 use crate::{
-  cli,
+  cli::{self, AppContext},
   model::{NewIteration, iteration::Status},
   store,
-  ui::{composites::success_message::SuccessMessage, theme::Theme},
+  ui::composites::success_message::SuccessMessage,
 };
 
 /// Create a new iteration.
@@ -30,7 +28,9 @@ pub struct Command {
 
 impl Command {
   /// Build a `NewIteration` from CLI args, persist it, and print confirmation.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let status = match &self.status {
       Some(s) => s.parse::<Status>().map_err(cli::Error::generic)?,
       None => Status::Active,
@@ -77,13 +77,12 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use super::*;
-    use crate::{model::IterationFilter, test_helpers::make_test_config};
+    use crate::{model::IterationFilter, test_helpers::make_test_context};
 
     #[test]
     fn it_creates_an_iteration_with_all_flags() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let cmd = Command {
         title: "Full Iteration".to_string(),
@@ -93,10 +92,10 @@ mod tests {
         tags: Some("sprint,q1".to_string()),
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
       let filter = IterationFilter::default();
-      let iterations = store::list_iterations(&data_dir, &filter).unwrap();
+      let iterations = store::list_iterations(&ctx.data_dir, &filter).unwrap();
       assert_eq!(iterations.len(), 1);
       assert_eq!(iterations[0].title, "Full Iteration");
       assert_eq!(iterations[0].description, "A description");
@@ -107,8 +106,7 @@ mod tests {
     #[test]
     fn it_creates_an_iteration_with_defaults() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let cmd = Command {
         title: "Sprint 1".to_string(),
@@ -118,10 +116,10 @@ mod tests {
         tags: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
       let filter = IterationFilter::default();
-      let iterations = store::list_iterations(&data_dir, &filter).unwrap();
+      let iterations = store::list_iterations(&ctx.data_dir, &filter).unwrap();
       assert_eq!(iterations.len(), 1);
       assert_eq!(iterations[0].title, "Sprint 1");
       assert_eq!(iterations[0].status, Status::Active);
@@ -130,8 +128,7 @@ mod tests {
     #[test]
     fn it_resolves_iteration_created_with_completed_status() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let cmd = Command {
         title: "Done Iteration".to_string(),
@@ -141,17 +138,17 @@ mod tests {
         tags: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
       let filter = IterationFilter::default();
-      let iterations = store::list_iterations(&data_dir, &filter).unwrap();
+      let iterations = store::list_iterations(&ctx.data_dir, &filter).unwrap();
       assert_eq!(iterations.len(), 0);
 
       let filter = IterationFilter {
         all: true,
         ..Default::default()
       };
-      let iterations = store::list_iterations(&data_dir, &filter).unwrap();
+      let iterations = store::list_iterations(&ctx.data_dir, &filter).unwrap();
       assert_eq!(iterations.len(), 1);
       assert_eq!(iterations[0].status, Status::Completed);
       assert!(iterations[0].completed_at.is_some());

@@ -1,10 +1,9 @@
-use std::path::Path;
-
 use clap::Args;
 
 use crate::{
-  cli, store,
-  ui::{composites::success_message::SuccessMessage, theme::Theme},
+  cli::{self, AppContext},
+  store,
+  ui::composites::success_message::SuccessMessage,
 };
 
 /// Move an artifact to the archive by setting its `archived_at` timestamp.
@@ -16,7 +15,9 @@ pub struct Command {
 
 impl Command {
   /// Archive the artifact matching `self.id` and print a confirmation.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let id = store::resolve_artifact_id(data_dir, &self.id, false)?;
     store::archive_artifact(data_dir, &id)?;
 
@@ -32,7 +33,7 @@ mod tests {
   use crate::{
     model::ArtifactFilter,
     store,
-    test_helpers::{make_test_artifact, make_test_config},
+    test_helpers::{make_test_artifact, make_test_context},
   };
 
   mod call {
@@ -43,25 +44,24 @@ mod tests {
     #[test]
     fn it_archives_an_artifact() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_artifact(&data_dir, &artifact).unwrap();
+      store::write_artifact(&ctx.data_dir, &artifact).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
       };
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
       let filter = ArtifactFilter::default();
-      let artifacts = store::list_artifacts(&data_dir, &filter).unwrap();
+      let artifacts = store::list_artifacts(&ctx.data_dir, &filter).unwrap();
       assert_eq!(artifacts.len(), 0);
 
       let filter = ArtifactFilter {
         show_all: true,
         ..Default::default()
       };
-      let artifacts = store::list_artifacts(&data_dir, &filter).unwrap();
+      let artifacts = store::list_artifacts(&ctx.data_dir, &filter).unwrap();
       assert_eq!(artifacts.len(), 1);
       assert!(artifacts[0].archived_at.is_some());
     }

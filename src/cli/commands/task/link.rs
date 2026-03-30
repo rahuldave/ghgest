@@ -1,13 +1,11 @@
-use std::path::Path;
-
 use chrono::Utc;
 use clap::Args;
 
 use crate::{
-  cli,
+  cli::{self, AppContext},
   model::link::{Link, RelationshipType},
   store,
-  ui::{composites::success_message::SuccessMessage, theme::Theme},
+  ui::composites::success_message::SuccessMessage,
 };
 
 /// Create a relationship between a task and another task or artifact.
@@ -27,7 +25,9 @@ pub struct Command {
 
 impl Command {
   /// Add a link on the source task, and a reciprocal link on the target when both are tasks.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let id = store::resolve_task_id(data_dir, &self.id, false)?;
 
     let target_id = if self.artifact {
@@ -71,7 +71,7 @@ mod tests {
   use tempfile::TempDir;
 
   use super::*;
-  use crate::test_helpers::{make_test_artifact, make_test_config, make_test_task};
+  use crate::test_helpers::{make_test_artifact, make_test_context, make_test_task};
 
   mod call {
     use pretty_assertions::assert_eq;
@@ -80,13 +80,13 @@ mod tests {
 
     #[test]
     fn it_appends_multiple_links() {
-      let (dir, data_dir) = setup();
+      let (dir, ctx) = setup();
       let source = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       let target1 = make_test_task("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
       let target2 = make_test_task("nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn");
-      store::write_task(&data_dir, &source).unwrap();
-      store::write_task(&data_dir, &target1).unwrap();
-      store::write_task(&data_dir, &target2).unwrap();
+      store::write_task(&ctx.data_dir, &source).unwrap();
+      store::write_task(&ctx.data_dir, &target1).unwrap();
+      store::write_task(&ctx.data_dir, &target2).unwrap();
 
       let cmd1 = Command {
         id: "zyxw".to_string(),
@@ -94,7 +94,7 @@ mod tests {
         target_id: "kkkk".to_string(),
         artifact: false,
       };
-      cmd1.call(&data_dir, &Theme::default()).unwrap();
+      cmd1.call(&ctx).unwrap();
 
       let cmd2 = Command {
         id: "zyxw".to_string(),
@@ -102,20 +102,20 @@ mod tests {
         target_id: "nnnn".to_string(),
         artifact: false,
       };
-      cmd2.call(&data_dir, &Theme::default()).unwrap();
+      cmd2.call(&ctx).unwrap();
 
-      let loaded = store::read_task(&data_dir, &source.id).unwrap();
+      let loaded = store::read_task(&ctx.data_dir, &source.id).unwrap();
       assert_eq!(loaded.links.len(), 2);
       let _ = dir;
     }
 
     #[test]
     fn it_links_task_to_artifact() {
-      let (dir, data_dir) = setup();
+      let (dir, ctx) = setup();
       let source = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       let target = make_test_artifact("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
-      store::write_task(&data_dir, &source).unwrap();
-      store::write_artifact(&data_dir, &target).unwrap();
+      store::write_task(&ctx.data_dir, &source).unwrap();
+      store::write_artifact(&ctx.data_dir, &target).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -123,9 +123,9 @@ mod tests {
         target_id: "kkkk".to_string(),
         artifact: true,
       };
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_task(&data_dir, &source.id).unwrap();
+      let loaded = store::read_task(&ctx.data_dir, &source.id).unwrap();
       assert_eq!(loaded.links.len(), 1);
       assert_eq!(loaded.links[0].ref_, "artifacts/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
       let _ = dir;
@@ -133,11 +133,11 @@ mod tests {
 
     #[test]
     fn it_links_task_to_task_with_reciprocal() {
-      let (dir, data_dir) = setup();
+      let (dir, ctx) = setup();
       let source = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       let target = make_test_task("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
-      store::write_task(&data_dir, &source).unwrap();
-      store::write_task(&data_dir, &target).unwrap();
+      store::write_task(&ctx.data_dir, &source).unwrap();
+      store::write_task(&ctx.data_dir, &target).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -145,21 +145,20 @@ mod tests {
         target_id: "kkkk".to_string(),
         artifact: false,
       };
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_task(&data_dir, &source.id).unwrap();
+      let loaded = store::read_task(&ctx.data_dir, &source.id).unwrap();
       assert_eq!(loaded.links[0].rel, RelationshipType::Blocks);
 
-      let loaded_target = store::read_task(&data_dir, &target.id).unwrap();
+      let loaded_target = store::read_task(&ctx.data_dir, &target.id).unwrap();
       assert_eq!(loaded_target.links[0].rel, RelationshipType::BlockedBy);
       let _ = dir;
     }
   }
 
-  fn setup() -> (TempDir, std::path::PathBuf) {
+  fn setup() -> (TempDir, crate::cli::AppContext) {
     let dir = TempDir::new().unwrap();
-    let config = make_test_config(dir.path().to_path_buf());
-    let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
-    (dir, data_dir)
+    let ctx = make_test_context(dir.path());
+    (dir, ctx)
   }
 }

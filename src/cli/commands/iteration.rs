@@ -10,11 +10,9 @@ mod tag;
 mod untag;
 mod update;
 
-use std::path::Path;
-
 use clap::{Args, Subcommand};
 
-use crate::{cli, config::Settings, ui::theme::Theme};
+use crate::cli::{self, AppContext};
 
 /// Manage iterations (execution plans grouping tasks into phases).
 #[derive(Debug, Args)]
@@ -40,19 +38,19 @@ enum IterationCommand {
 
 impl Command {
   /// Dispatch to the appropriate iteration subcommand.
-  pub fn call(&self, _settings: &Settings, theme: &Theme, data_dir: &Path) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
     match &self.command {
-      IterationCommand::Add(cmd) => cmd.call(data_dir, theme),
-      IterationCommand::Create(cmd) => cmd.call(data_dir, theme),
-      IterationCommand::Graph(cmd) => cmd.call(data_dir, theme),
-      IterationCommand::Link(cmd) => cmd.call(data_dir, theme),
-      IterationCommand::List(cmd) => cmd.call(data_dir, theme),
-      IterationCommand::Meta(cmd) => cmd.call(data_dir, theme),
-      IterationCommand::Remove(cmd) => cmd.call(data_dir, theme),
-      IterationCommand::Show(cmd) => cmd.call(data_dir, theme),
-      IterationCommand::Tag(cmd) => cmd.call(data_dir, theme),
-      IterationCommand::Untag(cmd) => cmd.call(data_dir, theme),
-      IterationCommand::Update(cmd) => cmd.call(data_dir, theme),
+      IterationCommand::Add(cmd) => cmd.call(ctx),
+      IterationCommand::Create(cmd) => cmd.call(ctx),
+      IterationCommand::Graph(cmd) => cmd.call(ctx),
+      IterationCommand::Link(cmd) => cmd.call(ctx),
+      IterationCommand::List(cmd) => cmd.call(ctx),
+      IterationCommand::Meta(cmd) => cmd.call(ctx),
+      IterationCommand::Remove(cmd) => cmd.call(ctx),
+      IterationCommand::Show(cmd) => cmd.call(ctx),
+      IterationCommand::Tag(cmd) => cmd.call(ctx),
+      IterationCommand::Untag(cmd) => cmd.call(ctx),
+      IterationCommand::Update(cmd) => cmd.call(ctx),
     }
   }
 }

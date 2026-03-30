@@ -1,14 +1,11 @@
-use std::path::Path;
-
 use clap::Args;
 
 use crate::{
-  cli,
+  cli::{self, AppContext},
   model::ArtifactFilter,
   store,
   ui::{
     composites::{artifact_list_row::ArtifactListRow, empty_list::EmptyList},
-    theme::Theme,
     views::artifact::ArtifactListView,
   },
 };
@@ -35,7 +32,9 @@ pub struct Command {
 
 impl Command {
   /// Fetch, filter, and display the artifact list (or JSON output).
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let filter = ArtifactFilter {
       kind: self.kind.clone(),
       only_archived: self.archived,
@@ -79,7 +78,7 @@ mod tests {
   use super::*;
   use crate::{
     store,
-    test_helpers::{make_test_artifact, make_test_config},
+    test_helpers::{make_test_artifact, make_test_context},
   };
 
   mod call {
@@ -88,15 +87,14 @@ mod tests {
     #[test]
     fn it_filters_by_tag() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let mut a1 = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       a1.tags = vec!["spec".to_string()];
-      store::write_artifact(&data_dir, &a1).unwrap();
+      store::write_artifact(&ctx.data_dir, &a1).unwrap();
 
       let a2 = make_test_artifact("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
-      store::write_artifact(&data_dir, &a2).unwrap();
+      store::write_artifact(&ctx.data_dir, &a2).unwrap();
 
       let cmd = Command {
         json: false,
@@ -106,14 +104,13 @@ mod tests {
         tag: Some("spec".to_string()),
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_handles_empty_list() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let cmd = Command {
         json: false,
@@ -123,18 +120,17 @@ mod tests {
         tag: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_includes_archived_with_show_all() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let a = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_artifact(&data_dir, &a).unwrap();
-      store::archive_artifact(&data_dir, &a.id).unwrap();
+      store::write_artifact(&ctx.data_dir, &a).unwrap();
+      store::archive_artifact(&ctx.data_dir, &a.id).unwrap();
 
       let cmd = Command {
         json: false,
@@ -144,16 +140,15 @@ mod tests {
         tag: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_lists_artifacts() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_artifact(&data_dir, &artifact).unwrap();
+      store::write_artifact(&ctx.data_dir, &artifact).unwrap();
 
       let cmd = Command {
         json: false,
@@ -163,16 +158,15 @@ mod tests {
         tag: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_outputs_json() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_artifact(&data_dir, &artifact).unwrap();
+      store::write_artifact(&ctx.data_dir, &artifact).unwrap();
 
       let cmd = Command {
         json: true,
@@ -182,7 +176,7 @@ mod tests {
         tag: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
   }
 }

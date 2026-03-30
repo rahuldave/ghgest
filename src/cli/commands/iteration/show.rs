@@ -1,12 +1,10 @@
-use std::path::Path;
-
 use clap::Args;
 
 use crate::{
-  cli,
+  cli::{self, AppContext},
   model::link::RelationshipType,
   store,
-  ui::{composites::iteration_detail::TaskCounts, theme::Theme, views::iteration::IterationDetailView},
+  ui::{composites::iteration_detail::TaskCounts, views::iteration::IterationDetailView},
 };
 
 /// Display an iteration's details, task counts, and phase summary.
@@ -21,7 +19,9 @@ pub struct Command {
 
 impl Command {
   /// Load the iteration and its tasks, compute status counts, and render the detail view.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let id = store::resolve_iteration_id(data_dir, &self.id, true)?;
     let iteration = store::read_iteration(data_dir, &id)?;
 
@@ -85,7 +85,7 @@ mod tests {
   use super::*;
   use crate::{
     store,
-    test_helpers::{make_test_config, make_test_iteration, make_test_task},
+    test_helpers::{make_test_context, make_test_iteration, make_test_task},
   };
 
   mod call {
@@ -94,55 +94,52 @@ mod tests {
     #[test]
     fn it_shows_iteration_as_json() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_iteration(&data_dir, &iteration).unwrap();
+      store::write_iteration(&ctx.data_dir, &iteration).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         json: true,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_shows_iteration_detail() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_iteration(&data_dir, &iteration).unwrap();
+      store::write_iteration(&ctx.data_dir, &iteration).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         json: false,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_shows_iteration_with_tasks() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let mut task = make_test_task("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
       task.phase = Some(1);
-      store::write_task(&data_dir, &task).unwrap();
+      store::write_task(&ctx.data_dir, &task).unwrap();
 
       let mut iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       iteration.tasks = vec!["tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk".to_string()];
-      store::write_iteration(&data_dir, &iteration).unwrap();
+      store::write_iteration(&ctx.data_dir, &iteration).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         json: false,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
   }
 }

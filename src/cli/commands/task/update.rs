@@ -1,12 +1,10 @@
-use std::path::Path;
-
 use clap::Args;
 
 use crate::{
-  cli,
+  cli::{self, AppContext},
   model::{TaskPatch, task::Status},
   store,
-  ui::{theme::Theme, views::task::TaskUpdateView},
+  ui::views::task::TaskUpdateView,
 };
 
 /// Update a task's title, description, status, tags, or metadata.
@@ -42,7 +40,9 @@ pub struct Command {
 
 impl Command {
   /// Apply the patch to an existing task and print the confirmation view.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let id = store::resolve_task_id(data_dir, &self.id, true)?;
 
     let description = self.description.clone();
@@ -110,7 +110,7 @@ mod tests {
   use crate::{
     model::link::{Link, RelationshipType},
     store,
-    test_helpers::{make_test_config, make_test_task},
+    test_helpers::{make_test_context, make_test_task},
   };
 
   mod call {
@@ -121,10 +121,9 @@ mod tests {
     #[test]
     fn it_adds_metadata_entries() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let task = make_rich_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_task(&data_dir, &task).unwrap();
+      store::write_task(&ctx.data_dir, &task).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -138,9 +137,9 @@ mod tests {
         metadata: vec!["team=backend".to_string()],
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let updated = store::read_task(&data_dir, &task.id).unwrap();
+      let updated = store::read_task(&ctx.data_dir, &task.id).unwrap();
       assert_eq!(updated.metadata.get("priority").unwrap().as_str().unwrap(), "low");
       assert_eq!(updated.metadata.get("team").unwrap().as_str().unwrap(), "backend");
     }
@@ -148,10 +147,9 @@ mod tests {
     #[test]
     fn it_preserves_links_and_metadata() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let task = make_rich_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_task(&data_dir, &task).unwrap();
+      store::write_task(&ctx.data_dir, &task).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -165,9 +163,9 @@ mod tests {
         metadata: vec![],
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let updated = store::read_task(&data_dir, &task.id).unwrap();
+      let updated = store::read_task(&ctx.data_dir, &task.id).unwrap();
       assert_eq!(updated.links.len(), 1);
       assert_eq!(updated.links[0].rel, RelationshipType::RelatesTo);
       assert_eq!(updated.metadata.get("priority").unwrap().as_str().unwrap(), "low");
@@ -176,10 +174,9 @@ mod tests {
     #[test]
     fn it_updates_title_only() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let task = make_rich_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_task(&data_dir, &task).unwrap();
+      store::write_task(&ctx.data_dir, &task).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -193,9 +190,9 @@ mod tests {
         metadata: vec![],
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let updated = store::read_task(&data_dir, &task.id).unwrap();
+      let updated = store::read_task(&ctx.data_dir, &task.id).unwrap();
       assert_eq!(updated.title, "New Title");
       assert_eq!(updated.description, "Original description");
       assert_eq!(updated.status, Status::Open);

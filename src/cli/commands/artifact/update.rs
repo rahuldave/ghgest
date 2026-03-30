@@ -1,12 +1,10 @@
-use std::path::Path;
-
 use clap::Args;
 
 use crate::{
-  cli,
+  cli::{self, AppContext},
   model::ArtifactPatch,
   store,
-  ui::{composites::success_message::SuccessMessage, theme::Theme},
+  ui::composites::success_message::SuccessMessage,
 };
 
 /// Update an artifact's title, body, type, or tags.
@@ -30,7 +28,9 @@ pub struct Command {
 
 impl Command {
   /// Apply the provided patch fields to the artifact and print a summary of changes.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let id = store::resolve_artifact_id(data_dir, &self.id, true)?;
 
     let tags = self.tags.as_deref().map(crate::cli::helpers::parse_tags);
@@ -63,7 +63,7 @@ mod tests {
   use super::*;
   use crate::{
     store,
-    test_helpers::{make_test_artifact, make_test_config},
+    test_helpers::{make_test_artifact, make_test_context},
   };
 
   mod call {
@@ -74,11 +74,10 @@ mod tests {
     #[test]
     fn it_updates_body() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let mut artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       artifact.body = "Old body".to_string();
-      store::write_artifact(&data_dir, &artifact).unwrap();
+      store::write_artifact(&ctx.data_dir, &artifact).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -88,20 +87,19 @@ mod tests {
         title: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let updated = store::read_artifact(&data_dir, &artifact.id).unwrap();
+      let updated = store::read_artifact(&ctx.data_dir, &artifact.id).unwrap();
       assert_eq!(updated.body, "New body");
     }
 
     #[test]
     fn it_updates_tags() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let mut artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       artifact.tags = vec!["old".to_string()];
-      store::write_artifact(&data_dir, &artifact).unwrap();
+      store::write_artifact(&ctx.data_dir, &artifact).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -111,21 +109,20 @@ mod tests {
         title: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let updated = store::read_artifact(&data_dir, &artifact.id).unwrap();
+      let updated = store::read_artifact(&ctx.data_dir, &artifact.id).unwrap();
       assert_eq!(updated.tags, vec!["new", "tags"]);
     }
 
     #[test]
     fn it_updates_title_only() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let mut artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       artifact.title = "Original Title".to_string();
       artifact.body = "Original body".to_string();
-      store::write_artifact(&data_dir, &artifact).unwrap();
+      store::write_artifact(&ctx.data_dir, &artifact).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -135,9 +132,9 @@ mod tests {
         title: Some("New Title".to_string()),
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
 
-      let updated = store::read_artifact(&data_dir, &artifact.id).unwrap();
+      let updated = store::read_artifact(&ctx.data_dir, &artifact.id).unwrap();
       assert_eq!(updated.title, "New Title");
       assert_eq!(updated.body, "Original body");
     }

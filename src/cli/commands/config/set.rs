@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use clap::Args;
 
 use crate::{
-  cli,
-  ui::{composites::success_message::SuccessMessage, theme::Theme},
+  cli::{self, AppContext},
+  ui::composites::success_message::SuccessMessage,
 };
 
 /// Persist a configuration value to a TOML config file.
@@ -28,7 +28,7 @@ enum Scope {
 
 impl Command {
   /// Write the key-value pair to the resolved config file and print confirmation.
-  pub fn call(&self, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
     let scope = if self.global { Scope::Global } else { Scope::Project };
 
     let config_path = resolve_config_path(&scope)?;
@@ -64,7 +64,7 @@ impl Command {
       self.value,
       config_path.display()
     );
-    println!("{}", SuccessMessage::new(&msg, theme));
+    println!("{}", SuccessMessage::new(&msg, &ctx.theme));
 
     Ok(())
   }

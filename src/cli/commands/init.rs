@@ -3,7 +3,7 @@ use std::path::Path;
 use clap::Args;
 
 use crate::{
-  cli,
+  cli::{self, AppContext},
   ui::{theme::Theme, views::system::InitView},
 };
 
@@ -23,10 +23,10 @@ pub struct Command;
 
 impl Command {
   /// Create the `.gest/` directory tree under the current working directory.
-  pub fn call(&self, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
     let cwd = std::env::current_dir()?;
     let base = cwd.join(".gest");
-    init_at(&base, theme)
+    init_at(&base, &ctx.theme)
   }
 }
 

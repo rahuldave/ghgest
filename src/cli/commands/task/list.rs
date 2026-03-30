@@ -1,14 +1,11 @@
-use std::path::Path;
-
 use clap::Args;
 
 use crate::{
-  cli,
+  cli::{self, AppContext},
   model::{TaskFilter, link::RelationshipType, task::Status},
   store,
   ui::{
     composites::empty_list::EmptyList,
-    theme::Theme,
     views::task::{TaskListView, TaskViewData},
   },
 };
@@ -32,7 +29,9 @@ pub struct Command {
 
 impl Command {
   /// Fetch and display tasks, rendering as JSON or a themed list view.
-  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+  pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
+    let data_dir = &ctx.data_dir;
+    let theme = &ctx.theme;
     let status = match &self.status {
       Some(s) => Some(s.parse::<Status>().map_err(cli::Error::generic)?),
       None => None,
@@ -107,7 +106,7 @@ mod tests {
       task::Status,
     },
     store,
-    test_helpers::{make_test_config, make_test_task},
+    test_helpers::{make_test_context, make_test_task},
   };
 
   mod call {
@@ -116,15 +115,14 @@ mod tests {
     #[test]
     fn it_filters_by_status() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       store::write_task(
-        &data_dir,
+        &ctx.data_dir,
         &make_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Open", Status::Open),
       )
       .unwrap();
       store::write_task(
-        &data_dir,
+        &ctx.data_dir,
         &make_task("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "InProg", Status::InProgress),
       )
       .unwrap();
@@ -136,14 +134,13 @@ mod tests {
         tag: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_handles_empty_list() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let cmd = Command {
         show_all: false,
@@ -152,16 +149,15 @@ mod tests {
         tag: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_lists_tasks() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let task = make_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Task One", Status::Open);
-      store::write_task(&data_dir, &task).unwrap();
+      store::write_task(&ctx.data_dir, &task).unwrap();
 
       let cmd = Command {
         show_all: false,
@@ -170,16 +166,15 @@ mod tests {
         tag: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_outputs_json() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
       let task = make_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "JSON Task", Status::Open);
-      store::write_task(&data_dir, &task).unwrap();
+      store::write_task(&ctx.data_dir, &task).unwrap();
 
       let cmd = Command {
         show_all: false,
@@ -188,21 +183,20 @@ mod tests {
         tag: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_shows_blocked_indicator() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let mut task = make_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Blocked task", Status::Open);
       task.links = vec![Link {
         ref_: "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk".to_string(),
         rel: RelationshipType::BlockedBy,
       }];
-      store::write_task(&data_dir, &task).unwrap();
+      store::write_task(&ctx.data_dir, &task).unwrap();
 
       let cmd = Command {
         show_all: false,
@@ -211,21 +205,20 @@ mod tests {
         tag: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
 
     #[test]
     fn it_shows_blocking_indicator() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path().to_path_buf());
-      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let ctx = make_test_context(dir.path());
 
       let mut task = make_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Blocking task", Status::Open);
       task.links = vec![Link {
         ref_: "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk".to_string(),
         rel: RelationshipType::Blocks,
       }];
-      store::write_task(&data_dir, &task).unwrap();
+      store::write_task(&ctx.data_dir, &task).unwrap();
 
       let cmd = Command {
         show_all: false,
@@ -234,7 +227,7 @@ mod tests {
         tag: None,
       };
 
-      cmd.call(&data_dir, &Theme::default()).unwrap();
+      cmd.call(&ctx).unwrap();
     }
   }
 
