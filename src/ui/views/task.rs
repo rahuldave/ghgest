@@ -62,12 +62,12 @@ impl Display for TaskDetailView<'_> {
 
 /// Renders a grouped list of tasks with a status-breakdown summary.
 pub struct TaskListView<'a> {
-  tasks: Vec<TaskViewData<'a>>,
+  tasks: Vec<TaskViewData>,
   theme: &'a Theme,
 }
 
 impl<'a> TaskListView<'a> {
-  pub fn new(tasks: Vec<TaskViewData<'a>>, theme: &'a Theme) -> Self {
+  pub fn new(tasks: Vec<TaskViewData>, theme: &'a Theme) -> Self {
     Self {
       tasks,
       theme,
@@ -105,11 +105,11 @@ impl Display for TaskListView<'_> {
       .tasks
       .iter()
       .map(|t| {
-        TaskListRow::new(t.status, t.id, t.title, self.theme)
+        TaskListRow::new(&t.status, &t.id, &t.title, self.theme)
           .priority(t.priority)
-          .tags(t.tags)
+          .tags(&t.tags)
           .blocking(t.is_blocking)
-          .blocked_by(t.blocked_by)
+          .blocked_by(t.blocked_by.as_deref())
       })
       .collect();
 
@@ -157,16 +157,16 @@ impl Display for TaskUpdateView<'_> {
 }
 
 /// Data for a single row in the task list view.
-pub struct TaskViewData<'a> {
+pub struct TaskViewData {
   /// ID of the task that blocks this one, if any.
-  pub blocked_by: Option<&'a str>,
-  pub id: &'a str,
+  pub blocked_by: Option<String>,
+  pub id: String,
   /// Whether this task blocks other tasks.
   pub is_blocking: bool,
   pub priority: Option<u8>,
-  pub status: &'a str,
-  pub tags: &'a [String],
-  pub title: &'a str,
+  pub status: String,
+  pub tags: Vec<String>,
+  pub title: String,
 }
 
 #[cfg(test)]
@@ -288,11 +288,11 @@ mod tests {
       fn it_omits_zero_counts_in_summary() {
         let t = theme();
         let tasks = vec![TaskViewData {
-          status: "open",
-          id: "aaaaaaaa",
-          title: "only open",
+          status: "open".into(),
+          id: "aaaaaaaa".into(),
+          title: "only open".into(),
           priority: None,
-          tags: &[],
+          tags: vec![],
           is_blocking: false,
           blocked_by: None,
         }];
@@ -310,13 +310,13 @@ mod tests {
       fn it_renders_blocked_task() {
         let t = theme();
         let tasks = vec![TaskViewData {
-          status: "open",
-          id: "mxdtqrbn",
-          title: "ctx window",
+          status: "open".into(),
+          id: "mxdtqrbn".into(),
+          title: "ctx window".into(),
           priority: None,
-          tags: &[],
+          tags: vec![],
           is_blocking: false,
-          blocked_by: Some("hpvrlbme"),
+          blocked_by: Some("hpvrlbme".into()),
         }];
         let view = TaskListView::new(tasks, &t);
         let out = view.to_string();
@@ -337,23 +337,22 @@ mod tests {
       #[test]
       fn it_renders_heading_and_summary() {
         let t = theme();
-        let tags = vec!["backend".to_string()];
         let tasks = vec![
           TaskViewData {
-            status: "done",
-            id: "cdrzjvwk",
-            title: "sqlite storage backend",
+            status: "done".into(),
+            id: "cdrzjvwk".into(),
+            title: "sqlite storage backend".into(),
             priority: Some(0),
-            tags: &tags,
+            tags: vec!["backend".into()],
             is_blocking: false,
             blocked_by: None,
           },
           TaskViewData {
-            status: "open",
-            id: "qtsdwcaz",
-            title: "probe dedup",
+            status: "open".into(),
+            id: "qtsdwcaz".into(),
+            title: "probe dedup".into(),
             priority: None,
-            tags: &[],
+            tags: vec![],
             is_blocking: false,
             blocked_by: None,
           },

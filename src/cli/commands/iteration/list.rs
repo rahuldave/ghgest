@@ -58,18 +58,16 @@ impl Command {
       return Ok(());
     }
 
-    let id_strings: Vec<String> = iterations.iter().map(|i| i.id.to_string()).collect();
-
     let view_data: Vec<IterationListData> = iterations
-      .iter()
-      .enumerate()
-      .map(|(idx, i)| {
+      .into_iter()
+      .map(|i| {
         let phase_count = compute_phase_count(data_dir, &i.tasks);
+        let task_count = i.tasks.len();
         IterationListData {
-          id: &id_strings[idx],
-          title: &i.title,
+          id: i.id.to_string(),
+          title: i.title,
           phase_count,
-          task_count: i.tasks.len(),
+          task_count,
         }
       })
       .collect();

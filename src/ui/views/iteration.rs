@@ -64,21 +64,21 @@ impl Display for IterationGraphView<'_> {
 }
 
 /// Data for a single row in the iteration list view.
-pub struct IterationListData<'a> {
-  pub id: &'a str,
+pub struct IterationListData {
+  pub id: String,
   pub phase_count: usize,
   pub task_count: usize,
-  pub title: &'a str,
+  pub title: String,
 }
 
 /// Renders a grouped list of iterations with a count summary.
 pub struct IterationListView<'a> {
-  iterations: Vec<IterationListData<'a>>,
+  iterations: Vec<IterationListData>,
   theme: &'a Theme,
 }
 
 impl<'a> IterationListView<'a> {
-  pub fn new(iterations: Vec<IterationListData<'a>>, theme: &'a Theme) -> Self {
+  pub fn new(iterations: Vec<IterationListData>, theme: &'a Theme) -> Self {
     Self {
       iterations,
       theme,
@@ -97,7 +97,7 @@ impl Display for IterationListView<'_> {
     let rows: Vec<String> = self
       .iterations
       .iter()
-      .map(|i| IterationListRow::new(i.id, i.title, i.phase_count, i.task_count, self.theme).to_string())
+      .map(|i| IterationListRow::new(&i.id, &i.title, i.phase_count, i.task_count, self.theme).to_string())
       .collect();
 
     let list = GroupedList::new("iterations", self.summary(), self.theme).rows(rows);
@@ -236,14 +236,14 @@ mod tests {
     let t = theme();
     let iterations = vec![
       IterationListData {
-        id: "q1ebvmxp",
-        title: "Q1 LLM Benchmark",
+        id: "q1ebvmxp".into(),
+        title: "Q1 LLM Benchmark".into(),
         phase_count: 3,
         task_count: 7,
       },
       IterationListData {
-        id: "r2fcwndy",
-        title: "Q2 Plugin System",
+        id: "r2fcwndy".into(),
+        title: "Q2 Plugin System".into(),
         phase_count: 2,
         task_count: 5,
       },
@@ -261,8 +261,8 @@ mod tests {
   fn it_renders_list_view_phase_and_task_counts_in_rows() {
     let t = theme();
     let iterations = vec![IterationListData {
-      id: "q1ebvmxp",
-      title: "Q1 LLM Benchmark",
+      id: "q1ebvmxp".into(),
+      title: "Q1 LLM Benchmark".into(),
       phase_count: 3,
       task_count: 7,
     }];
@@ -277,8 +277,8 @@ mod tests {
   fn it_renders_list_view_singular_count() {
     let t = theme();
     let iterations = vec![IterationListData {
-      id: "abcd1234",
-      title: "Solo",
+      id: "abcd1234".into(),
+      title: "Solo".into(),
       phase_count: 1,
       task_count: 1,
     }];

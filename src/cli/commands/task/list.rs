@@ -57,20 +57,19 @@ impl Command {
       return Ok(());
     }
 
-    let id_strings: Vec<String> = tasks.iter().map(|t| t.id.to_string()).collect();
     let resolved: Vec<ResolvedBlocking> = tasks.iter().map(|t| store::resolve_blocking(data_dir, t)).collect();
 
     let view_data: Vec<TaskViewData> = tasks
-      .iter()
+      .into_iter()
       .enumerate()
       .map(|(i, t)| TaskViewData {
-        status: t.status.as_str(),
-        id: &id_strings[i],
-        title: &t.title,
+        status: t.status.as_str().into(),
+        id: t.id.to_string(),
+        title: t.title,
         priority: t.priority,
-        tags: &t.tags,
+        tags: t.tags,
         is_blocking: resolved[i].is_blocking,
-        blocked_by: resolved[i].blocked_by_ids.first().map(|s| s.as_str()),
+        blocked_by: resolved[i].blocked_by_ids.first().cloned(),
       })
       .collect();
 

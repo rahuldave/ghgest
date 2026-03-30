@@ -58,16 +58,13 @@ impl Command {
     let total = artifacts.len();
     let archived = artifacts.iter().filter(|a| a.archived_at.is_some()).count();
 
-    let id_strings: Vec<String> = artifacts.iter().map(|a| a.id.to_string()).collect();
-
     let data: Vec<ArtifactViewData> = artifacts
-      .iter()
-      .enumerate()
-      .map(|(i, a)| ArtifactViewData {
-        id: &id_strings[i],
-        title: &a.title,
-        kind: a.kind.as_deref(),
-        tags: &a.tags,
+      .into_iter()
+      .map(|a| ArtifactViewData {
+        id: a.id.to_string(),
+        title: a.title,
+        kind: a.kind,
+        tags: a.tags,
         is_archived: a.archived_at.is_some(),
       })
       .collect();

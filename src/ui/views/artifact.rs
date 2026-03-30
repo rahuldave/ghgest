@@ -67,18 +67,18 @@ impl Display for ArtifactDetailView<'_> {
 }
 
 /// Data for a single row in the artifact list view.
-pub struct ArtifactViewData<'a> {
-  pub id: &'a str,
+pub struct ArtifactViewData {
+  pub id: String,
   pub is_archived: bool,
-  pub kind: Option<&'a str>,
-  pub tags: &'a [String],
-  pub title: &'a str,
+  pub kind: Option<String>,
+  pub tags: Vec<String>,
+  pub title: String,
 }
 
 /// Renders a grouped list of artifacts with a summary header.
 pub struct ArtifactListView<'a> {
   archived: usize,
-  artifacts: Vec<ArtifactViewData<'a>>,
+  artifacts: Vec<ArtifactViewData>,
   theme: &'a Theme,
   total: usize,
 }
@@ -94,7 +94,7 @@ impl<'a> ArtifactListView<'a> {
   }
 
   /// Appends multiple artifact data entries to the list.
-  pub fn artifacts(mut self, items: impl IntoIterator<Item = ArtifactViewData<'a>>) -> Self {
+  pub fn artifacts(mut self, items: impl IntoIterator<Item = ArtifactViewData>) -> Self {
     self.artifacts.extend(items);
     self
   }
@@ -117,8 +117,8 @@ impl Display for ArtifactListView<'_> {
       .artifacts
       .iter()
       .map(|a| {
-        ArtifactListRow::new(a.id, a.title, a.tags, self.theme)
-          .kind(a.kind)
+        ArtifactListRow::new(&a.id, &a.title, &a.tags, self.theme)
+          .kind(a.kind.as_deref())
           .archived(a.is_archived)
       })
       .collect();
@@ -211,20 +211,19 @@ mod tests {
   fn it_renders_list_view_rows() {
     yansi::disable();
     let theme = theme();
-    let tags = vec!["spec".to_string()];
     let view = ArtifactListView::new(2, 0, &theme).artifacts(vec![
       ArtifactViewData {
-        id: "abcdefgh",
-        title: "first-artifact",
+        id: "abcdefgh".into(),
+        title: "first-artifact".into(),
         kind: None,
-        tags: &tags,
+        tags: vec!["spec".into()],
         is_archived: false,
       },
       ArtifactViewData {
-        id: "ijklmnop",
-        title: "second-artifact",
+        id: "ijklmnop".into(),
+        title: "second-artifact".into(),
         kind: None,
-        tags: &[],
+        tags: vec![],
         is_archived: false,
       },
     ]);
@@ -254,17 +253,17 @@ mod tests {
     let theme = theme();
     let view = ArtifactListView::new(2, 0, &theme).artifacts(vec![
       ArtifactViewData {
-        id: "abcdefgh",
-        title: "my-spec",
-        kind: Some("spec"),
-        tags: &[],
+        id: "abcdefgh".into(),
+        title: "my-spec".into(),
+        kind: Some("spec".into()),
+        tags: vec![],
         is_archived: false,
       },
       ArtifactViewData {
-        id: "ijklmnop",
-        title: "my-adr",
-        kind: Some("adr"),
-        tags: &[],
+        id: "ijklmnop".into(),
+        title: "my-adr".into(),
+        kind: Some("adr".into()),
+        tags: vec![],
         is_archived: false,
       },
     ]);
@@ -280,17 +279,17 @@ mod tests {
     let theme = theme();
     let view = ArtifactListView::new(2, 0, &theme).artifacts(vec![
       ArtifactViewData {
-        id: "aaaaaaaa",
-        title: "has-kind",
-        kind: Some("spec"),
-        tags: &[],
+        id: "aaaaaaaa".into(),
+        title: "has-kind".into(),
+        kind: Some("spec".into()),
+        tags: vec![],
         is_archived: false,
       },
       ArtifactViewData {
-        id: "bbbbbbbb",
-        title: "no-kind",
+        id: "bbbbbbbb".into(),
+        title: "no-kind".into(),
         kind: None,
-        tags: &[],
+        tags: vec![],
         is_archived: false,
       },
     ]);
