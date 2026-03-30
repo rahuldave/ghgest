@@ -10,6 +10,54 @@ pub struct SearchResults {
   pub tasks: Vec<Task>,
 }
 
+/// Check whether `haystack` contains `needle` case-insensitively, without
+/// allocating a lowercase copy of the haystack.  `needle` **must** already be
+/// lowercase.
+fn contains_ignore_case(haystack: &str, needle: &str) -> bool {
+  if needle.is_empty() {
+    return true;
+  }
+
+  let needle_len = needle.len();
+  if haystack.len() < needle_len {
+    return false;
+  }
+
+  // Slide a byte-length window over the haystack.  Because `to_lowercase` can
+  // change the byte-length of a char, we iterate by character boundaries and
+  // compare lowercased chars from the haystack against the needle chars.
+  'outer: for (byte_offset, _) in haystack.char_indices() {
+    let remaining = &haystack[byte_offset..];
+    let mut hay_chars = remaining.chars();
+    let mut needle_chars = needle.chars();
+
+    loop {
+      match needle_chars.next() {
+        None => return true, // entire needle matched
+        Some(nc) => match hay_chars.next() {
+          None => break, // haystack exhausted for this starting position
+          Some(hc) => {
+            // Compare lowercased chars.  `to_lowercase` returns an iterator
+            // (multi-char mappings exist, e.g. 'ß' -> "ss"), so we must
+            // compare element-by-element.
+            let mut h_lower = hc.to_lowercase();
+            let mut n_lower = nc.to_lowercase(); // needle is already lowercase, but keeps correctness
+            loop {
+              match (h_lower.next(), n_lower.next()) {
+                (Some(a), Some(b)) if a == b => continue,
+                (None, None) => break, // this char matched
+                _ => continue 'outer,  // mismatch
+              }
+            }
+          }
+        },
+      }
+    }
+  }
+
+  false
+}
+
 /// Perform a case-insensitive full-text search across tasks and artifacts.
 pub fn search(data_dir: &Path, query: &str, show_all: bool) -> super::Result<SearchResults> {
   let query_lower = query.to_lowercase();
@@ -29,35 +77,27 @@ pub fn search(data_dir: &Path, query: &str, show_all: bool) -> super::Result<Sea
   let tasks: Vec<Task> = all_tasks
     .into_par_iter()
     .filter(|task| {
-      task.title.to_lowercase().contains(&query_lower)
-        || task.description.to_lowercase().contains(&query_lower)
-        || task.tags.iter().any(|t| t.to_lowercase().contains(&query_lower))
-        || task.status.to_string().to_lowercase().contains(&query_lower)
+      contains_ignore_case(&task.title, &query_lower)
+        || contains_ignore_case(&task.description, &query_lower)
+        || task.tags.iter().any(|t| contains_ignore_case(t, &query_lower))
+        || contains_ignore_case(&task.status.to_string(), &query_lower)
         || (!task.metadata.is_empty()
-          && toml::to_string(&task.metadata)
-            .unwrap_or_default()
-            .to_lowercase()
-            .contains(&query_lower))
+          && contains_ignore_case(&toml::to_string(&task.metadata).unwrap_or_default(), &query_lower))
     })
     .collect();
 
   let artifacts: Vec<Artifact> = all_artifacts
     .into_par_iter()
     .filter(|artifact| {
-      artifact.title.to_lowercase().contains(&query_lower)
-        || artifact.body.to_lowercase().contains(&query_lower)
-        || artifact.tags.iter().any(|t| t.to_lowercase().contains(&query_lower))
-        || artifact
-          .kind
-          .as_deref()
-          .unwrap_or("")
-          .to_lowercase()
-          .contains(&query_lower)
+      contains_ignore_case(&artifact.title, &query_lower)
+        || contains_ignore_case(&artifact.body, &query_lower)
+        || artifact.tags.iter().any(|t| contains_ignore_case(t, &query_lower))
+        || contains_ignore_case(artifact.kind.as_deref().unwrap_or(""), &query_lower)
         || (!artifact.metadata.is_empty()
-          && yaml_serde::to_string(&artifact.metadata)
-            .unwrap_or_default()
-            .to_lowercase()
-            .contains(&query_lower))
+          && contains_ignore_case(
+            &yaml_serde::to_string(&artifact.metadata).unwrap_or_default(),
+            &query_lower,
+          ))
     })
     .collect();
 
