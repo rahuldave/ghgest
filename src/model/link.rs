@@ -1,4 +1,7 @@
-use std::{fmt, str::FromStr};
+use std::{
+  fmt::{self, Display, Formatter},
+  str::FromStr,
+};
 
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
@@ -36,8 +39,8 @@ impl RelationshipType {
   }
 }
 
-impl fmt::Display for RelationshipType {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for RelationshipType {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let s = match self {
       Self::Blocks => "blocks",
       Self::BlockedBy => "blocked-by",

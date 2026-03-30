@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::Paint;
 
@@ -17,7 +17,7 @@ pub struct SearchResultExpanded<'a> {
 }
 
 impl<'a> SearchResultExpanded<'a> {
-  pub fn new(entity_type: &'a str, id: &'a str, row_content: impl fmt::Display, theme: &'a Theme) -> Self {
+  pub fn new(entity_type: &'a str, id: &'a str, row_content: impl Display, theme: &'a Theme) -> Self {
     Self {
       entity_type,
       id,
@@ -34,8 +34,8 @@ impl<'a> SearchResultExpanded<'a> {
   }
 }
 
-impl fmt::Display for SearchResultExpanded<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for SearchResultExpanded<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let label = format!("{} {}", self.entity_type, self.id);
     let sep = Separator::dashed(label, self.theme.search_expand_separator);
     writeln!(f, "{sep}")?;
@@ -62,7 +62,7 @@ pub struct SearchResultRow<'a> {
 }
 
 impl<'a> SearchResultRow<'a> {
-  pub fn new(entity_type: &'a str, row_content: impl fmt::Display, theme: &'a Theme) -> Self {
+  pub fn new(entity_type: &'a str, row_content: impl Display, theme: &'a Theme) -> Self {
     Self {
       entity_type,
       row_content: row_content.to_string(),
@@ -71,8 +71,8 @@ impl<'a> SearchResultRow<'a> {
   }
 }
 
-impl fmt::Display for SearchResultRow<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for SearchResultRow<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let padding = TYPE_LABEL_PAD.saturating_sub(self.entity_type.len());
     let label = self.entity_type.paint(self.theme.search_type_label);
     write!(f, "{label}{}{}", " ".repeat(padding), self.row_content)
@@ -96,8 +96,8 @@ impl<'a> SearchSummary<'a> {
   }
 }
 
-impl fmt::Display for SearchSummary<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for SearchSummary<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let n = self.count;
     let label = if n == 1 { "result" } else { "results" };
     let query_str = format!("\"{}\"", self.query);
@@ -126,7 +126,7 @@ mod tests {
     Theme::default()
   }
 
-  fn render(item: &impl fmt::Display) -> String {
+  fn render(item: &impl Display) -> String {
     yansi::disable();
     let out = item.to_string();
     yansi::enable();

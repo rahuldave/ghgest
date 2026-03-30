@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::Paint;
 
@@ -37,7 +37,7 @@ pub struct IterationGraph<'a> {
 }
 
 impl<'a> IterationGraph<'a> {
-  fn fmt_branch_close(&self, task_count: usize, is_last_phase: bool, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+  fn fmt_branch_close(&self, task_count: usize, is_last_phase: bool, f: &mut Formatter<'_>) -> fmt::Result {
     if task_count <= 1 {
       return Ok(());
     }
@@ -50,7 +50,7 @@ impl<'a> IterationGraph<'a> {
     Ok(())
   }
 
-  fn fmt_branch_open(&self, task_count: usize, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+  fn fmt_branch_open(&self, task_count: usize, f: &mut Formatter<'_>) -> fmt::Result {
     if task_count <= 1 {
       return Ok(());
     }
@@ -62,11 +62,11 @@ impl<'a> IterationGraph<'a> {
     Ok(())
   }
 
-  fn fmt_continuation(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+  fn fmt_continuation(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(f, "{}", "\u{2502}".paint(self.theme.iteration_graph_branch))
   }
 
-  fn fmt_phase_header(&self, phase: &PhaseData<'_>, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+  fn fmt_phase_header(&self, phase: &PhaseData<'_>, f: &mut Formatter<'_>) -> fmt::Result {
     let icon = Icon::phase(self.theme);
     let label = format!("Phase {}", phase.number);
     let sep = "\u{2500}\u{2500}";
@@ -86,7 +86,7 @@ impl<'a> IterationGraph<'a> {
     )
   }
 
-  fn fmt_summary(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+  fn fmt_summary(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let np = self.phases.len();
     let nt = self.total_tasks();
     let phase_word = if np == 1 { "phase" } else { "phases" };
@@ -103,7 +103,7 @@ impl<'a> IterationGraph<'a> {
     task: &TaskData<'_>,
     task_idx: usize,
     total_tasks: usize,
-    f: &mut fmt::Formatter<'_>,
+    f: &mut Formatter<'_>,
   ) -> fmt::Result {
     let branch = self.theme.iteration_graph_branch;
 
@@ -147,7 +147,7 @@ impl<'a> IterationGraph<'a> {
     write!(f, "  {row}")
   }
 
-  fn fmt_title(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+  fn fmt_title(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(f, "{}", self.title.paint(self.theme.iteration_graph_title))
   }
 
@@ -173,8 +173,8 @@ impl<'a> IterationGraph<'a> {
   }
 }
 
-impl fmt::Display for IterationGraph<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for IterationGraph<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     self.fmt_title(f)?;
     writeln!(f)?;
 

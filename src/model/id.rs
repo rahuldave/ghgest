@@ -1,4 +1,7 @@
-use std::{fmt, str::FromStr};
+use std::{
+  fmt::{self, Display, Formatter},
+  str::FromStr,
+};
 
 use rand::RngExt;
 use serde::{Deserialize, Serialize};
@@ -33,8 +36,8 @@ impl Default for Id {
   }
 }
 
-impl fmt::Display for Id {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Id {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     f.write_str(&encode(&self.0))
   }
 }

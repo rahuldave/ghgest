@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::Paint;
 
@@ -23,13 +23,13 @@ impl<'a> GroupedList<'a> {
   }
 
   /// Appends a single display item as a row.
-  pub fn row(mut self, item: impl fmt::Display) -> Self {
+  pub fn row(mut self, item: impl Display) -> Self {
     self.rows.push(item.to_string());
     self
   }
 
   /// Appends multiple display items as rows.
-  pub fn rows(mut self, items: impl IntoIterator<Item = impl fmt::Display>) -> Self {
+  pub fn rows(mut self, items: impl IntoIterator<Item = impl Display>) -> Self {
     for item in items {
       self.rows.push(item.to_string());
     }
@@ -37,8 +37,8 @@ impl<'a> GroupedList<'a> {
   }
 }
 
-impl fmt::Display for GroupedList<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for GroupedList<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(
       f,
       "{}  {}",

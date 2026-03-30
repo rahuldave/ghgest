@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::{Paint, Style};
 
@@ -18,8 +18,8 @@ impl Tag {
   }
 }
 
-impl fmt::Display for Tag {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Tag {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(f, "{}", format!("#{}", self.name).paint(self.style))
   }
 }
@@ -38,8 +38,8 @@ impl Tags {
   }
 }
 
-impl fmt::Display for Tags {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Tags {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     for (i, tag) in self.tags.iter().enumerate() {
       if i > 0 {
         write!(f, "  ")?;

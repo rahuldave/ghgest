@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::Paint;
 
@@ -49,8 +49,8 @@ impl<'a> ConfigView<'a> {
   }
 }
 
-impl fmt::Display for ConfigView<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for ConfigView<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     writeln!(f, "{}", "configuration".paint(self.theme.config_heading),)?;
 
     let path_label_width = 7;
@@ -121,8 +121,8 @@ impl<'a> InitView<'a> {
   }
 }
 
-impl fmt::Display for InitView<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for InitView<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let msg = SuccessMessage::new("initialized gest in current directory", self.theme)
       .field("data dir", self.data_dir)
       .field("config", self.config_path);
@@ -161,8 +161,8 @@ impl<'a> VersionView<'a> {
   }
 }
 
-impl fmt::Display for VersionView<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for VersionView<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(f, "{}", self.banner)
   }
 }

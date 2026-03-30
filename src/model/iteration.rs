@@ -1,4 +1,7 @@
-use std::{fmt, str::FromStr};
+use std::{
+  fmt::{self, Display, Formatter},
+  str::FromStr,
+};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -79,8 +82,8 @@ impl Status {
   }
 }
 
-impl fmt::Display for Status {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Status {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let s = match self {
       Self::Active => "active",
       Self::Completed => "completed",

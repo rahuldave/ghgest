@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use crate::ui::{
   atoms::{id::Id, label::Label, separator::Separator, tag::Tags, value::Value},
@@ -51,8 +51,8 @@ impl<'a> ArtifactDetail<'a> {
   }
 }
 
-impl fmt::Display for ArtifactDetail<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for ArtifactDetail<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let width = utils::terminal_width() as usize;
 
     writeln!(f, "{}", Id::new(self.id, self.theme))?;

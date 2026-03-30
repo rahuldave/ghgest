@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::Paint;
 
@@ -19,8 +19,8 @@ impl<'a> EmptyList<'a> {
   }
 }
 
-impl fmt::Display for EmptyList<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for EmptyList<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(f, "{}", format!("no {} found", self.entity).paint(self.theme.muted))
   }
 }

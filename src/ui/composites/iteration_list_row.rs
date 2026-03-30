@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::Paint;
 
@@ -28,8 +28,8 @@ impl<'a> IterationListRow<'a> {
   }
 }
 
-impl fmt::Display for IterationListRow<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for IterationListRow<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let id = Id::new(self.id, self.theme);
     let title = Title::new(self.title_text, self.theme.iteration_list_title).pad_to(30);
     let summary = format!(

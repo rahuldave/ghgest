@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::{Paint, Style};
 
@@ -50,8 +50,8 @@ impl Separator {
   }
 }
 
-impl fmt::Display for Separator {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Separator {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let total_width = self.width.unwrap_or(utils::terminal_width() as usize);
     let ch_str = self.ch.to_string();
 

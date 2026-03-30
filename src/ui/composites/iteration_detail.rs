@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::Paint;
 
@@ -86,8 +86,8 @@ impl<'a> IterationDetail<'a> {
   }
 }
 
-impl fmt::Display for IterationDetail<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for IterationDetail<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let id = Id::new(self.id, self.theme);
 
     let title_label = Label::new("title", self.theme.iteration_detail_label).pad_to(LABEL_PAD);

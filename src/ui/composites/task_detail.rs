@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::Paint;
 
@@ -137,8 +137,8 @@ impl<'a> TaskDetail<'a> {
   }
 }
 
-impl fmt::Display for TaskDetail<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for TaskDetail<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let lw = self.label_width();
 
     writeln!(f, "{}", Id::new(self.id, self.theme))?;

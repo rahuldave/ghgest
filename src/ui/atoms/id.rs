@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::Paint;
 
@@ -28,8 +28,8 @@ impl<'a> Id<'a> {
   }
 }
 
-impl fmt::Display for Id<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Id<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let display: String = self.value.chars().take(8).collect();
     let prefix_len = self.prefix_len.min(display.len());
     let (prefix, rest) = display.split_at(prefix_len);

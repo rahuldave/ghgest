@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use crate::ui::{
   composites::{
@@ -15,8 +15,8 @@ pub struct TaskCreateView<'a> {
   pub theme: &'a Theme,
 }
 
-impl fmt::Display for TaskCreateView<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for TaskCreateView<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let mut msg = SuccessMessage::new("created task", self.theme).id(self.id);
     for (label, value) in &self.fields {
       msg = msg.field(*label, value.as_str());
@@ -42,8 +42,8 @@ pub struct TaskDetailView<'a> {
   pub title: &'a str,
 }
 
-impl fmt::Display for TaskDetailView<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for TaskDetailView<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let detail = TaskDetail::new(self.id, self.title, self.status, self.theme)
       .priority(self.priority)
       .phase(self.phase)
@@ -95,8 +95,8 @@ impl<'a> TaskListView<'a> {
   }
 }
 
-impl fmt::Display for TaskListView<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for TaskListView<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let rows: Vec<String> = self
       .tasks
       .iter()
@@ -124,8 +124,8 @@ pub struct TaskUpdateView<'a> {
   pub theme: &'a Theme,
 }
 
-impl fmt::Display for TaskUpdateView<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for TaskUpdateView<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let mut msg = SuccessMessage::new("updated task", self.theme).id(self.id);
     for (label, value) in &self.fields {
       msg = msg.field(*label, value.as_str());

@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::{Paint, Style};
 
@@ -18,8 +18,8 @@ impl Value {
   }
 }
 
-impl fmt::Display for Value {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Value {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(f, "{}", self.text.paint(self.style))
   }
 }

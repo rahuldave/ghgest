@@ -1,6 +1,6 @@
 //! Row and column layout containers for terminal output.
 
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use unicode_width::UnicodeWidthChar;
 
@@ -19,7 +19,7 @@ impl Column {
   }
 
   /// Append an item as the next row in the column.
-  pub fn row(mut self, item: impl fmt::Display) -> Self {
+  pub fn row(mut self, item: impl Display) -> Self {
     self.items.push(item.to_string());
     self
   }
@@ -31,8 +31,8 @@ impl Default for Column {
   }
 }
 
-impl fmt::Display for Column {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Column {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     for (i, item) in self.items.iter().enumerate() {
       if i > 0 {
         writeln!(f)?;
@@ -62,7 +62,7 @@ impl Row {
   }
 
   /// Append an item as the next column in the row.
-  pub fn col(mut self, item: impl fmt::Display) -> Self {
+  pub fn col(mut self, item: impl Display) -> Self {
     self.items.push(item.to_string());
     self
   }
@@ -86,8 +86,8 @@ impl Default for Row {
   }
 }
 
-impl fmt::Display for Row {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Row {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let max_width = self.max_width.unwrap_or_else(utils::terminal_width) as usize;
     let spacer = " ".repeat(self.spacing);
 
@@ -121,7 +121,7 @@ impl fmt::Display for Row {
 }
 
 /// Write `s` into `f`, truncating with an ellipsis once visible width exceeds `budget`.
-fn truncate_visible(f: &mut fmt::Formatter<'_>, s: &str, budget: usize) -> fmt::Result {
+fn truncate_visible(f: &mut Formatter<'_>, s: &str, budget: usize) -> fmt::Result {
   let mut visible = 0;
   let mut chars = s.chars().peekable();
   let mut truncated = false;

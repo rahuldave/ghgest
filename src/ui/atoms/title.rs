@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::{Paint, Style};
 
@@ -34,8 +34,8 @@ impl Title {
   }
 }
 
-impl fmt::Display for Title {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Title {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let mut display_text = self.text.clone();
 
     if let Some(max) = self.max_width

@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use crate::ui::{
   composites::{
@@ -33,8 +33,8 @@ impl<'a> ArtifactCreateView<'a> {
   }
 }
 
-impl fmt::Display for ArtifactCreateView<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for ArtifactCreateView<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let mut msg = SuccessMessage::new("created artifact", self.theme)
       .id(self.id)
       .field("title", self.title);
@@ -60,8 +60,8 @@ impl<'a> ArtifactDetailView<'a> {
   }
 }
 
-impl fmt::Display for ArtifactDetailView<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for ArtifactDetailView<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(f, "{}", self.detail)
   }
 }
@@ -97,8 +97,8 @@ impl<'a> ArtifactListView<'a> {
   }
 }
 
-impl fmt::Display for ArtifactListView<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for ArtifactListView<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let summary = if self.archived > 0 {
       format!(
         "{} artifact{}  \u{00b7}  {} archived",

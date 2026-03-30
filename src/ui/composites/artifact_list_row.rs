@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use crate::ui::{
   atoms::{badge::Badge, id::Id, tag::Tags, title::Title},
@@ -32,8 +32,8 @@ impl<'a> ArtifactListRow<'a> {
   }
 }
 
-impl fmt::Display for ArtifactListRow<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for ArtifactListRow<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let id = Id::new(self.id, self.theme);
 
     let title_style = if self.is_archived {

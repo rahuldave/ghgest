@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use crate::ui::{
   composites::{
@@ -20,8 +20,8 @@ pub struct IterationDetailView<'a> {
   pub title: &'a str,
 }
 
-impl fmt::Display for IterationDetailView<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for IterationDetailView<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let detail = IterationDetail::new(
       self.id,
       self.title,
@@ -57,8 +57,8 @@ impl<'a> IterationGraphView<'a> {
   }
 }
 
-impl fmt::Display for IterationGraphView<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for IterationGraphView<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(f, "{}", self.graph)
   }
 }
@@ -92,8 +92,8 @@ impl<'a> IterationListView<'a> {
   }
 }
 
-impl fmt::Display for IterationListView<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for IterationListView<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let rows: Vec<String> = self
       .iterations
       .iter()

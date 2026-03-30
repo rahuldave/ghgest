@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::Paint;
 
@@ -98,8 +98,8 @@ impl<'a> TaskListRow<'a> {
   }
 }
 
-impl fmt::Display for TaskListRow<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for TaskListRow<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let mut row = Row::new().spacing(2);
 
     row = row.col(self.leading_icon());

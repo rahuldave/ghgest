@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::{Paint, Style};
 
@@ -26,8 +26,8 @@ impl Label {
   }
 }
 
-impl fmt::Display for Label {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Label {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let padding = self.pad_to.saturating_sub(self.text.len());
     write!(f, "{}{}", self.text.paint(self.style), " ".repeat(padding))
   }

@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::Paint;
 
@@ -38,8 +38,8 @@ impl<'a> SuccessMessage<'a> {
   }
 }
 
-impl fmt::Display for SuccessMessage<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for SuccessMessage<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(
       f,
       "  {}  {}",

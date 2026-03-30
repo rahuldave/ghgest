@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use crate::ui::{
   composites::search_result::{SearchResultExpanded, SearchResultRow, SearchSummary},
@@ -39,8 +39,8 @@ impl<'a> SearchExpandedView<'a> {
   }
 }
 
-impl fmt::Display for SearchExpandedView<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for SearchExpandedView<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let summary = SearchSummary::new(self.results.len(), self.query, self.theme);
     write!(f, "{summary}")?;
 
@@ -88,8 +88,8 @@ impl<'a> SearchView<'a> {
   }
 }
 
-impl fmt::Display for SearchView<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for SearchView<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let summary = SearchSummary::new(self.results.len(), self.query, self.theme);
     write!(f, "{summary}")?;
 
@@ -116,7 +116,7 @@ mod tests {
     Theme::default()
   }
 
-  fn render(item: &impl fmt::Display) -> String {
+  fn render(item: &impl Display) -> String {
     yansi::disable();
     let out = item.to_string();
     yansi::enable();

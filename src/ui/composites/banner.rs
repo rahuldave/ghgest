@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::{Color, Paint, Style};
 
@@ -57,8 +57,8 @@ impl<'a> Banner<'a> {
   }
 }
 
-impl fmt::Display for Banner<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Banner<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let start = fg_color(&self.theme.banner_gradient_start);
     let end = fg_color(&self.theme.banner_gradient_end);
     let shadow_color = fg_color(&self.theme.banner_shadow);

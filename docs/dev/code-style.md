@@ -28,6 +28,32 @@ These principles apply across all file types in the project:
 
 These conventions are enforced by `.editorconfig` and the project's linting tools.
 
+## Import Style
+
+Prefer importing named types (structs, enums, traits) directly rather than using fully-qualified paths, unless there is
+a name conflict. Functions and free-standing helpers may use the fully-qualified path.
+
+```rust
+// Good: import the trait and type, qualify only where there's a conflict (fmt::Result vs std::Result)
+use std::fmt::{self, Display, Formatter};
+
+impl Display for Foo {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    // ...
+  }
+}
+
+// Bad: unnecessarily qualified types
+impl fmt::Display for Foo {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    // ...
+  }
+}
+
+// Fine: free functions can stay qualified
+std::fs::create_dir_all(path)?;
+```
+
 ## Code Organization
 
 ### Module-Level Ordering

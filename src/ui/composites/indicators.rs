@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display, Formatter};
 
 use yansi::Paint;
 
@@ -33,8 +33,8 @@ impl<'a> Indicators<'a> {
   }
 }
 
-impl fmt::Display for Indicators<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Indicators<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let mut parts = Vec::new();
 
     if !self.blocked_by.is_empty() {
