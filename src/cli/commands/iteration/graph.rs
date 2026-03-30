@@ -4,7 +4,6 @@ use clap::Args;
 
 use crate::{
   cli::{self, AppContext},
-  model::link::RelationshipType,
   store,
   ui::{
     composites::iteration_graph::{PhaseData, TaskData},
@@ -53,13 +52,10 @@ impl Command {
           crate::model::task::Status::Cancelled => "cancelled",
         };
 
-        let is_blocking = task.links.iter().any(|l| l.rel == RelationshipType::Blocks);
+        let resolved = store::resolve_blocking(data_dir, &task);
 
-        let blocked_by = task
-          .links
-          .iter()
-          .find(|l| l.rel == RelationshipType::BlockedBy)
-          .map(|l| l.ref_.strip_prefix("tasks/").unwrap_or(&l.ref_).to_string());
+        let blocked_by = resolved.blocked_by_ids.into_iter().next();
+        let is_blocking = resolved.is_blocking;
 
         phase_map.entry(phase).or_default().push(TaskRow {
           blocked_by,
