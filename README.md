@@ -16,17 +16,19 @@ external data directory.
 ## Quick Start
 
 ```sh
-gest init
+gest init                                    # initialize global store
 gest task create "Implement auth middleware"
 gest artifact create --file auth-spec.md
 gest search "auth"
 ```
 
+Use `gest init --local` to store data inside the repo (`.gest/`) instead of the global data directory.
+
 ## Commands
 
 | Command          | Description                                                    |
 |------------------|----------------------------------------------------------------|
-| `gest init`      | Initialize gest in the current directory                       |
+| `gest init`      | Initialize gest (`--local` for in-repo `.gest/` directory)     |
 | `gest task`      | Create, list, show, update, tag, link, and manage tasks        |
 | `gest artifact`  | Create, list, show, update, tag, archive, and manage artifacts |
 | `gest search`    | Search across tasks and artifacts                              |

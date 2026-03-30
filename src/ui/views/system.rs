@@ -106,13 +106,13 @@ impl Display for ConfigView<'_> {
 
 /// Renders the post-initialization success message with getting-started hints.
 pub struct InitView<'a> {
-  config_path: &'a str,
+  config_path: Option<&'a str>,
   data_dir: &'a str,
   theme: &'a Theme,
 }
 
 impl<'a> InitView<'a> {
-  pub fn new(data_dir: &'a str, config_path: &'a str, theme: &'a Theme) -> Self {
+  pub fn new(data_dir: &'a str, config_path: Option<&'a str>, theme: &'a Theme) -> Self {
     Self {
       data_dir,
       config_path,
@@ -123,9 +123,10 @@ impl<'a> InitView<'a> {
 
 impl Display for InitView<'_> {
   fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-    let msg = SuccessMessage::new("initialized gest in current directory", self.theme)
-      .field("data dir", self.data_dir)
-      .field("config", self.config_path);
+    let mut msg = SuccessMessage::new("initialized gest", self.theme).field("data dir", self.data_dir);
+    if let Some(config) = self.config_path {
+      msg = msg.field("config", config);
+    }
     write!(f, "{msg}")?;
 
     writeln!(f)?;
@@ -257,7 +258,7 @@ mod tests {
       #[test]
       fn it_renders_get_started_section() {
         let theme = theme();
-        let view = InitView::new(".gest/", ".gest/config.toml", &theme);
+        let view = InitView::new(".gest/", Some(".gest/config.toml"), &theme);
         let rendered = format!("{view}");
 
         assert!(rendered.contains("get started"));
@@ -267,15 +268,27 @@ mod tests {
       }
 
       #[test]
-      fn it_renders_success_and_paths() {
+      fn it_renders_success_and_paths_for_local_mode() {
         let theme = theme();
-        let view = InitView::new(".gest/", ".gest/config.toml", &theme);
+        let view = InitView::new(".gest/", Some(".gest/config.toml"), &theme);
         let rendered = format!("{view}");
 
         assert!(rendered.contains('\u{2713}'), "expected check icon");
-        assert!(rendered.contains("initialized gest in current directory"));
+        assert!(rendered.contains("initialized gest"));
         assert!(rendered.contains(".gest/"));
         assert!(rendered.contains(".gest/config.toml"));
+      }
+
+      #[test]
+      fn it_renders_success_without_config_for_global_mode() {
+        let theme = theme();
+        let view = InitView::new("/home/user/.local/share/gest/abc123", None, &theme);
+        let rendered = format!("{view}");
+
+        assert!(rendered.contains('\u{2713}'), "expected check icon");
+        assert!(rendered.contains("initialized gest"));
+        assert!(rendered.contains("/home/user/.local/share/gest/abc123"));
+        assert!(!rendered.contains("config"));
       }
     }
   }
