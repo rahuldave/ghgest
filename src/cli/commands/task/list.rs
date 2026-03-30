@@ -2,8 +2,9 @@ use clap::Args;
 
 use crate::{
   cli::{self, AppContext},
-  model::{TaskFilter, link::RelationshipType, task::Status},
+  model::{TaskFilter, task::Status},
   store,
+  store::ResolvedBlocking,
   ui::{
     composites::empty_list::EmptyList,
     views::task::{TaskListView, TaskViewData},
@@ -57,15 +58,7 @@ impl Command {
     }
 
     let id_strings: Vec<String> = tasks.iter().map(|t| t.id.to_string()).collect();
-    let blocked_by_ids: Vec<Option<String>> = tasks
-      .iter()
-      .map(|t| {
-        t.links
-          .iter()
-          .find(|l| l.rel == RelationshipType::BlockedBy)
-          .map(|l| l.ref_.strip_prefix("tasks/").unwrap_or(&l.ref_).to_string())
-      })
-      .collect();
+    let resolved: Vec<ResolvedBlocking> = tasks.iter().map(|t| store::resolve_blocking(data_dir, t)).collect();
 
     let view_data: Vec<TaskViewData> = tasks
       .iter()
@@ -76,8 +69,8 @@ impl Command {
         title: &t.title,
         priority: t.priority,
         tags: &t.tags,
-        is_blocking: t.links.iter().any(|l| l.rel == RelationshipType::Blocks),
-        blocked_by: blocked_by_ids[i].as_deref(),
+        is_blocking: resolved[i].is_blocking,
+        blocked_by: resolved[i].blocked_by_ids.first().map(|s| s.as_str()),
       })
       .collect();
 
