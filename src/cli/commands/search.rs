@@ -104,6 +104,7 @@ fn build_search_items(data_dir: &Path, results: &store::SearchResults, theme: &T
     let is_archived = artifact.archived_at.is_some();
 
     let row_content = ArtifactListRow::new(&id_str, &artifact.title, &artifact.tags, theme)
+      .kind(artifact.kind.as_deref())
       .archived(is_archived)
       .to_string();
 

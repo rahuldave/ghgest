@@ -5,8 +5,8 @@ use crate::{
   model::ArtifactFilter,
   store,
   ui::{
-    composites::{artifact_list_row::ArtifactListRow, empty_list::EmptyList},
-    views::artifact::ArtifactListView,
+    composites::empty_list::EmptyList,
+    views::artifact::{ArtifactListView, ArtifactViewData},
   },
 };
 
@@ -60,13 +60,19 @@ impl Command {
 
     let id_strings: Vec<String> = artifacts.iter().map(|a| a.id.to_string()).collect();
 
-    let rows: Vec<ArtifactListRow> = artifacts
+    let data: Vec<ArtifactViewData> = artifacts
       .iter()
       .enumerate()
-      .map(|(i, a)| ArtifactListRow::new(&id_strings[i], &a.title, &a.tags, theme).archived(a.archived_at.is_some()))
+      .map(|(i, a)| ArtifactViewData {
+        id: &id_strings[i],
+        title: &a.title,
+        kind: a.kind.as_deref(),
+        tags: &a.tags,
+        is_archived: a.archived_at.is_some(),
+      })
       .collect();
 
-    let view = ArtifactListView::new(total, archived, theme).rows(rows);
+    let view = ArtifactListView::new(total, archived, theme).artifacts(data);
     println!("{view}");
 
     Ok(())

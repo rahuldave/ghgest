@@ -66,10 +66,19 @@ impl Display for ArtifactDetailView<'_> {
   }
 }
 
+/// Data for a single row in the artifact list view.
+pub struct ArtifactViewData<'a> {
+  pub id: &'a str,
+  pub is_archived: bool,
+  pub kind: Option<&'a str>,
+  pub tags: &'a [String],
+  pub title: &'a str,
+}
+
 /// Renders a grouped list of artifacts with a summary header.
 pub struct ArtifactListView<'a> {
   archived: usize,
-  rows: Vec<ArtifactListRow<'a>>,
+  artifacts: Vec<ArtifactViewData<'a>>,
   theme: &'a Theme,
   total: usize,
 }
@@ -77,22 +86,16 @@ pub struct ArtifactListView<'a> {
 impl<'a> ArtifactListView<'a> {
   pub fn new(total: usize, archived: usize, theme: &'a Theme) -> Self {
     Self {
-      rows: Vec::new(),
+      artifacts: Vec::new(),
       total,
       archived,
       theme,
     }
   }
 
-  /// Appends a single row to the list.
-  pub fn row(mut self, row: ArtifactListRow<'a>) -> Self {
-    self.rows.push(row);
-    self
-  }
-
-  /// Appends multiple rows to the list.
-  pub fn rows(mut self, items: impl IntoIterator<Item = ArtifactListRow<'a>>) -> Self {
-    self.rows.extend(items);
+  /// Appends multiple artifact data entries to the list.
+  pub fn artifacts(mut self, items: impl IntoIterator<Item = ArtifactViewData<'a>>) -> Self {
+    self.artifacts.extend(items);
     self
   }
 }
@@ -110,10 +113,24 @@ impl Display for ArtifactListView<'_> {
       format!("{} artifact{}", self.total, if self.total == 1 { "" } else { "s" },)
     };
 
-    let mut list = GroupedList::new("artifacts", summary, self.theme);
-    for row in &self.rows {
-      list = list.row(row);
-    }
+    let proto_rows: Vec<ArtifactListRow> = self
+      .artifacts
+      .iter()
+      .map(|a| {
+        ArtifactListRow::new(a.id, a.title, a.tags, self.theme)
+          .kind(a.kind)
+          .archived(a.is_archived)
+      })
+      .collect();
+
+    let max_kind = proto_rows.iter().map(|r| r.kind_badge_width()).max().unwrap_or(0);
+
+    let rows: Vec<String> = proto_rows
+      .into_iter()
+      .map(|r| r.kind_pad(max_kind).to_string())
+      .collect();
+
+    let list = GroupedList::new("artifacts", summary, self.theme).rows(rows);
 
     write!(f, "{list}")
   }
@@ -195,9 +212,22 @@ mod tests {
     yansi::disable();
     let theme = theme();
     let tags = vec!["spec".to_string()];
-    let view = ArtifactListView::new(2, 0, &theme)
-      .row(ArtifactListRow::new("abcdefgh", "first-artifact", &tags, &theme))
-      .row(ArtifactListRow::new("ijklmnop", "second-artifact", &[], &theme));
+    let view = ArtifactListView::new(2, 0, &theme).artifacts(vec![
+      ArtifactViewData {
+        id: "abcdefgh",
+        title: "first-artifact",
+        kind: None,
+        tags: &tags,
+        is_archived: false,
+      },
+      ArtifactViewData {
+        id: "ijklmnop",
+        title: "second-artifact",
+        kind: None,
+        tags: &[],
+        is_archived: false,
+      },
+    ]);
     let output = view.to_string();
 
     assert!(output.contains("abcdefgh"), "should contain first row id");
@@ -216,5 +246,68 @@ mod tests {
     assert!(output.contains("1 artifact"), "should use singular");
     assert!(!output.contains("1 artifacts"), "should not use plural for count of 1");
     assert!(!output.contains("archived"), "should omit archived when zero");
+  }
+
+  #[test]
+  fn it_renders_kind_in_list_rows() {
+    yansi::disable();
+    let theme = theme();
+    let view = ArtifactListView::new(2, 0, &theme).artifacts(vec![
+      ArtifactViewData {
+        id: "abcdefgh",
+        title: "my-spec",
+        kind: Some("spec"),
+        tags: &[],
+        is_archived: false,
+      },
+      ArtifactViewData {
+        id: "ijklmnop",
+        title: "my-adr",
+        kind: Some("adr"),
+        tags: &[],
+        is_archived: false,
+      },
+    ]);
+    let output = view.to_string();
+
+    assert!(output.contains("spec"), "should contain kind for first row");
+    assert!(output.contains("adr"), "should contain kind for second row");
+  }
+
+  #[test]
+  fn it_aligns_titles_with_mixed_kinds() {
+    yansi::disable();
+    let theme = theme();
+    let view = ArtifactListView::new(2, 0, &theme).artifacts(vec![
+      ArtifactViewData {
+        id: "aaaaaaaa",
+        title: "has-kind",
+        kind: Some("spec"),
+        tags: &[],
+        is_archived: false,
+      },
+      ArtifactViewData {
+        id: "bbbbbbbb",
+        title: "no-kind",
+        kind: None,
+        tags: &[],
+        is_archived: false,
+      },
+    ]);
+    let output = view.to_string();
+    let lines: Vec<&str> = output.lines().collect();
+
+    let line_with = lines
+      .iter()
+      .find(|l| l.contains("has-kind"))
+      .expect("should find has-kind line");
+    let line_without = lines
+      .iter()
+      .find(|l| l.contains("no-kind"))
+      .expect("should find no-kind line");
+
+    let pos_with = line_with.find("has-kind").unwrap();
+    let pos_without = line_without.find("no-kind").unwrap();
+    assert_eq!(pos_with, pos_without, "titles should align when kinds differ");
   }
 }

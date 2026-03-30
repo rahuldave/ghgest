@@ -13,6 +13,7 @@ pub struct Theme {
   pub artifact_detail_separator: Style,
   pub artifact_detail_value: Style,
   pub artifact_list_archived_badge: Style,
+  pub artifact_list_kind: Style,
   pub artifact_list_tag_archived: Style,
   pub artifact_list_title: Style,
   pub artifact_list_title_archived: Style,
@@ -132,6 +133,7 @@ impl Default for Theme {
       artifact_detail_separator: Style::new().fg(colors::BORDER),
       artifact_detail_value: Style::new().fg(colors::SILVER),
       artifact_list_archived_badge: Style::new().fg(colors::DIM),
+      artifact_list_kind: Style::new().fg(colors::PEWTER),
       artifact_list_tag_archived: Style::new().fg(colors::DIM),
       artifact_list_title: Style::new().fg(colors::SILVER),
       artifact_list_title_archived: Style::new().fg(colors::DIM),
@@ -264,6 +266,7 @@ impl Theme {
         "artifact.list.archived.badge" => {
           self.artifact_list_archived_badge = value.apply_to(self.artifact_list_archived_badge)
         }
+        "artifact.list.kind" => self.artifact_list_kind = value.apply_to(self.artifact_list_kind),
         "artifact.list.tag.archived" => {
           self.artifact_list_tag_archived = value.apply_to(self.artifact_list_tag_archived)
         }
