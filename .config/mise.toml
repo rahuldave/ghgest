@@ -12,6 +12,7 @@ alias = ["l"]
 depends = ["lint:**"]
 
 [tools]
+bun = "latest"
 "cargo:cargo-audit" = "latest"
 "cargo:cargo-llvm-cov" = "latest"
 "cargo:cargo-nextest" = "latest"
