@@ -29,8 +29,7 @@ impl Command {
     task.updated_at = Utc::now();
     store::write_task(data_dir, &task)?;
 
-    let tag_list: Vec<&str> = self.tags.iter().map(|s| s.as_str()).collect();
-    let msg = format!("Untagged task {} from {}", id, tag_list.join(", "));
+    let msg = format!("Untagged task {} from {}", id, self.tags.join(", "));
     println!("{}", SuccessMessage::new(&msg, theme));
     Ok(())
   }

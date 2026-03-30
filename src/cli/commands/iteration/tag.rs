@@ -29,8 +29,7 @@ impl Command {
     iteration.updated_at = Utc::now();
     store::write_iteration(data_dir, &iteration)?;
 
-    let tag_list: Vec<&str> = self.tags.iter().map(|s| s.as_str()).collect();
-    let msg = format!("Tagged iteration {} with {}", id, tag_list.join(", "));
+    let msg = format!("Tagged iteration {} with {}", id, self.tags.join(", "));
     println!("{}", SuccessMessage::new(&msg, theme));
     Ok(())
   }

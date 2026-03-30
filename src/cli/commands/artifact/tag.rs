@@ -29,8 +29,7 @@ impl Command {
     artifact.updated_at = Utc::now();
     store::write_artifact(data_dir, &artifact)?;
 
-    let tag_list: Vec<&str> = self.tags.iter().map(|s| s.as_str()).collect();
-    let msg = format!("Tagged artifact {} with {}", id, tag_list.join(", "));
+    let msg = format!("Tagged artifact {} with {}", id, self.tags.join(", "));
     println!("{}", SuccessMessage::new(&msg, theme));
     Ok(())
   }
