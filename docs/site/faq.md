@@ -2,7 +2,10 @@
 
 ## What is gest?
 
-Gest is a CLI tool for tracking tasks and artifacts generated during AI-assisted development. It stores data as plain files (TOML for tasks, Markdown with YAML frontmatter for artifacts) so everything is inspectable, portable, and version-control friendly. See the [quick start](/getting-started/quick-start) to get up and running.
+Gest is a CLI tool for tracking tasks and artifacts generated during AI-assisted development.
+It stores data as plain files (TOML for tasks, Markdown with YAML frontmatter for artifacts)
+so everything is inspectable, portable, and version-control friendly. See the
+[quick start](/getting-started/quick-start) to get up and running.
 
 ## How does gest differ from GitHub Issues or Jira?
 
@@ -13,15 +16,18 @@ Gest is designed for fast, local, developer-centric tracking -- not team-wide pr
 - **Scriptable.** JSON output (`--json`) on search and list commands makes it easy to integrate with other tools.
 - **Lightweight.** No accounts, no web UI, no configuration ceremony.
 
-Gest complements issue trackers rather than replacing them. Use `gest` for in-flight development work and promote items to GitHub Issues when they need broader visibility.
+Gest complements issue trackers rather than replacing them. Use `gest` for in-flight
+development work and promote items to GitHub Issues when they need broader visibility.
 
 ## Where is my data stored?
 
-By default, gest uses the global data directory at `~/.local/share/gest/`. If you initialize with `--local`, data goes into a `.gest/` directory inside your project. Run `gest config show` to see where your resolved data directory is.
+By default, gest uses the global data directory at `~/.local/share/gest/`. If you initialize
+with `--local`, data goes into a `.gest/` directory inside your project. Run
+`gest config show` to see where your resolved data directory is.
 
 The data directory contains three subdirectories:
 
-```
+```text
 artifacts/        # Markdown files with YAML frontmatter
   archive/        # Archived artifacts
 tasks/            # TOML files
@@ -32,17 +38,24 @@ iterations/       # TOML files
 
 ## What's the difference between global and local stores?
 
-| | Global (`~/.local/share/gest/`) | Local (`.gest/`) |
-|---|---|---|
-| **Created with** | `gest init` | `gest init --local` |
-| **Shared via VCS** | No | Yes, if you commit `.gest/` |
-| **Best for** | Personal task tracking across projects | Project-specific tasks you want to share or version |
+**Global** (`~/.local/share/gest/`):
+
+- Created with `gest init`
+- Not shared via VCS
+- Best for personal task tracking across projects
+
+**Local** (`.gest/`):
+
+- Created with `gest init --local`
+- Shared via VCS if you commit `.gest/`
+- Best for project-specific tasks you want to share or version
 
 When a local `.gest/` directory exists, gest uses it automatically. Otherwise it falls back to the global store.
 
 ## Can I use gest with CI/CD?
 
-Yes. Because data is plain files and every list/search command supports `--json`, you can script gest in CI pipelines. For example:
+Yes. Because data is plain files and every list/search command supports `--json`, you can
+script gest in CI pipelines. For example:
 
 ```sh
 # Fail the build if there are open tasks tagged "blocker"
@@ -78,7 +91,9 @@ All formats are human-readable and editable with any text editor.
 
 ## How does search work?
 
-`gest search <QUERY>` performs a case-insensitive text match against titles, descriptions, and body content across both tasks and artifacts. See [gest search](/cli/search) for the full reference.
+`gest search <QUERY>` performs a case-insensitive text match against titles, descriptions, and
+body content across both tasks and artifacts. See [gest search](/cli/search) for the full
+reference.
 
 Useful flags:
 
@@ -88,17 +103,23 @@ Useful flags:
 
 ## Can multiple people use gest on the same project?
 
-Yes, if you use a local store (`gest init --local`) and commit the `.gest/` directory. Each person's changes to task and artifact files merge through your normal VCS workflow. Because files are keyed by unique IDs, merge conflicts are rare -- they only happen when two people edit the same entity concurrently.
+Yes, if you use a local store (`gest init --local`) and commit the `.gest/` directory. Each
+person's changes to task and artifact files merge through your normal VCS workflow. Because
+files are keyed by unique IDs, merge conflicts are rare -- they only happen when two people
+edit the same entity concurrently.
 
 ## How do I back up my gest data?
 
 For a **local store**, your VCS handles it -- just commit the `.gest/` directory.
 
-For the **global store**, back up `~/.local/share/gest/`. Since it is plain files, any backup tool (rsync, Time Machine, etc.) works.
+For the **global store**, back up `~/.local/share/gest/`. Since it is plain files, any backup
+tool (rsync, Time Machine, etc.) works.
 
 ## What are iterations and when should I use them?
 
-Iterations group related tasks into an execution plan with ordered phases. They are useful when you have a set of tasks that should be completed together in a specific sequence -- for example, implementing a feature that spans multiple files or steps.
+Iterations group related tasks into an execution plan with ordered phases. They are useful
+when you have a set of tasks that should be completed together in a specific sequence -- for
+example, implementing a feature that spans multiple files or steps.
 
 Create an iteration when:
 

@@ -59,7 +59,7 @@ gest version
 
 You should see output similar to:
 
-```
+```text
 v0.3.0 macos ( revision )
 ```
 

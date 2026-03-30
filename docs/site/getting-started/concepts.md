@@ -9,26 +9,26 @@ version-control alongside your code.
 A **task** represents a unit of work. Tasks are stored as TOML files and have the following
 properties:
 
-| Field         | Description                                                |
-|---------------|------------------------------------------------------------|
-| `title`       | Short summary of the work                                  |
-| `description` | Longer explanation (Markdown)                              |
-| `status`      | Current state of the task                                  |
-| `priority`    | Urgency level, 0 (highest) through 4 (lowest)             |
-| `phase`       | Numeric execution phase for parallel grouping              |
-| `assigned_to` | Actor responsible for the task                             |
-| `tags`        | Freeform labels for filtering and grouping                 |
-| `metadata`    | Arbitrary key-value pairs (TOML table)                     |
-| `links`       | Relationships to other tasks or artifacts                  |
+| Field | Description |
+| --- | --- |
+| `title` | Short summary of the work |
+| `description` | Longer explanation (Markdown) |
+| `status` | Current state of the task |
+| `priority` | Urgency level, 0 (highest) through 4 (lowest) |
+| `phase` | Numeric execution phase for parallel grouping |
+| `assigned_to` | Actor responsible for the task |
+| `tags` | Freeform labels for filtering and grouping |
+| `metadata` | Arbitrary key-value pairs (TOML table) |
+| `links` | Relationships to other tasks or artifacts |
 
 ### Task Statuses
 
-| Status        | Meaning                              |
-|---------------|--------------------------------------|
-| `open`        | Not yet started (default)            |
-| `in-progress` | Actively being worked on             |
-| `done`        | Completed successfully               |
-| `cancelled`   | Abandoned or no longer needed        |
+| Status | Meaning |
+| --- | --- |
+| `open` | Not yet started (default) |
+| `in-progress` | Actively being worked on |
+| `done` | Completed successfully |
+| `cancelled` | Abandoned or no longer needed |
 
 `done` and `cancelled` are terminal statuses. Resolved tasks are excluded from listings and
 searches by default; pass `--all` to include them.
@@ -49,25 +49,25 @@ phase numbers execute first.
 An **artifact** is a document -- a spec, ADR, RFC, design note, or any other prose output
 generated during development. Artifacts are stored as Markdown files with YAML frontmatter.
 
-| Field         | Description                                                |
-|---------------|------------------------------------------------------------|
-| `title`       | Document title (extracted from `# heading` if not set)     |
-| `body`        | Markdown content                                           |
-| `type`        | Document kind (freeform string, e.g. `spec`, `adr`, `rfc`) |
-| `tags`        | Freeform labels for filtering                              |
-| `metadata`    | Arbitrary key-value pairs (YAML mapping)                   |
-| `archived_at` | Timestamp set when the artifact is archived                |
+| Field | Description |
+| --- | --- |
+| `title` | Document title (extracted from `# heading` if not set) |
+| `body` | Markdown content |
+| `type` | Document kind (freeform string, e.g. `spec`, `adr`, `rfc`) |
+| `tags` | Freeform labels for filtering |
+| `metadata` | Arbitrary key-value pairs (YAML mapping) |
+| `archived_at` | Timestamp set when the artifact is archived |
 
 ### Artifact Types
 
 The `type` field is a freeform string. Common conventions include:
 
-| Type   | Description                                  |
-|--------|----------------------------------------------|
-| `spec` | Product or feature specification             |
-| `adr`  | Architecture Decision Record                 |
-| `rfc`  | Request for Comments                         |
-| `note` | General-purpose document                     |
+| Type | Description |
+| --- | --- |
+| `spec` | Product or feature specification |
+| `adr` | Architecture Decision Record |
+| `rfc` | Request for Comments |
+| `note` | General-purpose document |
 
 You are free to use any value that fits your workflow.
 
@@ -81,23 +81,23 @@ listings and searches by default, but remain on disk. Use `--all` to include the
 An **iteration** groups related tasks into an execution plan. Iterations are stored as TOML
 files and track which tasks belong to them, along with their phase assignments.
 
-| Field         | Description                                                |
-|---------------|------------------------------------------------------------|
-| `title`       | Name of the iteration                                      |
-| `description` | Goal or scope of the iteration (Markdown)                  |
-| `status`      | Current state of the iteration                             |
-| `tasks`       | List of task IDs that belong to this iteration             |
-| `tags`        | Freeform labels                                            |
-| `metadata`    | Arbitrary key-value pairs (TOML table)                     |
-| `links`       | Relationships to other entities                            |
+| Field | Description |
+| --- | --- |
+| `title` | Name of the iteration |
+| `description` | Goal or scope of the iteration (Markdown) |
+| `status` | Current state of the iteration |
+| `tasks` | List of task IDs that belong to this iteration |
+| `tags` | Freeform labels |
+| `metadata` | Arbitrary key-value pairs (TOML table) |
+| `links` | Relationships to other entities |
 
 ### Iteration Statuses
 
-| Status      | Meaning                                |
-|-------------|----------------------------------------|
-| `active`    | Currently in progress (default)        |
-| `completed` | All tasks finished successfully        |
-| `failed`    | Iteration did not succeed              |
+| Status | Meaning |
+| --- | --- |
+| `active` | Currently in progress (default) |
+| `completed` | All tasks finished successfully |
+| `failed` | Iteration did not succeed |
 
 ### Dependency Graphs
 
@@ -119,13 +119,13 @@ creates the reciprocal link on the target.
 
 ### Relationship Types
 
-| Type         | Inverse      | Meaning                                         |
-|--------------|--------------|-------------------------------------------------|
-| `blocks`     | `blocked-by` | Source must complete before target can start     |
-| `blocked-by` | `blocks`     | Source waits on target                           |
-| `parent-of`  | `child-of`   | Source is the parent of target                   |
-| `child-of`   | `parent-of`  | Source is a child of target                      |
-| `relates-to` | `relates-to` | General association (symmetric)                  |
+| Type | Inverse | Meaning |
+| --- | --- | --- |
+| `blocks` | `blocked-by` | Source must complete before target can start |
+| `blocked-by` | `blocks` | Source waits on target |
+| `parent-of` | `child-of` | Source is the parent of target |
+| `child-of` | `parent-of` | Source is a child of target |
+| `relates-to` | `relates-to` | General association (symmetric) |
 
 Link a task to another task:
 

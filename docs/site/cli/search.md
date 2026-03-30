@@ -4,20 +4,20 @@ Search across tasks and artifacts by keyword. The query is matched against title
 
 ## Usage
 
-```
+```text
 gest search [OPTIONS] <QUERY>
 ```
 
 ## Arguments
 
 | Argument | Description |
-|----------|-------------|
+| --- | --- |
 | `<QUERY>` | Text matched against titles, descriptions, and body content |
 
 ## Options
 
 | Flag | Description |
-|------|-------------|
+| --- | --- |
 | `-a, --all` | Include archived and resolved items |
 | `-e, --expand` | Show full detail for each result |
 | `-j, --json` | Emit results as JSON |

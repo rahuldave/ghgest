@@ -16,3 +16,11 @@ updates:
       - dependabot
       - dependencies
       - crates
+  - package-ecosystem: npm
+    directory: /docs/site
+    schedule:
+      interval: daily
+    labels:
+      - dependabot
+      - dependencies
+      - node

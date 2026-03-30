@@ -14,9 +14,9 @@ gest searches for configuration in two layers: a **global** config and
 The global config lives at your platform's config home:
 
 | Platform | Path |
-|----------|------|
-| Linux    | `~/.config/gest/config.toml` |
-| macOS    | `~/Library/Application Support/gest/config.toml` |
+| --- | --- |
+| Linux | `~/.config/gest/config.toml` |
+| macOS | `~/Library/Application Support/gest/config.toml` |
 
 You can override this location with the `GEST_CONFIG` environment variable.
 
@@ -69,13 +69,13 @@ gest init --local
 ### `[storage]`
 
 | Key | Type | Default | Description |
-|-----|------|---------|-------------|
+| --- | --- | --- | --- |
 | `data_dir` | string (absolute path) | _(auto-resolved)_ | Override the data directory. Must be an absolute path to an existing directory. |
 
 ### `[log]`
 
 | Key | Type | Default | Description |
-|-----|------|---------|-------------|
+| --- | --- | --- | --- |
 | `level` | string | `"warn"` | Log level filter. Valid values: `"error"`, `"warn"`, `"info"`, `"debug"`, `"trace"`. |
 
 ### `[colors]`
@@ -103,7 +103,7 @@ bold = true
 Available fields in the table form:
 
 | Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| --- | --- | --- | --- |
 | `fg` | string | _(none)_ | Foreground color (named color or `#RRGGBB` hex). |
 | `bg` | string | _(none)_ | Background color (named color or `#RRGGBB` hex). |
 | `bold` | boolean | `false` | Enable bold text. |
@@ -135,7 +135,7 @@ bold = true
 ## Environment variables
 
 | Variable | Description |
-|----------|-------------|
+| --- | --- |
 | `GEST_CONFIG` | Override the path to the global config file. |
 | `GEST_DATA_DIR` | Override the data storage directory (must be an absolute path). |
 | `GEST_LOG_LEVEL` | Override the log level filter (e.g. `debug`, `trace`). Takes precedence over the config file. |

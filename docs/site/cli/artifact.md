@@ -1,17 +1,18 @@
 # gest artifact
 
-Create, update, list, and manage artifacts. Artifacts store documents such as specs, ADRs, RFCs, and notes alongside your project.
+Create, update, list, and manage artifacts. Artifacts store documents such as specs, ADRs,
+RFCs, and notes alongside your project.
 
 ## Usage
 
-```
+```text
 gest artifact <COMMAND> [OPTIONS]
 ```
 
 ## Subcommands
 
 | Command | Description |
-|---------|-------------|
+| --- | --- |
 | [`create`](#artifact-create) | Create a new artifact |
 | [`list`](#artifact-list) | List artifacts with optional filters |
 | [`show`](#artifact-show) | Display an artifact's full details |
@@ -27,14 +28,14 @@ gest artifact <COMMAND> [OPTIONS]
 
 Create a new artifact from inline text, a source file, an editor, or stdin.
 
-```
+```text
 gest artifact create [OPTIONS]
 ```
 
 ### Options
 
 | Flag | Description |
-|------|-------------|
+| --- | --- |
 | `-t, --title <TITLE>` | Artifact title (auto-extracted from first `#` heading if omitted) |
 | `-b, --body <BODY>` | Body content as an inline string (skips editor and stdin) |
 | `-k, --type <KIND>` | Artifact type (e.g. `spec`, `adr`, `rfc`, `note`) |
@@ -61,14 +62,14 @@ gest artifact create -k rfc --tags "backend,v2"
 
 List artifacts, optionally filtered by type, tag, or archive status.
 
-```
+```text
 gest artifact list [OPTIONS]
 ```
 
 ### Options
 
 | Flag | Description |
-|------|-------------|
+| --- | --- |
 | `-a, --all` | Include archived artifacts alongside active ones |
 | `--archived` | Show only archived artifacts |
 | `-j, --json` | Output as JSON |
@@ -94,20 +95,20 @@ gest artifact list --all
 
 Display an artifact's full details and rendered body.
 
-```
+```text
 gest artifact show [OPTIONS] <ID>
 ```
 
 ### Arguments
 
 | Argument | Description |
-|----------|-------------|
+| --- | --- |
 | `<ID>` | Artifact ID or unique prefix |
 
 ### Options
 
 | Flag | Description |
-|------|-------------|
+| --- | --- |
 | `-j, --json` | Output as JSON instead of formatted detail |
 
 ### Examples
@@ -123,20 +124,20 @@ gest artifact show abc123 --json
 
 Update an artifact's title, body, type, or tags.
 
-```
+```text
 gest artifact update [OPTIONS] <ID>
 ```
 
 ### Arguments
 
 | Argument | Description |
-|----------|-------------|
+| --- | --- |
 | `<ID>` | Artifact ID or unique prefix |
 
 ### Options
 
 | Flag | Description |
-|------|-------------|
+| --- | --- |
 | `-b, --body <BODY>` | Replace the body content |
 | `-k, --type <KIND>` | Artifact type (e.g. `spec`, `adr`, `rfc`, `note`) |
 | `--tags <TAGS>` | Replace all tags with this comma-separated list |
@@ -155,14 +156,14 @@ gest artifact update abc123 -k adr --tags "approved,backend"
 
 Add tags to an artifact.
 
-```
+```text
 gest artifact tag <ID> [TAGS]...
 ```
 
 ### Arguments
 
 | Argument | Description |
-|----------|-------------|
+| --- | --- |
 | `<ID>` | Artifact ID or unique prefix |
 | `[TAGS]...` | Tags to add (space-separated) |
 
@@ -178,14 +179,14 @@ gest artifact tag abc123 approved reviewed
 
 Remove tags from an artifact.
 
-```
+```text
 gest artifact untag <ID> [TAGS]...
 ```
 
 ### Arguments
 
 | Argument | Description |
-|----------|-------------|
+| --- | --- |
 | `<ID>` | Artifact ID or unique prefix |
 | `[TAGS]...` | Tags to remove (space-separated) |
 
@@ -201,14 +202,14 @@ gest artifact untag abc123 draft
 
 Move an artifact to the archive by setting its `archived_at` timestamp.
 
-```
+```text
 gest artifact archive <ID>
 ```
 
 ### Arguments
 
 | Argument | Description |
-|----------|-------------|
+| --- | --- |
 | `<ID>` | Artifact ID or unique prefix |
 
 ### Examples
@@ -223,7 +224,7 @@ gest artifact archive abc123
 
 Read or write artifact metadata fields. Metadata uses dot-delimited key paths for nested values.
 
-```
+```text
 gest artifact meta <COMMAND>
 ```
 
@@ -231,12 +232,12 @@ gest artifact meta <COMMAND>
 
 Retrieve a single metadata value.
 
-```
+```text
 gest artifact meta get <ID> <PATH>
 ```
 
 | Argument | Description |
-|----------|-------------|
+| --- | --- |
 | `<ID>` | Artifact ID or unique prefix |
 | `<PATH>` | Dot-delimited key path (e.g. `outer.inner`) |
 
@@ -244,12 +245,12 @@ gest artifact meta get <ID> <PATH>
 
 Set a metadata value. Strings, numbers, booleans, and null are auto-detected.
 
-```
+```text
 gest artifact meta set <ID> <PATH> <VALUE>
 ```
 
 | Argument | Description |
-|----------|-------------|
+| --- | --- |
 | `<ID>` | Artifact ID or unique prefix |
 | `<PATH>` | Dot-delimited key path (e.g. `config.timeout`) |
 | `<VALUE>` | Value to set |

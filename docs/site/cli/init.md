@@ -1,19 +1,21 @@
 # gest init
 
-Initialize gest for the current project. This creates the data directory structure where tasks, artifacts, and iterations are stored.
+Initialize gest for the current project. This creates the data directory structure where
+tasks, artifacts, and iterations are stored.
 
-By default, gest stores data in a global directory (`~/.local/share/gest/<project-hash>/`). Use the `--local` flag to create a `.gest/` directory inside the current project instead.
+By default, gest stores data in a global directory (`~/.local/share/gest/<project-hash>/`).
+Use the `--local` flag to create a `.gest/` directory inside the current project instead.
 
 ## Usage
 
-```
+```text
 gest init [OPTIONS]
 ```
 
 ## Options
 
 | Flag | Description |
-|------|-------------|
+| --- | --- |
 | `--local` | Initialize a `.gest` directory in the current project instead of the global data directory |
 | `-v, --verbose` | Increase verbosity (repeatable) |
 | `-h, --help` | Print help |

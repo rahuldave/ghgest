@@ -1,17 +1,18 @@
 # gest task
 
-Create, update, list, and manage tasks. Tasks represent units of work with a title, description, status, priority, tags, metadata, and relationship links.
+Create, update, list, and manage tasks. Tasks represent units of work with a title,
+description, status, priority, tags, metadata, and relationship links.
 
 ## Usage
 
-```
+```text
 gest task <COMMAND> [OPTIONS]
 ```
 
 ## Subcommands
 
 | Command | Description |
-|---------|-------------|
+| --- | --- |
 | [`create`](#task-create) | Create a new task |
 | [`list`](#task-list) | List tasks with optional filters |
 | [`show`](#task-show) | Display a task's full details |
@@ -27,20 +28,20 @@ gest task <COMMAND> [OPTIONS]
 
 Create a new task with optional metadata, tags, and status.
 
-```
+```text
 gest task create [OPTIONS] <TITLE>
 ```
 
 ### Arguments
 
 | Argument | Description |
-|----------|-------------|
+| --- | --- |
 | `<TITLE>` | Task title |
 
 ### Options
 
 | Flag | Description |
-|------|-------------|
+| --- | --- |
 | `--assigned-to <ASSIGNED_TO>` | Actor assigned to this task |
 | `-d, --description <DESCRIPTION>` | Description text (opens `$EDITOR` if omitted and stdin is a terminal) |
 | `-m, --metadata <METADATA>` | Key=value metadata pair (repeatable, e.g. `-m key=value`) |
@@ -68,14 +69,14 @@ gest task create "Write migration" -p 0 --assigned-to agent --phase 1
 
 List tasks, optionally filtered by status or tag.
 
-```
+```text
 gest task list [OPTIONS]
 ```
 
 ### Options
 
 | Flag | Description |
-|------|-------------|
+| --- | --- |
 | `-a, --all` | Include resolved (done/cancelled) tasks |
 | `-j, --json` | Output task list as JSON |
 | `-s, --status <STATUS>` | Filter by status: `open`, `in-progress`, `done`, or `cancelled` |
@@ -103,20 +104,20 @@ gest task list --json
 
 Display a task's full details, description, and links.
 
-```
+```text
 gest task show [OPTIONS] <ID>
 ```
 
 ### Arguments
 
 | Argument | Description |
-|----------|-------------|
+| --- | --- |
 | `<ID>` | Task ID or unique prefix |
 
 ### Options
 
 | Flag | Description |
-|------|-------------|
+| --- | --- |
 | `-j, --json` | Output task details as JSON |
 
 ### Examples
@@ -138,20 +139,20 @@ gest task show abc123 --json
 
 Update a task's title, description, status, tags, or metadata.
 
-```
+```text
 gest task update [OPTIONS] <ID>
 ```
 
 ### Arguments
 
 | Argument | Description |
-|----------|-------------|
+| --- | --- |
 | `<ID>` | Task ID or unique prefix |
 
 ### Options
 
 | Flag | Description |
-|------|-------------|
+| --- | --- |
 | `--assigned-to <ASSIGNED_TO>` | Actor assigned to this task |
 | `-d, --description <DESCRIPTION>` | New description text |
 | `-m, --metadata <METADATA>` | Key=value metadata pair, merged with existing (repeatable) |
@@ -180,14 +181,14 @@ gest task update abc123 -m estimate=3h -m complexity=high
 
 Add tags to a task, deduplicating with any existing tags.
 
-```
+```text
 gest task tag <ID> [TAGS]...
 ```
 
 ### Arguments
 
 | Argument | Description |
-|----------|-------------|
+| --- | --- |
 | `<ID>` | Task ID or unique prefix |
 | `[TAGS]...` | Tags to add (space-separated) |
 
@@ -203,14 +204,14 @@ gest task tag abc123 bug critical
 
 Remove tags from a task.
 
-```
+```text
 gest task untag <ID> [TAGS]...
 ```
 
 ### Arguments
 
 | Argument | Description |
-|----------|-------------|
+| --- | --- |
 | `<ID>` | Task ID or unique prefix |
 | `[TAGS]...` | Tags to remove (space-separated) |
 
@@ -226,14 +227,14 @@ gest task untag abc123 critical
 
 Create a relationship between a task and another task or artifact.
 
-```
+```text
 gest task link [OPTIONS] <ID> <REL> <TARGET_ID>
 ```
 
 ### Arguments
 
 | Argument | Description |
-|----------|-------------|
+| --- | --- |
 | `<ID>` | Source task ID or unique prefix |
 | `<REL>` | Relationship type: `blocked-by`, `blocks`, `child-of`, `parent-of`, `relates-to` |
 | `<TARGET_ID>` | Target task or artifact ID or unique prefix |
@@ -241,7 +242,7 @@ gest task link [OPTIONS] <ID> <REL> <TARGET_ID>
 ### Options
 
 | Flag | Description |
-|------|-------------|
+| --- | --- |
 | `--artifact` | Target is an artifact instead of a task (no reciprocal link is created) |
 
 ### Examples
@@ -260,7 +261,7 @@ gest task link abc123 relates-to art789 --artifact
 
 Read or write task metadata fields. Metadata uses dot-delimited key paths for nested values.
 
-```
+```text
 gest task meta <COMMAND>
 ```
 
@@ -268,12 +269,12 @@ gest task meta <COMMAND>
 
 Retrieve a single metadata value.
 
-```
+```text
 gest task meta get <ID> <PATH>
 ```
 
 | Argument | Description |
-|----------|-------------|
+| --- | --- |
 | `<ID>` | Task ID or unique prefix |
 | `<PATH>` | Dot-delimited key path (e.g. `outer.inner`) |
 
@@ -281,12 +282,12 @@ gest task meta get <ID> <PATH>
 
 Set a metadata value. Strings, numbers, and booleans are auto-detected.
 
-```
+```text
 gest task meta set <ID> <PATH> <VALUE>
 ```
 
 | Argument | Description |
-|----------|-------------|
+| --- | --- |
 | `<ID>` | Task ID or unique prefix |
 | `<PATH>` | Dot-delimited key path (e.g. `outer.inner`) |
 | `<VALUE>` | Value to set |
