@@ -20,6 +20,7 @@ export default defineConfig({
           { text: 'Installation', link: '/getting-started/installation' },
           { text: 'Quick Start', link: '/getting-started/quick-start' },
           { text: 'Core Concepts', link: '/getting-started/concepts' },
+          { text: 'Agent Usage', link: '/getting-started/agents' },
         ],
       },
       {
