@@ -39,29 +39,24 @@ impl Command {
 
     let mut phase_map: BTreeMap<u16, Vec<TaskRow>> = BTreeMap::new();
 
-    for task_ref in &iteration.tasks {
-      let task_id_str = task_ref.strip_prefix("tasks/").unwrap_or(task_ref);
-      if let Ok(task_id) = task_id_str.parse()
-        && let Ok(task) = store::read_task(data_dir, &task_id)
-      {
-        let phase = task.phase.unwrap_or(0);
-        let status_str = task.status.as_str();
+    for task in store::read_iteration_tasks(data_dir, &iteration) {
+      let phase = task.phase.unwrap_or(0);
+      let status_str = task.status.as_str();
 
-        let resolved = store::resolve_blocking(data_dir, &task);
+      let resolved = store::resolve_blocking(data_dir, &task);
 
-        let blocked_by = resolved.blocked_by_ids.into_iter().next();
-        let is_blocking = resolved.is_blocking;
+      let blocked_by = resolved.blocked_by_ids.into_iter().next();
+      let is_blocking = resolved.is_blocking;
 
-        phase_map.entry(phase).or_default().push(TaskRow {
-          blocked_by,
-          id: task.id.to_string(),
-          is_blocking,
-          priority: task.priority,
-          status: status_str.to_string(),
-          tags: task.tags,
-          title: task.title,
-        });
-      }
+      phase_map.entry(phase).or_default().push(TaskRow {
+        blocked_by,
+        id: task.id.to_string(),
+        is_blocking,
+        priority: task.priority,
+        status: status_str.to_string(),
+        tags: task.tags,
+        title: task.title,
+      });
     }
 
     let phases: Vec<PhaseData> = phase_map

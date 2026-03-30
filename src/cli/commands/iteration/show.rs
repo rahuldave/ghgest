@@ -41,27 +41,22 @@ impl Command {
 
     let mut phase_set = std::collections::BTreeSet::new();
 
-    for task_ref in &iteration.tasks {
-      let task_id_str = task_ref.strip_prefix("tasks/").unwrap_or(task_ref);
-      if let Ok(task_id) = task_id_str.parse()
-        && let Ok(task) = store::read_task(data_dir, &task_id)
-      {
-        counts.total += 1;
-        if let Some(phase) = task.phase {
-          phase_set.insert(phase);
-        }
+    for task in store::read_iteration_tasks(data_dir, &iteration) {
+      counts.total += 1;
+      if let Some(phase) = task.phase {
+        phase_set.insert(phase);
+      }
 
-        let resolved = store::resolve_blocking(data_dir, &task);
+      let resolved = store::resolve_blocking(data_dir, &task);
 
-        if !resolved.blocked_by_ids.is_empty() {
-          counts.blocked += 1;
-        } else {
-          match task.status {
-            Status::Open => counts.open += 1,
-            Status::InProgress => counts.in_progress += 1,
-            Status::Done => counts.done += 1,
-            Status::Cancelled => counts.done += 1,
-          }
+      if !resolved.blocked_by_ids.is_empty() {
+        counts.blocked += 1;
+      } else {
+        match task.status {
+          Status::Open => counts.open += 1,
+          Status::InProgress => counts.in_progress += 1,
+          Status::Done => counts.done += 1,
+          Status::Cancelled => counts.done += 1,
         }
       }
     }

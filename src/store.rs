@@ -43,7 +43,8 @@ pub use artifact::{
 pub use fs::ensure_dirs;
 pub use iteration::{
   add_task as add_iteration_task, create_iteration, is_iteration_resolved, list_iterations, read_iteration,
-  remove_task as remove_iteration_task, resolve_iteration, resolve_iteration_id, update_iteration, write_iteration,
+  read_iteration_tasks, remove_task as remove_iteration_task, resolve_iteration, resolve_iteration_id,
+  update_iteration, write_iteration,
 };
 pub use search::{SearchResults, search};
 pub use task::{

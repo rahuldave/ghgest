@@ -6,7 +6,7 @@ use super::{
   Error,
   fs::{ensure_dirs, move_entity_file, read_dir_files, resolve_id},
 };
-use crate::model::{Id, Iteration, IterationFilter, IterationPatch, NewIteration};
+use crate::model::{Id, Iteration, IterationFilter, IterationPatch, NewIteration, Task};
 
 /// Append a task reference to an iteration (idempotent).
 pub fn add_task(data_dir: &Path, iteration_id: &Id, task_id: &str) -> super::Result<Iteration> {
@@ -106,6 +106,21 @@ pub fn read_iteration(data_dir: &Path, id: &Id) -> super::Result<Iteration> {
   let content = fs::read_to_string(path)?;
   let iteration: Iteration = toml::from_str(&content)?;
   Ok(iteration)
+}
+
+/// Load all tasks referenced by an iteration, silently skipping any that
+/// cannot be parsed or read.
+pub fn read_iteration_tasks(data_dir: &Path, iteration: &Iteration) -> Vec<Task> {
+  let mut tasks = Vec::new();
+  for task_ref in &iteration.tasks {
+    let task_id_str = task_ref.strip_prefix("tasks/").unwrap_or(task_ref);
+    if let Ok(task_id) = task_id_str.parse()
+      && let Ok(task) = super::read_task(data_dir, &task_id)
+    {
+      tasks.push(task);
+    }
+  }
+  tasks
 }
 
 /// Remove a task reference from an iteration.
