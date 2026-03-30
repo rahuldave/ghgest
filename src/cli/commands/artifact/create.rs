@@ -1,5 +1,3 @@
-use std::io::IsTerminal;
-
 use clap::Args;
 
 use crate::{
@@ -52,7 +50,11 @@ impl Command {
       .map(crate::cli::helpers::parse_tags)
       .unwrap_or_default();
 
-    let body = self.read_body()?;
+    let body = if let Some(ref src) = self.source {
+      std::fs::read_to_string(src).map_err(cli::Error::from)?
+    } else {
+      crate::cli::helpers::read_from_editor(self.body.as_deref(), ".md", "Aborting: empty body")?
+    };
 
     let title = if let Some(ref t) = self.title {
       t.clone()
@@ -78,29 +80,6 @@ impl Command {
     }
     println!("{view}");
     Ok(())
-  }
-
-  /// Resolve body content from `--source`, `--body`, `$EDITOR`, or empty fallback.
-  fn read_body(&self) -> cli::Result<String> {
-    if let Some(ref src) = self.source {
-      return std::fs::read_to_string(src).map_err(cli::Error::from);
-    }
-
-    if let Some(ref body) = self.body {
-      return Ok(body.clone());
-    }
-
-    if std::io::stdin().is_terminal()
-      && let Some(_editor) = crate::cli::editor::resolve_editor()
-    {
-      let content = crate::cli::editor::edit_temp(None, ".md")?;
-      if content.trim().is_empty() {
-        return Err(cli::Error::generic("Aborting: empty body"));
-      }
-      return Ok(content);
-    }
-
-    Ok(String::new())
   }
 }
 

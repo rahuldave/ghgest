@@ -1,3 +1,33 @@
+use std::io::IsTerminal;
+
+/// Open `$EDITOR` with a temporary file and return the content, or fall back to an empty string.
+///
+/// If `explicit` is `Some`, that value is returned immediately (no editor opened).
+/// Otherwise, when stdin is a terminal and `$EDITOR` is set, a temp file is opened.
+/// Returns an error with `abort_message` if the user saves an empty file.
+/// Falls back to an empty string when stdin is not a terminal or no editor is configured.
+pub fn read_from_editor(
+  explicit: Option<&str>,
+  file_extension: &str,
+  abort_message: &str,
+) -> crate::cli::Result<String> {
+  if let Some(value) = explicit {
+    return Ok(value.to_string());
+  }
+
+  if std::io::stdin().is_terminal()
+    && let Some(_editor) = crate::cli::editor::resolve_editor()
+  {
+    let content = crate::cli::editor::edit_temp(None, file_extension)?;
+    if content.trim().is_empty() {
+      return Err(crate::cli::Error::generic(abort_message));
+    }
+    return Ok(content);
+  }
+
+  Ok(String::new())
+}
+
 /// Split a comma-separated string into trimmed, non-empty tag strings.
 pub fn parse_tags(s: &str) -> Vec<String> {
   s.split(',')

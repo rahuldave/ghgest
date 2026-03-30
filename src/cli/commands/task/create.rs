@@ -1,5 +1,3 @@
-use std::io::IsTerminal;
-
 use clap::Args;
 
 use crate::{
@@ -62,7 +60,8 @@ impl Command {
       .map(crate::cli::helpers::parse_tags)
       .unwrap_or_default();
 
-    let description = self.read_description()?;
+    let description =
+      crate::cli::helpers::read_from_editor(self.description.as_deref(), ".md", "Aborting: empty description")?;
 
     let new = NewTask {
       assigned_to: self.assigned_to.clone(),
@@ -89,25 +88,6 @@ impl Command {
     };
     println!("{view}");
     Ok(())
-  }
-
-  /// Read description from the flag, `$EDITOR`, or return empty.
-  fn read_description(&self) -> cli::Result<String> {
-    if let Some(ref desc) = self.description {
-      return Ok(desc.clone());
-    }
-
-    if std::io::stdin().is_terminal()
-      && let Some(_editor) = crate::cli::editor::resolve_editor()
-    {
-      let content = crate::cli::editor::edit_temp(None, ".md")?;
-      if content.trim().is_empty() {
-        return Err(cli::Error::generic("Aborting: empty description"));
-      }
-      return Ok(content);
-    }
-
-    Ok(String::new())
   }
 }
 
