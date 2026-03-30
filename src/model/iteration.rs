@@ -14,7 +14,7 @@ pub const STATUS_ORDER: &[Status] = &[Status::Active, Status::Completed, Status:
 /// A time-boxed planning container that groups related tasks.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Iteration {
-  #[serde(with = "completed_at_serde")]
+  #[serde(with = "super::optional_datetime")]
   pub completed_at: Option<DateTime<Utc>>,
   pub created_at: DateTime<Utc>,
   pub description: String,
@@ -102,35 +102,6 @@ impl FromStr for Status {
       "completed" => Ok(Self::Completed),
       "failed" => Ok(Self::Failed),
       other => Err(format!("unknown status: {other}")),
-    }
-  }
-}
-
-mod completed_at_serde {
-  use chrono::{DateTime, Utc};
-  use serde::{self, Deserialize, Deserializer, Serializer};
-
-  pub fn serialize<S>(value: &Option<DateTime<Utc>>, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    match value {
-      Some(dt) => serializer.serialize_str(&dt.to_rfc3339()),
-      None => serializer.serialize_str(""),
-    }
-  }
-
-  pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
-  where
-    D: Deserializer<'de>,
-  {
-    let s = String::deserialize(deserializer)?;
-    if s.is_empty() {
-      Ok(None)
-    } else {
-      DateTime::parse_from_rfc3339(&s)
-        .map(|dt| Some(dt.with_timezone(&Utc)))
-        .map_err(serde::de::Error::custom)
     }
   }
 }

@@ -4,6 +4,7 @@ pub mod artifact;
 pub mod id;
 pub mod iteration;
 pub mod link;
+pub(crate) mod optional_datetime;
 pub mod task;
 
 pub use artifact::{Artifact, ArtifactFilter, ArtifactPatch, NewArtifact};
