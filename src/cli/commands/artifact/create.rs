@@ -1,50 +1,46 @@
-use std::io::{self, IsTerminal, Read};
+use std::{io::IsTerminal, path::Path};
 
 use clap::Args;
 
 use crate::{
-  config,
-  config::Config,
+  cli,
   model::NewArtifact,
   store,
-  ui::{components::Confirmation, theme::Theme},
+  ui::{theme::Theme, views::artifact::ArtifactCreateView},
 };
 
-/// Create a new artifact from text, a file, an editor, or stdin
+/// Create a new artifact from inline text, a source file, an editor, or stdin.
 #[derive(Debug, Args)]
 pub struct Command {
-  /// Body content as an inline string (skips editor and stdin)
+  /// Artifact title.
+  pub title: String,
+  /// Body content as an inline string (skips editor and stdin).
   #[arg(short, long)]
   pub body: Option<String>,
-  /// Read body content from a file path
-  #[arg(short, long)]
-  pub file: Option<String>,
-  /// Artifact type (e.g. spec, adr, rfc, note)
-  #[arg(long = "type")]
+  /// Artifact type (e.g. spec, adr, rfc, note).
+  #[arg(short = 'k', long = "type")]
   pub kind: Option<String>,
-  /// Key=value metadata pair (repeatable, e.g. -m key=value)
+  /// Key=value metadata pairs (repeatable).
   #[arg(short, long)]
   pub metadata: Vec<String>,
-  /// Comma-separated list of tags
+  /// Read body content from a file path.
+  #[arg(short, long)]
+  pub source: Option<String>,
+  /// Comma-separated list of tags.
   #[arg(long)]
   pub tags: Option<String>,
-  /// Artifact title (auto-extracted from first # heading if omitted)
-  #[arg(short, long)]
-  pub title: Option<String>,
 }
 
 impl Command {
-  pub fn call(&self, config: &Config, theme: &Theme) -> crate::Result<()> {
-    log::info!("creating new artifact");
-    let body = self.read_body()?;
-
-    let title = if let Some(ref t) = self.title {
-      log::debug!("using provided title: {t}");
-      t.clone()
-    } else {
-      log::debug!("extracting title from body");
-      extract_title(&body)
-        .ok_or_else(|| crate::Error::generic("No title found: body has no `# ` heading and no --title provided"))?
+  /// Build a `NewArtifact`, persist it, and print the creation summary.
+  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+    let metadata = {
+      let pairs = crate::cli::helpers::split_key_value_pairs(&self.metadata)?;
+      let mut mapping = yaml_serde::Mapping::new();
+      for (key, value) in pairs {
+        mapping.insert(yaml_serde::Value::String(key), yaml_serde::Value::String(value));
+      }
+      mapping
     };
 
     let tags = self
@@ -52,109 +48,137 @@ impl Command {
       .as_deref()
       .map(crate::cli::helpers::parse_tags)
       .unwrap_or_default();
-    log::debug!("tags: {tags:?}");
 
-    let metadata = {
-      let pairs = crate::cli::helpers::split_key_value_pairs(&self.metadata)?;
-      let mut map = yaml_serde::Mapping::new();
-      for (key, value) in pairs {
-        map.insert(yaml_serde::Value::String(key), yaml_serde::Value::String(value));
-      }
-      map
-    };
+    let body = self.read_body()?;
 
     let new = NewArtifact {
       body,
       kind: self.kind.clone(),
       metadata,
       tags,
-      title,
+      title: self.title.clone(),
     };
 
-    let data_dir = config::data_dir(config)?;
-    let artifact = store::create_artifact(&data_dir, new)?;
-    log::trace!("artifact {} created successfully", artifact.id);
-    Confirmation::new("Created", "artifact", &artifact.id).write_to(&mut std::io::stdout(), theme)?;
+    let artifact = store::create_artifact(data_dir, new)?;
+
+    let id_str = artifact.id.to_string();
+    let mut view = ArtifactCreateView::new(&id_str, &artifact.title, theme);
+    if let Some(ref src) = self.source {
+      view = view.source(src);
+    }
+    println!("{view}");
     Ok(())
   }
 
-  fn read_body(&self) -> crate::Result<String> {
+  /// Resolve body content from `--source`, `--body`, `$EDITOR`, or empty fallback.
+  fn read_body(&self) -> cli::Result<String> {
+    if let Some(ref src) = self.source {
+      return std::fs::read_to_string(src).map_err(cli::Error::from);
+    }
+
     if let Some(ref body) = self.body {
       return Ok(body.clone());
     }
 
-    if let Some(ref path) = self.file {
-      let content = std::fs::read_to_string(path)?;
+    if std::io::stdin().is_terminal()
+      && let Some(_editor) = crate::cli::editor::resolve_editor()
+    {
+      let content = crate::cli::editor::edit_temp(None, ".md")?;
+      if content.trim().is_empty() {
+        return Err(cli::Error::generic("Aborting: empty body"));
+      }
       return Ok(content);
     }
 
-    if io::stdin().is_terminal() {
-      if let Some(_editor) = crate::cli::editor::resolve_editor() {
-        let content = crate::cli::editor::edit_temp(None, ".md")?;
-        if content.trim().is_empty() {
-          return Err(crate::Error::generic("Aborting: empty body"));
-        }
-        return Ok(content);
-      }
-
-      eprintln!("Reading body from stdin, press Ctrl+D when done...");
-    }
-
-    let mut buf = String::new();
-    io::stdin().read_to_string(&mut buf)?;
-    Ok(buf)
+    Ok(String::new())
   }
-}
-
-fn extract_title(body: &str) -> Option<String> {
-  for line in body.lines() {
-    if let Some(rest) = line.strip_prefix("# ") {
-      let title = rest.trim();
-      if !title.is_empty() {
-        return Some(title.to_string());
-      }
-    }
-  }
-  None
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
 
-  mod extract_title {
+  mod call {
     use pretty_assertions::assert_eq;
 
     use super::*;
+    use crate::test_helpers::make_test_config;
 
     #[test]
-    fn it_extracts_first_h1_heading() {
-      let body = "Some preamble\n# My Title\n\nBody text";
-      assert_eq!(extract_title(body), Some("My Title".to_string()));
+    fn it_creates_an_artifact_from_source_file() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+
+      let source_path = dir.path().join("source.md");
+      std::fs::write(&source_path, "# From File\n\nFile content.").unwrap();
+
+      let cmd = Command {
+        title: "Sourced Artifact".to_string(),
+        body: None,
+        kind: None,
+        metadata: vec![],
+        source: Some(source_path.to_string_lossy().to_string()),
+        tags: None,
+      };
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+
+      let filter = crate::model::ArtifactFilter::default();
+      let artifacts = store::list_artifacts(&data_dir, &filter).unwrap();
+      assert_eq!(artifacts.len(), 1);
+      assert_eq!(artifacts[0].body, "# From File\n\nFile content.");
     }
 
     #[test]
-    fn it_ignores_h2_headings() {
-      let body = "## Not a title\n# Real Title";
-      assert_eq!(extract_title(body), Some("Real Title".to_string()));
+    fn it_creates_an_artifact_with_all_flags() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+
+      let cmd = Command {
+        title: "Full Artifact".to_string(),
+        body: Some("# Content\n\nSome body text.".to_string()),
+        kind: Some("spec".to_string()),
+        metadata: vec!["version=1".to_string()],
+        source: None,
+        tags: Some("rust,cli".to_string()),
+      };
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+
+      let filter = crate::model::ArtifactFilter::default();
+      let artifacts = store::list_artifacts(&data_dir, &filter).unwrap();
+      assert_eq!(artifacts.len(), 1);
+
+      let artifact = &artifacts[0];
+      assert_eq!(artifact.title, "Full Artifact");
+      assert_eq!(artifact.body, "# Content\n\nSome body text.");
+      assert_eq!(artifact.kind.as_deref(), Some("spec"));
+      assert_eq!(artifact.tags, vec!["rust", "cli"]);
     }
 
     #[test]
-    fn it_returns_none_when_no_heading() {
-      let body = "No heading here\nJust text";
-      assert_eq!(extract_title(body), None);
-    }
+    fn it_creates_an_artifact_with_defaults() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
 
-    #[test]
-    fn it_skips_empty_h1() {
-      let body = "# \n# Actual Title";
-      assert_eq!(extract_title(body), Some("Actual Title".to_string()));
-    }
+      let cmd = Command {
+        title: "My Artifact".to_string(),
+        body: None,
+        kind: None,
+        metadata: vec![],
+        source: None,
+        tags: None,
+      };
 
-    #[test]
-    fn it_trims_whitespace_from_title() {
-      let body = "#   Spaced Title  \n";
-      assert_eq!(extract_title(body), Some("Spaced Title".to_string()));
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+
+      let filter = crate::model::ArtifactFilter::default();
+      let artifacts = store::list_artifacts(&data_dir, &filter).unwrap();
+      assert_eq!(artifacts.len(), 1);
+      assert_eq!(artifacts[0].title, "My Artifact");
     }
   }
 }

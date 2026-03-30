@@ -1,2 +1,0 @@
-mod when_completions_subcommand;
-mod when_man_pages_subcommand;

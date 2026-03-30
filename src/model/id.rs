@@ -3,8 +3,10 @@ use std::{fmt, str::FromStr};
 use rand::RngExt;
 use serde::{Deserialize, Serialize};
 
+/// Alphabet used to encode bytes into the `k`-`z` character range.
 const REVERSE_HEX_CHARS: &[u8; 16] = b"zyxwvutsrqponmlk";
 
+/// A 128-bit identifier encoded as a 32-character string using the `k`-`z` alphabet.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct Id([u8; 16]);
@@ -19,7 +21,7 @@ impl Id {
     Self(bytes)
   }
 
-  /// Returns the first 8 characters of the encoded ID string.
+  /// Returns the first 8 characters of the encoded ID as a short prefix.
   pub fn short(&self) -> String {
     encode_prefix(&self.0)
   }
@@ -89,7 +91,7 @@ fn encode(bytes: &[u8; 16]) -> String {
   s
 }
 
-/// Encode only the first 4 bytes into an 8-character string (for `Id::short()`).
+/// Encode only the first 4 bytes into an 8-character string for [`Id::short`].
 fn encode_prefix(bytes: &[u8; 16]) -> String {
   let mut s = String::with_capacity(8);
   for &b in &bytes[..4] {
@@ -118,15 +120,43 @@ mod tests {
     use super::*;
 
     #[test]
+    fn it_encodes_all_ff_bytes_as_all_k() {
+      let id = Id([0xFF; 16]);
+      assert_eq!(id.to_string(), "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
+    }
+
+    #[test]
     fn it_formats_as_the_encoded_string() {
       let id: Id = "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz".parse().unwrap();
       assert_eq!(id.to_string(), "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");
     }
+  }
+
+  mod encode_decode {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
 
     #[test]
-    fn it_encodes_all_ff_bytes_as_all_k() {
-      let id = Id([0xFF; 16]);
-      assert_eq!(id.to_string(), "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
+    fn it_encodes_ff_bytes_as_k() {
+      let bytes = [0xFF; 16];
+      assert_eq!(encode(&bytes), "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
+    }
+
+    #[test]
+    fn it_encodes_zero_bytes_as_z() {
+      let bytes = [0u8; 16];
+      assert_eq!(encode(&bytes), "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");
+    }
+
+    #[test]
+    fn it_roundtrips_encode_decode() {
+      let bytes = [
+        0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
+      ];
+      let encoded = encode(&bytes);
+      let decoded = decode(&encoded).unwrap();
+      assert_eq!(bytes, decoded);
     }
   }
 
@@ -142,18 +172,6 @@ mod tests {
     }
 
     #[test]
-    fn it_rejects_too_short() {
-      let result = "zzz".parse::<Id>();
-      assert!(result.is_err());
-    }
-
-    #[test]
-    fn it_rejects_too_long() {
-      let result = "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz".parse::<Id>();
-      assert!(result.is_err());
-    }
-
-    #[test]
     fn it_rejects_digits() {
       let result = "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz1".parse::<Id>();
       assert!(result.is_err());
@@ -164,33 +182,17 @@ mod tests {
       let result = "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzja".parse::<Id>();
       assert!(result.is_err());
     }
-  }
-
-  mod encode_decode {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
 
     #[test]
-    fn it_encodes_zero_bytes_as_z() {
-      let bytes = [0u8; 16];
-      assert_eq!(encode(&bytes), "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");
+    fn it_rejects_too_long() {
+      let result = "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz".parse::<Id>();
+      assert!(result.is_err());
     }
 
     #[test]
-    fn it_encodes_ff_bytes_as_k() {
-      let bytes = [0xFF; 16];
-      assert_eq!(encode(&bytes), "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
-    }
-
-    #[test]
-    fn it_roundtrips_encode_decode() {
-      let bytes = [
-        0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
-      ];
-      let encoded = encode(&bytes);
-      let decoded = decode(&encoded).unwrap();
-      assert_eq!(bytes, decoded);
+    fn it_rejects_too_short() {
+      let result = "zzz".parse::<Id>();
+      assert!(result.is_err());
     }
   }
 

@@ -2,7 +2,8 @@ use std::{path::Path, process::Command};
 
 use crate::config::env::{EDITOR, VISUAL};
 
-pub fn edit_temp(initial_content: Option<&str>, suffix: &str) -> crate::Result<String> {
+/// Open the user's editor with a temporary file, optionally pre-filled, and return the final contents.
+pub fn edit_temp(initial_content: Option<&str>, suffix: &str) -> crate::cli::Result<String> {
   let tmp = tempfile::Builder::new().suffix(suffix).tempfile()?;
 
   if let Some(content) = initial_content {
@@ -14,11 +15,14 @@ pub fn edit_temp(initial_content: Option<&str>, suffix: &str) -> crate::Result<S
   Ok(content)
 }
 
-pub fn open_editor(path: &Path) -> crate::Result<()> {
-  let editor = resolve_editor().ok_or_else(|| crate::Error::generic("No editor configured ($VISUAL or $EDITOR)"))?;
+/// Open the user's preferred editor (`$VISUAL` or `$EDITOR`) on the given path.
+pub fn open_editor(path: &Path) -> crate::cli::Result<()> {
+  let editor =
+    resolve_editor().ok_or_else(|| crate::cli::Error::generic("No editor configured ($VISUAL or $EDITOR)"))?;
   open_editor_with(&editor, path)
 }
 
+/// Return the editor command from `$VISUAL` or `$EDITOR`, if set and non-empty.
 pub fn resolve_editor() -> Option<String> {
   VISUAL
     .value()
@@ -27,11 +31,11 @@ pub fn resolve_editor() -> Option<String> {
     .filter(|s: &String| !s.is_empty())
 }
 
-fn open_editor_with(editor: &str, path: &Path) -> crate::Result<()> {
+fn open_editor_with(editor: &str, path: &Path) -> crate::cli::Result<()> {
   let status = Command::new(editor).arg(path).status()?;
 
   if !status.success() {
-    return Err(crate::Error::generic(format!(
+    return Err(crate::cli::Error::generic(format!(
       "Editor '{}' exited with {}",
       editor,
       status

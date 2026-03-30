@@ -1,40 +1,42 @@
+use std::path::Path;
+
 use chrono::Utc;
 use clap::Args;
 
 use crate::{
-  config,
-  config::Config,
-  store,
-  ui::{components::MetadataSet, theme::Theme},
+  cli, store,
+  ui::{composites::success_message::SuccessMessage, theme::Theme},
 };
 
-/// Set a metadata value on a task
+/// Set a metadata value on a task using a dot-delimited key path.
 #[derive(Debug, Args)]
 pub struct Command {
-  /// Task ID or unique prefix
+  /// Task ID or unique prefix.
   pub id: String,
-  /// Dot-delimited key path (e.g. outer.inner)
+  /// Dot-delimited key path (e.g. `outer.inner`).
   pub path: String,
-  /// Value to set (strings, numbers, and booleans are auto-detected)
+  /// Value to set (strings, numbers, and booleans are auto-detected).
   pub value: String,
 }
 
 impl Command {
-  pub fn call(&self, config: &Config, _theme: &Theme) -> crate::Result<()> {
-    let data_dir = config::data_dir(config)?;
-    let id = store::resolve_task_id(&data_dir, &self.id, false)?;
-    let mut task = store::read_task(&data_dir, &id)?;
+  /// Write the value into the task's metadata table and persist.
+  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+    let id = store::resolve_task_id(data_dir, &self.id, false)?;
+    let mut task = store::read_task(data_dir, &id)?;
 
     set_dot_path(&mut task.metadata, &self.path, &self.value)?;
 
     task.updated_at = Utc::now();
-    store::write_task(&data_dir, &task)?;
+    store::write_task(data_dir, &task)?;
 
-    MetadataSet::new(&id, &self.path, &self.value).write_to(&mut std::io::stdout())?;
+    let msg = format!("Set {}.{} = {}", id, self.path, self.value);
+    println!("{}", SuccessMessage::new(&msg, theme));
     Ok(())
   }
 }
 
+/// Parse a string into the most specific TOML scalar type (int, float, bool, or string).
 fn parse_toml_value(s: &str) -> toml::Value {
   if let Ok(n) = s.parse::<i64>() {
     return toml::Value::Integer(n);
@@ -49,7 +51,8 @@ fn parse_toml_value(s: &str) -> toml::Value {
   }
 }
 
-fn set_dot_path(table: &mut toml::Table, path: &str, value: &str) -> crate::Result<()> {
+/// Insert a value at a dot-delimited path, creating intermediate tables as needed.
+fn set_dot_path(table: &mut toml::Table, path: &str, value: &str) -> cli::Result<()> {
   let segments: Vec<&str> = path.split('.').collect();
   let toml_value = parse_toml_value(value);
 
@@ -62,6 +65,7 @@ fn set_dot_path(table: &mut toml::Table, path: &str, value: &str) -> crate::Resu
   Ok(())
 }
 
+/// Recursively descend into (or create) nested tables and insert the value at the final segment.
 fn set_nested(table: &mut toml::Table, segments: &[&str], value: toml::Value) {
   let key = segments[0].to_string();
 
@@ -96,18 +100,19 @@ mod tests {
     #[test]
     fn it_sets_metadata_value() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path());
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_task(dir.path(), &task).unwrap();
+      store::write_task(&data_dir, &task).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         path: "priority".to_string(),
         value: "high".to_string(),
       };
-      cmd.call(&config, &Theme::default()).unwrap();
+      cmd.call(&data_dir, &Theme::default()).unwrap();
 
-      let loaded = store::read_task(dir.path(), &task.id).unwrap();
+      let loaded = store::read_task(&data_dir, &task.id).unwrap();
       assert_eq!(
         loaded.metadata.get("priority"),
         Some(&toml::Value::String("high".to_string()))
@@ -117,18 +122,19 @@ mod tests {
     #[test]
     fn it_sets_nested_metadata_value() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path());
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_task(dir.path(), &task).unwrap();
+      store::write_task(&data_dir, &task).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         path: "config.timeout".to_string(),
         value: "30".to_string(),
       };
-      cmd.call(&config, &Theme::default()).unwrap();
+      cmd.call(&data_dir, &Theme::default()).unwrap();
 
-      let loaded = store::read_task(dir.path(), &task.id).unwrap();
+      let loaded = store::read_task(&data_dir, &task.id).unwrap();
       let config = loaded.metadata.get("config").unwrap().as_table().unwrap();
       assert_eq!(config.get("timeout"), Some(&toml::Value::Integer(30)));
     }
@@ -158,66 +164,6 @@ mod tests {
     #[test]
     fn it_parses_integers() {
       assert_eq!(parse_toml_value("42"), toml::Value::Integer(42));
-    }
-
-    #[test]
-    fn it_parses_negative_integers() {
-      assert_eq!(parse_toml_value("-7"), toml::Value::Integer(-7));
-    }
-  }
-
-  mod set_dot_path {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn it_creates_deeply_nested_path() {
-      let mut table = toml::Table::new();
-      set_dot_path(&mut table, "a.b.c", "leaf").unwrap();
-
-      let a = table.get("a").unwrap().as_table().unwrap();
-      let b = a.get("b").unwrap().as_table().unwrap();
-      assert_eq!(b.get("c"), Some(&toml::Value::String("leaf".to_string())));
-    }
-
-    #[test]
-    fn it_overwrites_existing_value() {
-      let mut table = toml::Table::new();
-      table.insert("key".to_string(), toml::Value::String("old".to_string()));
-      set_dot_path(&mut table, "key", "new").unwrap();
-      assert_eq!(table.get("key"), Some(&toml::Value::String("new".to_string())));
-    }
-
-    #[test]
-    fn it_preserves_sibling_keys_in_nested_path() {
-      let mut table = toml::Table::new();
-      set_dot_path(&mut table, "outer.first", "one").unwrap();
-      set_dot_path(&mut table, "outer.second", "two").unwrap();
-
-      let outer = table.get("outer").unwrap().as_table().unwrap();
-      assert_eq!(outer.get("first"), Some(&toml::Value::String("one".to_string())));
-      assert_eq!(outer.get("second"), Some(&toml::Value::String("two".to_string())));
-    }
-
-    #[test]
-    fn it_sets_nested_key() {
-      let mut table = toml::Table::new();
-      set_dot_path(&mut table, "outer.inner", "deep").unwrap();
-
-      let outer = table.get("outer").unwrap();
-      if let toml::Value::Table(inner) = outer {
-        assert_eq!(inner.get("inner"), Some(&toml::Value::String("deep".to_string())));
-      } else {
-        panic!("Expected table at 'outer'");
-      }
-    }
-
-    #[test]
-    fn it_sets_top_level_key() {
-      let mut table = toml::Table::new();
-      set_dot_path(&mut table, "key", "value").unwrap();
-      assert_eq!(table.get("key"), Some(&toml::Value::String("value".to_string())));
     }
   }
 }

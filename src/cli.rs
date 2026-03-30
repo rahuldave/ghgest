@@ -5,11 +5,30 @@ mod commands;
 
 use clap::{ArgAction, Parser, Subcommand};
 
-use crate::{
-  Result,
-  config::Config,
-  ui::{components::Banner, theme::Theme},
-};
+use crate::{config::Settings, ui::theme::Theme};
+
+/// Unified error type for CLI operations, wrapping config, I/O, and store errors.
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+  #[error(transparent)]
+  Config(#[from] crate::config::Error),
+  #[error("{0}")]
+  Generic(String),
+  #[error(transparent)]
+  Io(#[from] std::io::Error),
+  #[error(transparent)]
+  Store(#[from] crate::store::Error),
+}
+
+impl Error {
+  /// Construct a free-form error from any string-like message.
+  pub fn generic(msg: impl Into<String>) -> Self {
+    Self::Generic(msg.into())
+  }
+}
+
+/// Convenience alias used throughout the CLI layer.
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -22,19 +41,17 @@ use crate::{
 pub(crate) struct Cli {
   #[command(subcommand)]
   command: Option<Command>,
-  /// Print version information
   #[arg(short = 'V', long = "version")]
   print_version: bool,
-  /// Increase log verbosity (repeat for more detail, e.g. -vv)
   #[arg(short = 'v', long = "verbose", action = ArgAction::Count, global = true)]
   verbose: u8,
 }
 
 impl Cli {
-  fn call(&self, config: &Config) -> Result<()> {
+  fn call(&self, settings: &Settings) -> Result<()> {
     if self.print_version {
-      let theme = Theme::from_config(config);
-      return commands::version::Command.call(config, &theme);
+      let theme = Theme::from_config(settings);
+      return commands::version::Command.call(&theme);
     }
 
     let Some(command) = &self.command else {
@@ -43,16 +60,18 @@ impl Cli {
       return Ok(());
     };
 
-    // Resolve the final level using the full precedence chain (CLI > env > config > default)
-    // and apply theme styles.  The logger was already registered by `init_early` in `run()`.
     let env_level = crate::config::env::GEST_LOG_LEVEL.value().ok();
-    let level = crate::logger::resolve_level(self.verbose, env_level.as_deref(), config.log.level.as_deref());
-    let theme = Theme::from_config(config);
+    let level = crate::logger::resolve_level(self.verbose, env_level.as_deref(), settings.log().level());
+    let theme = Theme::from_config(settings);
     crate::logger::init(level, &theme);
 
+    let cwd = std::env::current_dir()?;
+    let data_dir = settings.storage().data_dir(cwd)?;
+
     log::debug!("log level set to {level}");
-    log::debug!("data directory: {}", crate::config::data_dir(config)?.display());
-    command.call(config, &theme)
+    log::debug!("data directory: {}", data_dir.display());
+
+    command.call(settings, &theme, &data_dir)
   }
 }
 
@@ -70,32 +89,33 @@ enum Command {
 }
 
 impl Command {
-  fn call(&self, config: &Config, theme: &Theme) -> Result<()> {
+  fn call(&self, settings: &Settings, theme: &Theme, data_dir: &std::path::Path) -> Result<()> {
     match self {
-      Self::Artifact(cmd) => cmd.call(config, theme),
-      Self::Config(cmd) => cmd.call(config, theme),
+      Self::Artifact(cmd) => cmd.call(settings, theme, data_dir),
+      Self::Config(cmd) => cmd.call(settings, theme),
       Self::Generate(cmd) => cmd.call(),
-      Self::Init(cmd) => cmd.call(config, theme),
-      Self::Iteration(cmd) => cmd.call(config, theme),
-      Self::Search(cmd) => cmd.call(config, theme),
-      Self::SelfUpdate(cmd) => cmd.call(config, theme),
-      Self::Task(cmd) => cmd.call(config, theme),
-      Self::Version(cmd) => cmd.call(config, theme),
+      Self::Init(cmd) => cmd.call(theme),
+      Self::Iteration(cmd) => cmd.call(settings, theme, data_dir),
+      Self::Search(cmd) => cmd.call(data_dir, theme),
+      Self::SelfUpdate(cmd) => cmd.call(theme),
+      Self::Task(cmd) => cmd.call(settings, theme, data_dir),
+      Self::Version(cmd) => cmd.call(theme),
     }
   }
 }
 
+/// Entry point for the CLI: loads configuration then parses and dispatches the command.
 pub fn run() -> Result<()> {
-  // Pre-parse verbosity so the logger is active during config discovery.
   let verbosity = pre_parse_verbosity();
   let early_level = crate::logger::resolve_level(verbosity, None, None);
   crate::logger::init_early(early_level);
 
-  let config = crate::config::load()?;
-  Cli::parse().call(&config)
+  let cwd = std::env::current_dir()?;
+  let settings = crate::config::load(&cwd)?;
+  Cli::parse().call(&settings)
 }
 
-/// Count `-v` / `--verbose` occurrences in an argument iterator.
+/// Count `-v` / `--verbose` occurrences in an argument iterator, stopping at `--`.
 fn count_verbosity_flags(args: impl Iterator<Item = String>) -> u8 {
   let mut count: u8 = 0;
   for arg in args {
@@ -104,26 +124,27 @@ fn count_verbosity_flags(args: impl Iterator<Item = String>) -> u8 {
     } else if arg == "--" {
       break;
     } else if arg.starts_with('-') && !arg.starts_with("--") {
-      // Short flag cluster, e.g. `-vv` or `-v`
       count = count.saturating_add(arg.chars().filter(|&c| c == 'v').count() as u8);
     }
   }
   count
 }
 
+/// Build the `--help` long-about string including a styled banner.
 fn long_about() -> String {
-  format!(
-    "\n{}\n\n{}",
-    Banner::new().with_color().with_author(),
-    env!("CARGO_PKG_DESCRIPTION"),
-  )
+  let theme = Theme::default();
+  let banner = crate::ui::composites::banner::Banner::new(
+    env!("CARGO_PKG_VERSION"),
+    std::env::consts::OS,
+    "",
+    "",
+    "aaronmallen",
+    &theme,
+  );
+  format!("\n{banner}\n\n{}", env!("CARGO_PKG_DESCRIPTION"))
 }
 
-/// Scan `std::env::args()` for `-v` / `--verbose` flags and return the count.
-///
-/// This intentionally avoids a full clap parse so it can run before anything
-/// else.  It handles `-v`, `-vv`, `-vvv`, combined short flags like `-vvv`,
-/// and `--verbose` (each occurrence counts as 1).
+/// Quick pre-parse of verbosity from `std::env::args` so logging is active before full clap parse.
 fn pre_parse_verbosity() -> u8 {
   count_verbosity_flags(std::env::args().skip(1))
 }
@@ -142,11 +163,6 @@ mod tests {
     }
 
     #[test]
-    fn it_counts_single_v() {
-      assert_eq!(flags(&["-v"]), 1);
-    }
-
-    #[test]
     fn it_counts_clustered_v() {
       assert_eq!(flags(&["-vvv"]), 3);
     }
@@ -162,6 +178,16 @@ mod tests {
     }
 
     #[test]
+    fn it_counts_single_v() {
+      assert_eq!(flags(&["-v"]), 1);
+    }
+
+    #[test]
+    fn it_ignores_long_flags_containing_v() {
+      assert_eq!(flags(&["--version"]), 0);
+    }
+
+    #[test]
     fn it_returns_zero_with_no_flags() {
       assert_eq!(flags(&["task", "show", "abc"]), 0);
     }
@@ -169,11 +195,6 @@ mod tests {
     #[test]
     fn it_stops_at_double_dash() {
       assert_eq!(flags(&["-v", "--", "-vv"]), 1);
-    }
-
-    #[test]
-    fn it_ignores_long_flags_containing_v() {
-      assert_eq!(flags(&["--version"]), 0);
     }
   }
 }

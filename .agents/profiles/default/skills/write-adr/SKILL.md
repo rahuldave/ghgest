@@ -6,15 +6,15 @@ args: "<decision topic>"
 
 # Write ADR
 
-Draft an Architecture Decision Record. ADRs are stored as gest artifacts during drafting and
-committed to `docs/design/` during implementation.
+Draft an Architecture Decision Record. ADRs are stored as gest artifacts during drafting and committed to `docs/design/`
+during implementation.
 
 ## Instructions
 
 ### 1. Determine the ID
 
-Check existing ADRs in `docs/design/` to determine the next sequential ID. During initial drafting,
-use `id: draft` and `# ADR-DRAFT: Title`.
+Check existing ADRs in `docs/design/` to determine the next sequential ID. During initial drafting, use `id: draft` and
+`# ADR-DRAFT: Title`.
 
 ### 2. Draft the ADR
 
@@ -29,15 +29,15 @@ Omit any section or frontmatter field that doesn't apply. Do not include empty s
 
 ### 3. Review with User
 
-Present the draft and iterate. ADRs should be clear enough that a future contributor can understand
-the decision without additional context.
+Present the draft and iterate. ADRs should be clear enough that a future contributor can understand the decision without
+additional context.
 
 ### 4. Save
 
 Create a gest artifact with the ADR content inline:
 
 ```sh
-cargo run -- artifact create --title "<title>" --type adr --body "<content>"
+GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create --title "<title>" --type adr --body "<content>"
 ```
 
 Extract the artifact ID from the output.

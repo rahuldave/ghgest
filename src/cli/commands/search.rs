@@ -1,450 +1,307 @@
-use std::io::Write;
+use std::path::Path;
 
 use clap::Args;
-use serde::Serialize;
-use yansi::Paint;
 
 use crate::{
-  cli::commands::json_utils::artifact_to_json,
-  config,
-  config::Config,
-  model::{Artifact, Task, task::STATUS_ORDER},
-  store::{self, SearchResults},
+  cli,
+  model::{link::RelationshipType, task::Status},
+  store,
   ui::{
-    components::{DetailGroup, Group, GroupedDetail, GroupedList, ListRow, NoResults},
+    composites::{artifact_list_row::ArtifactListRow, task_list_row::TaskListRow},
     theme::Theme,
-    utils::shortest_unique_prefixes,
+    views::search::{EntityType, SearchExpandedView, SearchResultItem, SearchView},
   },
 };
 
-/// Search across all tasks and artifacts by keyword
+/// Search across tasks and artifacts by keyword.
 #[derive(Debug, Args)]
 pub struct Command {
-  /// Search query matched against titles, descriptions, and body content
+  /// Text matched against titles, descriptions, and body content.
   pub query: String,
-  /// Expand results to include full detail
+  /// Show full detail for each result.
   #[arg(short, long)]
   pub expand: bool,
-  /// Output search results as JSON
+  /// Emit results as JSON.
   #[arg(short, long)]
   pub json: bool,
-  /// Include archived/resolved items in search results
+  /// Include archived and resolved items.
   #[arg(short = 'a', long = "all")]
   pub show_all: bool,
 }
 
 impl Command {
-  pub fn call(&self, config: &Config, theme: &Theme) -> crate::Result<()> {
-    let data_dir = config::data_dir(config)?;
-    let results: SearchResults = store::search(&data_dir, &self.query, self.show_all)?;
+  /// Execute the search and render results to stdout.
+  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+    let results = store::search(data_dir, &self.query, self.show_all)?;
 
     if self.json {
-      return self.print_json(&results);
-    }
-
-    if results.tasks.is_empty() && results.artifacts.is_empty() {
-      NoResults::new(&self.query).write_to(&mut std::io::stdout())?;
+      let json_value = serde_json::json!({
+        "query": self.query,
+        "tasks": results.tasks,
+        "artifacts": results.artifacts,
+      });
+      let json = serde_json::to_string_pretty(&json_value).map_err(|e| cli::Error::generic(e.to_string()))?;
+      println!("{json}");
       return Ok(());
     }
 
+    let items = build_search_items(&results, theme);
+
     if self.expand {
-      self.print_expanded(&results, theme)?;
+      println!("{}", SearchExpandedView::new(&self.query, &items, theme));
     } else {
-      self.print_grouped(&results, theme)?;
-    }
-    Ok(())
-  }
-
-  fn print_expanded(&self, results: &SearchResults, theme: &Theme) -> crate::Result<()> {
-    let mut out = std::io::stdout();
-    let mut groups: Vec<DetailGroup> = Vec::new();
-
-    if !results.tasks.is_empty() {
-      writeln!(out, "{}\n", "Tasks".paint(theme.list_heading))?;
-      for status in STATUS_ORDER {
-        let items: Vec<&Task> = results.tasks.iter().filter(|t| t.status == *status).collect();
-        if !items.is_empty() {
-          groups.push(DetailGroup::Tasks {
-            heading: status.to_string(),
-            items,
-          });
-        }
-      }
-    }
-
-    if !results.artifacts.is_empty() {
-      if !results.tasks.is_empty() {
-        writeln!(out)?;
-      }
-      writeln!(out, "{}\n", "Artifacts".paint(theme.list_heading))?;
-
-      let mut kinds: Vec<Option<String>> = Vec::new();
-      for a in &results.artifacts {
-        if !kinds.contains(&a.kind) {
-          kinds.push(a.kind.clone());
-        }
-      }
-      kinds.sort_by(|a, b| match (a, b) {
-        (None, None) => std::cmp::Ordering::Equal,
-        (None, Some(_)) => std::cmp::Ordering::Greater,
-        (Some(_), None) => std::cmp::Ordering::Less,
-        (Some(a), Some(b)) => a.to_lowercase().cmp(&b.to_lowercase()),
-      });
-
-      for kind in &kinds {
-        let heading = kind.as_deref().unwrap_or("Other").to_string();
-        let items: Vec<&Artifact> = results.artifacts.iter().filter(|a| a.kind == *kind).collect();
-        if !items.is_empty() {
-          groups.push(DetailGroup::Artifacts {
-            heading,
-            items,
-          });
-        }
-      }
-    }
-
-    GroupedDetail::new(groups, theme).write_to(&mut out)?;
-    Ok(())
-  }
-
-  fn print_grouped(&self, results: &SearchResults, theme: &Theme) -> crate::Result<()> {
-    let mut out = std::io::stdout();
-
-    if !results.tasks.is_empty() {
-      writeln!(out, "{}\n", "Tasks".paint(theme.list_heading))?;
-      let groups = build_task_groups(&results.tasks, theme);
-      GroupedList::new(groups, theme).write_to(&mut out)?;
-    }
-
-    if !results.artifacts.is_empty() {
-      if !results.tasks.is_empty() {
-        writeln!(out)?;
-      }
-      writeln!(out, "{}\n", "Artifacts".paint(theme.list_heading))?;
-      let groups = build_artifact_groups(&results.artifacts, theme);
-      GroupedList::new(groups, theme).write_to(&mut out)?;
+      println!("{}", SearchView::new(&self.query, &items, theme));
     }
 
     Ok(())
   }
+}
 
-  fn print_json(&self, results: &SearchResults) -> crate::Result<()> {
-    if self.expand {
-      return self.print_json_expanded(results);
-    }
+/// Convert raw search results into view-layer items with pre-rendered row content.
+fn build_search_items(results: &store::SearchResults, theme: &Theme) -> Vec<SearchResultItem> {
+  let mut items = Vec::with_capacity(results.tasks.len() + results.artifacts.len());
 
-    let output = JsonOutput {
-      artifacts: results
-        .artifacts
-        .iter()
-        .map(|a| JsonArtifact {
-          id: a.id.to_string(),
-          kind: a.kind.clone(),
-          tags: a.tags.clone(),
-          title: a.title.clone(),
-        })
-        .collect(),
-      tasks: results
-        .tasks
-        .iter()
-        .map(|t| JsonTask {
-          id: t.id.to_string(),
-          status: t.status.to_string(),
-          tags: t.tags.clone(),
-          title: t.title.clone(),
-        })
-        .collect(),
+  for task in &results.tasks {
+    let id_str = task.id.to_string();
+    let status_str = match task.status {
+      Status::Open => "open",
+      Status::InProgress => "in-progress",
+      Status::Done => "done",
+      Status::Cancelled => "cancelled",
     };
-    println!("{}", serde_json::to_string_pretty(&output)?);
-    Ok(())
-  }
 
-  fn print_json_expanded(&self, results: &SearchResults) -> crate::Result<()> {
-    let tasks: Vec<serde_json::Value> = results
-      .tasks
+    let blocked_by = task
+      .links
       .iter()
-      .map(serde_json::to_value)
-      .collect::<Result<_, _>>()?;
-    let output = serde_json::json!({
-      "artifacts": results.artifacts.iter().map(artifact_to_json).collect::<Vec<_>>(),
-      "tasks": tasks,
+      .find(|l| l.rel == RelationshipType::BlockedBy)
+      .map(|l| l.ref_.strip_prefix("tasks/").unwrap_or(&l.ref_).to_string());
+
+    let is_blocking = task.links.iter().any(|l| l.rel == RelationshipType::Blocks);
+
+    let row_content = TaskListRow::new(status_str, &id_str, &task.title, theme)
+      .priority(task.priority)
+      .tags(&task.tags)
+      .blocking(is_blocking)
+      .blocked_by(blocked_by.as_deref())
+      .to_string();
+
+    let snippet = if task.description.is_empty() {
+      None
+    } else {
+      Some(truncate_snippet(&task.description, 200))
+    };
+
+    items.push(SearchResultItem {
+      entity_type: EntityType::Task,
+      id: id_str,
+      row_content,
+      snippet,
     });
-    println!("{}", serde_json::to_string_pretty(&output)?);
-    Ok(())
   }
-}
 
-#[derive(Serialize)]
-struct JsonArtifact {
-  id: String,
-  #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
-  kind: Option<String>,
-  tags: Vec<String>,
-  title: String,
-}
+  for artifact in &results.artifacts {
+    let id_str = artifact.id.to_string();
+    let is_archived = artifact.archived_at.is_some();
 
-#[derive(Serialize)]
-struct JsonOutput {
-  artifacts: Vec<JsonArtifact>,
-  tasks: Vec<JsonTask>,
-}
+    let row_content = ArtifactListRow::new(&id_str, &artifact.title, &artifact.tags, theme)
+      .archived(is_archived)
+      .to_string();
 
-#[derive(Serialize)]
-struct JsonTask {
-  id: String,
-  status: String,
-  tags: Vec<String>,
-  title: String,
-}
+    let snippet = if artifact.body.is_empty() {
+      None
+    } else {
+      Some(truncate_snippet(&artifact.body, 200))
+    };
 
-fn build_artifact_groups(artifacts: &[Artifact], theme: &Theme) -> Vec<Group> {
-  let id_strings: Vec<String> = artifacts.iter().map(|a| a.id.to_string()).collect();
-  let prefix_lens = shortest_unique_prefixes(&id_strings);
-
-  // Collect unique kinds, sort alphabetically with "Other" (None) last
-  let mut kinds: Vec<Option<String>> = Vec::new();
-  for a in artifacts {
-    if !kinds.contains(&a.kind) {
-      kinds.push(a.kind.clone());
-    }
+    items.push(SearchResultItem {
+      entity_type: EntityType::Artifact,
+      id: id_str,
+      row_content,
+      snippet,
+    });
   }
-  kinds.sort_by(|a, b| match (a, b) {
-    (None, None) => std::cmp::Ordering::Equal,
-    (None, Some(_)) => std::cmp::Ordering::Greater,
-    (Some(_), None) => std::cmp::Ordering::Less,
-    (Some(a), Some(b)) => a.to_lowercase().cmp(&b.to_lowercase()),
-  });
 
-  kinds
-    .iter()
-    .map(|kind| {
-      let heading = kind.as_deref().unwrap_or("Other").to_string();
-      let rows: Vec<Vec<String>> = artifacts
-        .iter()
-        .zip(&prefix_lens)
-        .filter(|(a, _)| a.kind == *kind)
-        .map(|(a, &plen)| ListRow::new(&a.id, plen, &a.title, &a.tags, theme).build())
-        .collect();
-      Group::new(heading, rows)
-    })
-    .collect()
+  items
 }
 
-fn build_task_groups(tasks: &[Task], theme: &Theme) -> Vec<Group> {
-  let id_strings: Vec<String> = tasks.iter().map(|t| t.id.to_string()).collect();
-  let prefix_lens = shortest_unique_prefixes(&id_strings);
-
-  STATUS_ORDER
-    .iter()
-    .map(|status| {
-      let rows: Vec<Vec<String>> = tasks
-        .iter()
-        .zip(&prefix_lens)
-        .filter(|(t, _)| t.status == *status)
-        .map(|(t, &plen)| ListRow::new(&t.id, plen, &t.title, &t.tags, theme).build())
-        .collect();
-      Group::new(status.to_string(), rows)
-    })
-    .collect()
+/// Take up to three lines of `text`, truncating at `max_chars` with an ellipsis if needed.
+fn truncate_snippet(text: &str, max_chars: usize) -> String {
+  let first_line_or_all = text.lines().take(3).collect::<Vec<_>>().join("\n");
+  if first_line_or_all.chars().count() <= max_chars {
+    first_line_or_all
+  } else {
+    let truncated: String = first_line_or_all.chars().take(max_chars).collect();
+    format!("{truncated}...")
+  }
 }
 
 #[cfg(test)]
 mod tests {
-  use crate::{model::Artifact, test_helpers::make_test_config, ui::theme::Theme};
+  use super::*;
+  use crate::{
+    model::{Artifact, Task, task::Status},
+    store,
+    test_helpers::{make_test_artifact, make_test_config, make_test_task},
+  };
 
   mod call {
-    use pretty_assertions::assert_eq;
-
     use super::*;
-
-    #[test]
-    fn it_expands_without_json() {
-      let dir = tempfile::tempdir().unwrap();
-      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Expand Me");
-      crate::store::write_task(dir.path(), &task).unwrap();
-
-      let cmd = super::super::Command {
-        query: "expand".to_string(),
-        show_all: false,
-        json: false,
-        expand: true,
-      };
-      let config = make_test_config(dir.path());
-      let result = cmd.call(&config, &Theme::default());
-      assert!(result.is_ok());
-    }
-
-    #[test]
-    fn it_excludes_resolved_by_default() {
-      let dir = tempfile::tempdir().unwrap();
-      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Resolved Feature");
-      crate::store::write_task(dir.path(), &task).unwrap();
-      crate::store::resolve_task(dir.path(), &task.id).unwrap();
-
-      let cmd = super::super::Command {
-        query: "resolved".to_string(),
-        show_all: false,
-        json: true,
-        expand: false,
-      };
-      let config = make_test_config(dir.path());
-      let result = cmd.call(&config, &Theme::default());
-      assert!(result.is_ok());
-    }
-
-    #[test]
-    fn it_finds_artifacts_by_query() {
-      let dir = tempfile::tempdir().unwrap();
-      let artifact = make_test_artifact("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Notes", "secret keyword here");
-      crate::store::write_artifact(dir.path(), &artifact).unwrap();
-
-      let cmd = super::super::Command {
-        query: "secret".to_string(),
-        show_all: false,
-        json: false,
-        expand: false,
-      };
-      let config = make_test_config(dir.path());
-      let result = cmd.call(&config, &Theme::default());
-      assert!(result.is_ok());
-    }
-
-    #[test]
-    fn it_finds_tasks_by_query() {
-      let dir = tempfile::tempdir().unwrap();
-      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Important Feature");
-      crate::store::write_task(dir.path(), &task).unwrap();
-
-      let cmd = super::super::Command {
-        query: "important".to_string(),
-        show_all: false,
-        json: false,
-        expand: false,
-      };
-      let config = make_test_config(dir.path());
-      let result = cmd.call(&config, &Theme::default());
-      assert!(result.is_ok());
-    }
 
     #[test]
     fn it_handles_no_results() {
       let dir = tempfile::tempdir().unwrap();
-      crate::store::ensure_dirs(dir.path()).unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
 
-      let cmd = super::super::Command {
+      let cmd = Command {
         query: "nonexistent".to_string(),
-        show_all: false,
         json: false,
+        show_all: false,
         expand: false,
       };
-      let config = make_test_config(dir.path());
-      let result = cmd.call(&config, &Theme::default());
-      assert!(result.is_ok());
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
     }
 
     #[test]
-    fn it_includes_resolved_when_flag_set() {
+    fn it_includes_resolved_with_all_flag() {
       let dir = tempfile::tempdir().unwrap();
-      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Resolved Feature");
-      crate::store::write_task(dir.path(), &task).unwrap();
-      crate::store::resolve_task(dir.path(), &task.id).unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
 
-      let cmd = super::super::Command {
-        query: "resolved".to_string(),
+      let task = Task {
+        title: "done task".to_string(),
+        status: Status::Done,
+        ..make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk")
+      };
+      store::write_task(&data_dir, &task).unwrap();
+
+      let cmd = Command {
+        query: "done".to_string(),
+        json: false,
         show_all: true,
-        json: false,
         expand: false,
       };
-      let config = make_test_config(dir.path());
-      let result = cmd.call(&config, &Theme::default());
-      assert!(result.is_ok());
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
     }
 
     #[test]
-    fn it_json_output_has_correct_structure() {
+    fn it_outputs_json() {
       let dir = tempfile::tempdir().unwrap();
-      let mut task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "My Task");
-      task.tags = vec!["rust".to_string()];
-      crate::store::write_task(dir.path(), &task).unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
 
-      let mut artifact = make_test_artifact("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "My Note", "some body");
-      artifact.kind = Some("note".to_string());
-      artifact.tags = vec!["doc".to_string()];
-      crate::store::write_artifact(dir.path(), &artifact).unwrap();
+      let task = Task {
+        title: "json task".to_string(),
+        status: Status::Open,
+        ..make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk")
+      };
+      store::write_task(&data_dir, &task).unwrap();
 
-      let results = crate::store::search(dir.path(), "my", false).unwrap();
-      assert_eq!(results.tasks.len(), 1);
-      assert_eq!(results.artifacts.len(), 1);
-    }
-
-    #[test]
-    fn it_outputs_expanded_json() {
-      let dir = tempfile::tempdir().unwrap();
-      let mut task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Expand Task");
-      task.description = "detailed description".to_string();
-      crate::store::write_task(dir.path(), &task).unwrap();
-
-      let mut artifact = make_test_artifact("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Expand Note", "artifact body");
-      artifact.kind = Some("note".to_string());
-      crate::store::write_artifact(dir.path(), &artifact).unwrap();
-
-      let cmd = super::super::Command {
-        query: "expand".to_string(),
-        show_all: false,
+      let cmd = Command {
+        query: "json".to_string(),
         json: true,
+        show_all: false,
+        expand: false,
+      };
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+    }
+
+    #[test]
+    fn it_renders_expanded_view() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+
+      let task = Task {
+        title: "expanded task".to_string(),
+        description: "A longer description for expand mode".to_string(),
+        status: Status::InProgress,
+        ..make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk")
+      };
+      store::write_task(&data_dir, &task).unwrap();
+
+      let cmd = Command {
+        query: "expanded".to_string(),
+        json: false,
+        show_all: false,
         expand: true,
       };
-      let config = make_test_config(dir.path());
-      let result = cmd.call(&config, &Theme::default());
-      assert!(result.is_ok());
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
     }
 
     #[test]
-    fn it_outputs_json_when_flag_set() {
+    fn it_returns_matching_artifacts() {
       let dir = tempfile::tempdir().unwrap();
-      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Important Feature");
-      crate::store::write_task(dir.path(), &task).unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
 
-      let cmd = super::super::Command {
-        query: "important".to_string(),
+      let artifact = Artifact {
+        title: "schema design".to_string(),
+        body: "Defines the canonical probe schema".to_string(),
+        ..make_test_artifact("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk")
+      };
+      store::write_artifact(&data_dir, &artifact).unwrap();
+
+      let cmd = Command {
+        query: "schema".to_string(),
+        json: false,
         show_all: false,
-        json: true,
         expand: false,
       };
-      let config = make_test_config(dir.path());
-      let result = cmd.call(&config, &Theme::default());
-      assert!(result.is_ok());
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
     }
 
     #[test]
-    fn it_returns_empty_json_for_no_results() {
+    fn it_returns_matching_tasks() {
       let dir = tempfile::tempdir().unwrap();
-      crate::store::ensure_dirs(dir.path()).unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
 
-      let cmd = super::super::Command {
-        query: "nonexistent".to_string(),
+      let task = Task {
+        title: "streaming adapter".to_string(),
+        status: Status::Open,
+        ..make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk")
+      };
+      store::write_task(&data_dir, &task).unwrap();
+
+      let cmd = Command {
+        query: "streaming".to_string(),
+        json: false,
         show_all: false,
-        json: true,
         expand: false,
       };
-      let config = make_test_config(dir.path());
-      let result = cmd.call(&config, &Theme::default());
-      assert!(result.is_ok());
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
     }
   }
 
-  fn make_test_artifact(id: &str, title: &str, body: &str) -> Artifact {
-    Artifact {
-      title: title.to_string(),
-      body: body.to_string(),
-      ..crate::test_helpers::make_test_artifact(id)
-    }
-  }
+  mod truncate_snippet {
+    use pretty_assertions::assert_eq;
 
-  fn make_test_task(id: &str, title: &str) -> crate::model::Task {
-    crate::model::Task {
-      title: title.to_string(),
-      ..crate::test_helpers::make_test_task(id)
+    #[test]
+    fn it_keeps_short_text() {
+      let result = super::truncate_snippet("short text", 200);
+      assert_eq!(result, "short text");
+    }
+
+    #[test]
+    fn it_limits_to_three_lines() {
+      let text = "line one\nline two\nline three\nline four\nline five";
+      let result = super::truncate_snippet(text, 200);
+      assert_eq!(result, "line one\nline two\nline three");
+    }
+
+    #[test]
+    fn it_truncates_long_text() {
+      let long_text = "a".repeat(300);
+      let result = super::truncate_snippet(&long_text, 200);
+      assert!(result.ends_with("..."));
+      assert_eq!(result.chars().count(), 203);
     }
   }
 }

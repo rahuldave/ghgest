@@ -3,20 +3,11 @@ use std::{
   path::{Path, PathBuf},
 };
 
+use super::Error;
 use crate::model::Id;
 
-/// Write `content` to `dest` and remove `src` if it exists.
-/// Both `ensure_dirs` and the actual write are handled here.
-pub(crate) fn move_entity_file(data_dir: &Path, content: &str, dest: &Path, src: &Path) -> crate::Result<()> {
-  ensure_dirs(data_dir)?;
-  fs::write(dest, content)?;
-  if src.exists() {
-    fs::remove_file(src)?;
-  }
-  Ok(())
-}
-
-pub fn ensure_dirs(data_dir: &Path) -> crate::Result<()> {
+/// Create all required store subdirectories under `data_dir`.
+pub fn ensure_dirs(data_dir: &Path) -> super::Result<()> {
   fs::create_dir_all(data_dir.join("artifacts"))?;
   fs::create_dir_all(data_dir.join("artifacts/archive"))?;
   fs::create_dir_all(data_dir.join("iterations"))?;
@@ -26,7 +17,8 @@ pub fn ensure_dirs(data_dir: &Path) -> crate::Result<()> {
   Ok(())
 }
 
-pub(crate) fn collect_prefix_matches(dir: &Path, extension: &str, prefix: &str) -> crate::Result<Vec<String>> {
+/// Collect file stems in `dir` whose names start with `prefix` and have the given extension.
+pub(crate) fn collect_prefix_matches(dir: &Path, extension: &str, prefix: &str) -> super::Result<Vec<String>> {
   let mut matches = Vec::new();
   for path in read_dir_files(dir, extension)? {
     if let Some(stem) = path.file_stem().and_then(|s| s.to_str())
@@ -38,7 +30,18 @@ pub(crate) fn collect_prefix_matches(dir: &Path, extension: &str, prefix: &str) 
   Ok(matches)
 }
 
-pub(crate) fn read_dir_files(dir: &Path, extension: &str) -> crate::Result<Vec<PathBuf>> {
+/// Write `content` to `dest` and remove `src` if it exists, ensuring store dirs first.
+pub(crate) fn move_entity_file(data_dir: &Path, content: &str, dest: &Path, src: &Path) -> super::Result<()> {
+  ensure_dirs(data_dir)?;
+  fs::write(dest, content)?;
+  if src.exists() {
+    fs::remove_file(src)?;
+  }
+  Ok(())
+}
+
+/// List files in `dir` with the given extension, sorted by path.
+pub(crate) fn read_dir_files(dir: &Path, extension: &str) -> super::Result<Vec<PathBuf>> {
   if !dir.exists() {
     return Ok(Vec::new());
   }
@@ -58,6 +61,8 @@ pub(crate) fn read_dir_files(dir: &Path, extension: &str) -> crate::Result<Vec<P
   Ok(paths)
 }
 
+/// Resolve an ID prefix to a unique [`Id`], searching `primary_dir` first and
+/// optionally falling back to `secondary_dir`.
 pub(crate) fn resolve_id(
   primary_dir: &Path,
   secondary_dir: Option<&Path>,
@@ -65,16 +70,16 @@ pub(crate) fn resolve_id(
   prefix: &str,
   include_secondary: bool,
   hint: &str,
-) -> crate::Result<Id> {
+) -> super::Result<Id> {
   let active_matches = collect_prefix_matches(primary_dir, extension, prefix)?;
 
   match active_matches.len() {
     1 => {
-      return active_matches[0].parse().map_err(|e: String| crate::Error::generic(e));
+      return active_matches[0].parse().map_err(|e: String| Error::generic(e));
     }
     n if n > 1 => {
       let ids = active_matches.join(", ");
-      return Err(crate::Error::generic(format!(
+      return Err(Error::generic(format!(
         "Ambiguous ID prefix '{prefix}', matches: {ids}"
       )));
     }
@@ -86,13 +91,11 @@ pub(crate) fn resolve_id(
     match secondary_matches.len() {
       0 => {}
       1 => {
-        return secondary_matches[0]
-          .parse()
-          .map_err(|e: String| crate::Error::generic(e));
+        return secondary_matches[0].parse().map_err(|e: String| Error::generic(e));
       }
       _ => {
         let ids = secondary_matches.join(", ");
-        return Err(crate::Error::generic(format!(
+        return Err(Error::generic(format!(
           "Ambiguous ID prefix '{prefix}', matches: {ids}"
         )));
       }
@@ -103,7 +106,7 @@ pub(crate) fn resolve_id(
   if !include_secondary {
     msg.push_str(" (try --all)");
   }
-  Err(crate::Error::generic(msg))
+  Err(Error::generic(msg))
 }
 
 #[cfg(test)]

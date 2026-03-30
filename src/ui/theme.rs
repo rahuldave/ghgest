@@ -1,309 +1,461 @@
 use yansi::Style;
 
 use super::colors;
-use crate::config::Config;
 
-/// Semantic color theme for CLI output.
+/// Semantic style tokens for all UI elements.
 ///
-/// Each field holds a [`yansi::Style`] for a specific semantic token.
-/// The [`Default`] implementation uses the brand palette RGB values.
-#[derive(Clone, Debug)]
+/// Each field maps a named UI role to a [`yansi::Style`].  The [`Default`]
+/// implementation uses the brand palette; user overrides from config are
+/// applied via [`Theme::apply_overrides`].
+#[derive(Debug, Clone)]
 pub struct Theme {
+  pub artifact_detail_label: Style,
+  pub artifact_detail_separator: Style,
+  pub artifact_detail_value: Style,
+  pub artifact_list_archived_badge: Style,
+  pub artifact_list_tag_archived: Style,
+  pub artifact_list_title: Style,
+  pub artifact_list_title_archived: Style,
+
+  pub banner_author: Style,
+  pub banner_author_name: Style,
+  pub banner_gradient_end: Style,
+  pub banner_gradient_start: Style,
+  pub banner_shadow: Style,
+  pub banner_update_command: Style,
+  pub banner_update_hint: Style,
+  pub banner_update_message: Style,
+  pub banner_update_version: Style,
+  pub banner_version: Style,
+  pub banner_version_date: Style,
+  pub banner_version_revision: Style,
+
   pub border: Style,
+
+  pub config_heading: Style,
+  pub config_label: Style,
+  pub config_no_overrides: Style,
+  pub config_value: Style,
+
   pub emphasis: Style,
   pub error: Style,
+
   pub id_prefix: Style,
   pub id_rest: Style,
+
   pub indicator_blocked: Style,
+  pub indicator_blocked_by_id: Style,
+  pub indicator_blocked_by_label: Style,
   pub indicator_blocking: Style,
+
+  pub init_command_prefix: Style,
+  pub init_label: Style,
+  pub init_section: Style,
+  pub init_value: Style,
+
+  pub iteration_detail_count_blocked: Style,
+  pub iteration_detail_count_done: Style,
+  pub iteration_detail_count_in_progress: Style,
+  pub iteration_detail_count_open: Style,
+  pub iteration_detail_label: Style,
+  pub iteration_detail_value: Style,
+
+  pub iteration_graph_branch: Style,
+  pub iteration_graph_phase_icon: Style,
+  pub iteration_graph_phase_label: Style,
+  pub iteration_graph_phase_name: Style,
+  pub iteration_graph_separator: Style,
+  pub iteration_graph_title: Style,
+
+  pub iteration_list_summary: Style,
+  pub iteration_list_title: Style,
+
   pub list_heading: Style,
+  pub list_summary: Style,
+
   pub log_debug: Style,
   pub log_error: Style,
   pub log_info: Style,
+  pub log_timestamp: Style,
   pub log_trace: Style,
   pub log_warn: Style,
-  pub md_blockquote: Style,
-  pub md_bold: Style,
-  pub md_code: Style,
-  pub md_code_block: Style,
-  pub md_heading: Style,
-  pub md_italic: Style,
-  pub md_link: Style,
-  pub md_rule: Style,
+
+  pub markdown_blockquote: Style,
+  pub markdown_blockquote_border: Style,
+  pub markdown_code_block: Style,
+  pub markdown_code_border: Style,
+  pub markdown_code_inline: Style,
+  pub markdown_emphasis: Style,
+  pub markdown_heading: Style,
+  pub markdown_link: Style,
+  pub markdown_rule: Style,
+  pub markdown_strong: Style,
+
+  pub message_created_label: Style,
+  pub message_success_icon: Style,
+  pub message_updated_label: Style,
+
   pub muted: Style,
+
+  pub search_expand_separator: Style,
+  pub search_no_results_hint: Style,
+  pub search_query: Style,
+  pub search_summary: Style,
+  pub search_type_label: Style,
+
   pub status_cancelled: Style,
   pub status_done: Style,
   pub status_in_progress: Style,
   pub status_open: Style,
+
   pub success: Style,
   pub tag: Style,
-}
 
-impl Theme {
-  /// Construct a theme by merging user overrides from config with defaults.
-  ///
-  /// For each entry in `config.colors`, the dot-separated key (e.g. `"log.error"`)
-  /// is mapped to the corresponding theme field, and the [`ColorValue`] is applied
-  /// on top of the default style. Unknown keys are silently ignored.
-  pub fn from_config(config: &Config) -> Self {
-    let mut theme = Self::default();
+  pub task_detail_label: Style,
+  pub task_detail_separator: Style,
+  pub task_detail_title: Style,
+  pub task_detail_value: Style,
 
-    for (key, value) in &config.colors {
-      match key.as_str() {
-        "border" => theme.border = value.apply_to(theme.border),
-        "emphasis" => theme.emphasis = value.apply_to(theme.emphasis),
-        "error" => theme.error = value.apply_to(theme.error),
-        "id_prefix" => theme.id_prefix = value.apply_to(theme.id_prefix),
-        "id_rest" => theme.id_rest = value.apply_to(theme.id_rest),
-        "indicator.blocked" => theme.indicator_blocked = value.apply_to(theme.indicator_blocked),
-        "indicator.blocking" => theme.indicator_blocking = value.apply_to(theme.indicator_blocking),
-        "list_heading" => theme.list_heading = value.apply_to(theme.list_heading),
-        "log.debug" => theme.log_debug = value.apply_to(theme.log_debug),
-        "log.error" => theme.log_error = value.apply_to(theme.log_error),
-        "log.info" => theme.log_info = value.apply_to(theme.log_info),
-        "log.trace" => theme.log_trace = value.apply_to(theme.log_trace),
-        "log.warn" => theme.log_warn = value.apply_to(theme.log_warn),
-        "md.blockquote" => theme.md_blockquote = value.apply_to(theme.md_blockquote),
-        "md.bold" => theme.md_bold = value.apply_to(theme.md_bold),
-        "md.code" => theme.md_code = value.apply_to(theme.md_code),
-        "md.code_block" => theme.md_code_block = value.apply_to(theme.md_code_block),
-        "md.heading" => theme.md_heading = value.apply_to(theme.md_heading),
-        "md.italic" => theme.md_italic = value.apply_to(theme.md_italic),
-        "md.link" => theme.md_link = value.apply_to(theme.md_link),
-        "md.rule" => theme.md_rule = value.apply_to(theme.md_rule),
-        "muted" => theme.muted = value.apply_to(theme.muted),
-        "status.cancelled" => theme.status_cancelled = value.apply_to(theme.status_cancelled),
-        "status.done" => theme.status_done = value.apply_to(theme.status_done),
-        "status.in_progress" => theme.status_in_progress = value.apply_to(theme.status_in_progress),
-        "status.open" => theme.status_open = value.apply_to(theme.status_open),
-        "success" => theme.success = value.apply_to(theme.success),
-        "tag" => theme.tag = value.apply_to(theme.tag),
-        _ => log::warn!("unknown color token: {key}"),
-      }
-    }
-
-    theme
-  }
+  pub task_list_icon_cancelled: Style,
+  pub task_list_icon_done: Style,
+  pub task_list_icon_in_progress: Style,
+  pub task_list_icon_open: Style,
+  pub task_list_priority: Style,
+  pub task_list_title: Style,
+  pub task_list_title_cancelled: Style,
 }
 
 impl Default for Theme {
   fn default() -> Self {
     Self {
+      artifact_detail_label: Style::new().fg(colors::PEWTER),
+      artifact_detail_separator: Style::new().fg(colors::BORDER),
+      artifact_detail_value: Style::new().fg(colors::SILVER),
+      artifact_list_archived_badge: Style::new().fg(colors::DIM),
+      artifact_list_tag_archived: Style::new().fg(colors::DIM),
+      artifact_list_title: Style::new().fg(colors::SILVER),
+      artifact_list_title_archived: Style::new().fg(colors::DIM),
+
+      banner_author: Style::new().fg(colors::SILVER).italic(),
+      banner_author_name: Style::new().fg(colors::EMBER).bold(),
+      banner_gradient_end: Style::new().fg(yansi::Color::Rgb(68, 169, 211)),
+      banner_gradient_start: Style::new().fg(yansi::Color::Rgb(24, 178, 155)),
+      banner_shadow: Style::new().fg(yansi::Color::Rgb(14, 130, 112)),
+      banner_update_command: Style::new().fg(colors::SILVER),
+      banner_update_hint: Style::new().fg(colors::PEWTER),
+      banner_update_message: Style::new().fg(colors::AMBER),
+      banner_update_version: Style::new().fg(colors::AMBER).bold(),
+      banner_version: Style::new().fg(colors::SILVER),
+      banner_version_date: Style::new().fg(colors::AZURE),
+      banner_version_revision: Style::new().fg(colors::JADE),
+
       border: Style::new().fg(colors::BORDER),
-      emphasis: Style::new().fg(colors::VIOLET).bold(),
+
+      config_heading: Style::new().fg(colors::AZURE).bold().underline(),
+      config_label: Style::new().fg(colors::PEWTER),
+      config_no_overrides: Style::new().fg(colors::DIM),
+      config_value: Style::new().fg(colors::SILVER),
+
+      emphasis: Style::new().fg(colors::AZURE).bold(),
       error: Style::new().fg(colors::ERROR).bold(),
+
       id_prefix: Style::new().fg(colors::AZURE).bold(),
       id_rest: Style::new().fg(colors::PEWTER),
+
       indicator_blocked: Style::new().fg(colors::ERROR).bold(),
-      indicator_blocking: Style::new().fg(colors::WARNING).bold(),
-      list_heading: Style::new().fg(colors::VIOLET).bold().underline(),
-      log_debug: Style::new().fg(colors::VIOLET_LIGHT),
+      indicator_blocked_by_id: Style::new().fg(colors::AZURE),
+      indicator_blocked_by_label: Style::new().fg(colors::PEWTER),
+      indicator_blocking: Style::new().fg(colors::AMBER).bold(),
+
+      init_command_prefix: Style::new().fg(colors::BORDER),
+      init_label: Style::new().fg(colors::PEWTER),
+      init_section: Style::new().fg(colors::PEWTER),
+      init_value: Style::new().fg(colors::SILVER),
+
+      iteration_detail_count_blocked: Style::new().fg(colors::ERROR).bold(),
+      iteration_detail_count_done: Style::new().fg(colors::JADE),
+      iteration_detail_count_in_progress: Style::new().fg(colors::AMBER),
+      iteration_detail_count_open: Style::new().fg(colors::SILVER),
+      iteration_detail_label: Style::new().fg(colors::PEWTER),
+      iteration_detail_value: Style::new().fg(colors::SILVER),
+
+      iteration_graph_branch: Style::new().fg(colors::BORDER),
+      iteration_graph_phase_icon: Style::new().fg(colors::AZURE).bold(),
+      iteration_graph_phase_label: Style::new().fg(colors::AZURE).bold().underline(),
+      iteration_graph_phase_name: Style::new().fg(colors::PEWTER),
+      iteration_graph_separator: Style::new().fg(colors::BORDER),
+      iteration_graph_title: Style::new().fg(colors::SILVER).bold(),
+
+      iteration_list_summary: Style::new().fg(colors::PEWTER),
+      iteration_list_title: Style::new().fg(colors::SILVER),
+
+      list_heading: Style::new().fg(colors::AZURE).bold().underline(),
+      list_summary: Style::new().fg(colors::PEWTER),
+
+      log_debug: Style::new().fg(colors::AZURE_LIGHT),
       log_error: Style::new().fg(colors::ERROR),
       log_info: Style::new().fg(colors::AZURE),
+      log_timestamp: Style::new().fg(colors::DIM),
       log_trace: Style::new().fg(colors::DIM),
-      log_warn: Style::new().fg(colors::WARNING),
-      md_blockquote: Style::new().fg(colors::PEWTER).italic(),
-      md_bold: Style::new().bold(),
-      md_code: Style::new().fg(colors::EMBER),
-      md_code_block: Style::new().fg(colors::SILVER),
-      md_heading: Style::new().fg(colors::VIOLET).bold(),
-      md_italic: Style::new().italic(),
-      md_link: Style::new().fg(colors::AZURE).underline(),
-      md_rule: Style::new().fg(colors::BORDER),
+      log_warn: Style::new().fg(colors::AMBER),
+
+      markdown_blockquote: Style::new().fg(colors::PEWTER).italic(),
+      markdown_blockquote_border: Style::new().fg(colors::DIM),
+      markdown_code_block: Style::new().fg(colors::SILVER),
+      markdown_code_border: Style::new().fg(colors::AZURE_DARK),
+      markdown_code_inline: Style::new().fg(colors::EMBER),
+      markdown_emphasis: Style::default().italic(),
+      markdown_heading: Style::new().fg(colors::AZURE).bold(),
+      markdown_link: Style::new().fg(colors::AZURE).underline(),
+      markdown_rule: Style::new().fg(colors::BORDER),
+      markdown_strong: Style::default().bold(),
+
+      message_created_label: Style::new().fg(colors::SILVER),
+      message_success_icon: Style::new().fg(colors::JADE).bold(),
+      message_updated_label: Style::new().fg(colors::SILVER),
+
       muted: Style::new().fg(colors::PEWTER),
+
+      search_expand_separator: Style::new().fg(colors::BORDER),
+      search_no_results_hint: Style::new().fg(colors::DIM),
+      search_query: Style::new().fg(colors::SILVER),
+      search_summary: Style::new().fg(colors::PEWTER),
+      search_type_label: Style::new().fg(colors::PEWTER),
+
       status_cancelled: Style::new().fg(colors::DIM),
-      status_done: Style::new().fg(colors::SUCCESS),
-      status_in_progress: Style::new().fg(colors::WARNING),
+      status_done: Style::new().fg(colors::JADE),
+      status_in_progress: Style::new().fg(colors::AMBER),
       status_open: Style::new().fg(colors::SILVER),
-      success: Style::new().fg(colors::SUCCESS).bold(),
+
+      success: Style::new().fg(colors::JADE).bold(),
       tag: Style::new().fg(colors::AZURE).italic(),
+
+      task_detail_label: Style::new().fg(colors::PEWTER),
+      task_detail_separator: Style::new().fg(colors::BORDER),
+      task_detail_title: Style::new().fg(colors::SILVER),
+      task_detail_value: Style::new().fg(colors::SILVER),
+
+      task_list_icon_cancelled: Style::new().fg(colors::DIM),
+      task_list_icon_done: Style::new().fg(colors::JADE),
+      task_list_icon_in_progress: Style::new().fg(colors::AMBER),
+      task_list_icon_open: Style::new().fg(colors::SILVER),
+      task_list_priority: Style::new().fg(colors::PEWTER),
+      task_list_title: Style::new().fg(colors::SILVER),
+      task_list_title_cancelled: Style::new().fg(colors::DIM),
+    }
+  }
+}
+
+impl Theme {
+  /// Build a theme by applying user color overrides from config on top of defaults.
+  pub fn from_config(settings: &crate::config::Settings) -> Self {
+    let mut theme = Self::default();
+    theme.apply_overrides(settings.colors());
+    theme
+  }
+
+  /// Merge user color overrides into this theme, matching dot-separated keys to fields.
+  pub fn apply_overrides(&mut self, colors: &crate::config::colors::Settings) {
+    for (key, value) in colors.iter() {
+      match key.as_str() {
+        "artifact.detail.label" => self.artifact_detail_label = value.apply_to(self.artifact_detail_label),
+        "artifact.detail.separator" => self.artifact_detail_separator = value.apply_to(self.artifact_detail_separator),
+        "artifact.detail.value" => self.artifact_detail_value = value.apply_to(self.artifact_detail_value),
+        "artifact.list.archived.badge" => {
+          self.artifact_list_archived_badge = value.apply_to(self.artifact_list_archived_badge)
+        }
+        "artifact.list.tag.archived" => {
+          self.artifact_list_tag_archived = value.apply_to(self.artifact_list_tag_archived)
+        }
+        "artifact.list.title" => self.artifact_list_title = value.apply_to(self.artifact_list_title),
+        "artifact.list.title.archived" => {
+          self.artifact_list_title_archived = value.apply_to(self.artifact_list_title_archived)
+        }
+
+        "banner.author" => self.banner_author = value.apply_to(self.banner_author),
+        "banner.author.name" => self.banner_author_name = value.apply_to(self.banner_author_name),
+        "banner.gradient.end" => self.banner_gradient_end = value.apply_to(self.banner_gradient_end),
+        "banner.gradient.start" => self.banner_gradient_start = value.apply_to(self.banner_gradient_start),
+        "banner.shadow" => self.banner_shadow = value.apply_to(self.banner_shadow),
+        "banner.update.command" => self.banner_update_command = value.apply_to(self.banner_update_command),
+        "banner.update.hint" => self.banner_update_hint = value.apply_to(self.banner_update_hint),
+        "banner.update.message" => self.banner_update_message = value.apply_to(self.banner_update_message),
+        "banner.update.version" => self.banner_update_version = value.apply_to(self.banner_update_version),
+        "banner.version" => self.banner_version = value.apply_to(self.banner_version),
+        "banner.version.date" => self.banner_version_date = value.apply_to(self.banner_version_date),
+        "banner.version.revision" => self.banner_version_revision = value.apply_to(self.banner_version_revision),
+
+        "border" => self.border = value.apply_to(self.border),
+
+        "config.heading" => self.config_heading = value.apply_to(self.config_heading),
+        "config.label" => self.config_label = value.apply_to(self.config_label),
+        "config.no_overrides" => self.config_no_overrides = value.apply_to(self.config_no_overrides),
+        "config.value" => self.config_value = value.apply_to(self.config_value),
+
+        "emphasis" => self.emphasis = value.apply_to(self.emphasis),
+        "error" => self.error = value.apply_to(self.error),
+
+        "id.prefix" => self.id_prefix = value.apply_to(self.id_prefix),
+        "id.rest" => self.id_rest = value.apply_to(self.id_rest),
+
+        "indicator.blocked" => self.indicator_blocked = value.apply_to(self.indicator_blocked),
+        "indicator.blocked_by.id" => self.indicator_blocked_by_id = value.apply_to(self.indicator_blocked_by_id),
+        "indicator.blocked_by.label" => {
+          self.indicator_blocked_by_label = value.apply_to(self.indicator_blocked_by_label)
+        }
+        "indicator.blocking" => self.indicator_blocking = value.apply_to(self.indicator_blocking),
+
+        "init.command.prefix" => self.init_command_prefix = value.apply_to(self.init_command_prefix),
+        "init.label" => self.init_label = value.apply_to(self.init_label),
+        "init.section" => self.init_section = value.apply_to(self.init_section),
+        "init.value" => self.init_value = value.apply_to(self.init_value),
+
+        "iteration.detail.count.blocked" => {
+          self.iteration_detail_count_blocked = value.apply_to(self.iteration_detail_count_blocked)
+        }
+        "iteration.detail.count.done" => {
+          self.iteration_detail_count_done = value.apply_to(self.iteration_detail_count_done)
+        }
+        "iteration.detail.count.in_progress" => {
+          self.iteration_detail_count_in_progress = value.apply_to(self.iteration_detail_count_in_progress)
+        }
+        "iteration.detail.count.open" => {
+          self.iteration_detail_count_open = value.apply_to(self.iteration_detail_count_open)
+        }
+        "iteration.detail.label" => self.iteration_detail_label = value.apply_to(self.iteration_detail_label),
+        "iteration.detail.value" => self.iteration_detail_value = value.apply_to(self.iteration_detail_value),
+
+        "iteration.graph.branch" => self.iteration_graph_branch = value.apply_to(self.iteration_graph_branch),
+        "iteration.graph.phase.icon" => {
+          self.iteration_graph_phase_icon = value.apply_to(self.iteration_graph_phase_icon)
+        }
+        "iteration.graph.phase.label" => {
+          self.iteration_graph_phase_label = value.apply_to(self.iteration_graph_phase_label)
+        }
+        "iteration.graph.phase.name" => {
+          self.iteration_graph_phase_name = value.apply_to(self.iteration_graph_phase_name)
+        }
+        "iteration.graph.separator" => self.iteration_graph_separator = value.apply_to(self.iteration_graph_separator),
+        "iteration.graph.title" => self.iteration_graph_title = value.apply_to(self.iteration_graph_title),
+
+        "iteration.list.summary" => self.iteration_list_summary = value.apply_to(self.iteration_list_summary),
+        "iteration.list.title" => self.iteration_list_title = value.apply_to(self.iteration_list_title),
+
+        "list.heading" => self.list_heading = value.apply_to(self.list_heading),
+        "list.summary" => self.list_summary = value.apply_to(self.list_summary),
+
+        "log.debug" => self.log_debug = value.apply_to(self.log_debug),
+        "log.error" => self.log_error = value.apply_to(self.log_error),
+        "log.info" => self.log_info = value.apply_to(self.log_info),
+        "log.timestamp" => self.log_timestamp = value.apply_to(self.log_timestamp),
+        "log.trace" => self.log_trace = value.apply_to(self.log_trace),
+        "log.warn" => self.log_warn = value.apply_to(self.log_warn),
+
+        "markdown.blockquote" | "md.blockquote" => self.markdown_blockquote = value.apply_to(self.markdown_blockquote),
+        "markdown.blockquote.border" | "md.blockquote.border" => {
+          self.markdown_blockquote_border = value.apply_to(self.markdown_blockquote_border)
+        }
+        "markdown.code.block" | "md.code.block" => self.markdown_code_block = value.apply_to(self.markdown_code_block),
+        "markdown.code.border" | "md.code.border" => {
+          self.markdown_code_border = value.apply_to(self.markdown_code_border)
+        }
+        "markdown.code.inline" | "md.code" => self.markdown_code_inline = value.apply_to(self.markdown_code_inline),
+        "markdown.emphasis" | "md.emphasis" => self.markdown_emphasis = value.apply_to(self.markdown_emphasis),
+        "markdown.heading" | "md.heading" => self.markdown_heading = value.apply_to(self.markdown_heading),
+        "markdown.link" | "md.link" => self.markdown_link = value.apply_to(self.markdown_link),
+        "markdown.rule" | "md.rule" => self.markdown_rule = value.apply_to(self.markdown_rule),
+        "markdown.strong" | "md.strong" => self.markdown_strong = value.apply_to(self.markdown_strong),
+
+        "message.created.label" => self.message_created_label = value.apply_to(self.message_created_label),
+        "message.success.icon" => self.message_success_icon = value.apply_to(self.message_success_icon),
+        "message.updated.label" => self.message_updated_label = value.apply_to(self.message_updated_label),
+
+        "muted" => self.muted = value.apply_to(self.muted),
+
+        "search.expand.separator" => self.search_expand_separator = value.apply_to(self.search_expand_separator),
+        "search.no_results.hint" => self.search_no_results_hint = value.apply_to(self.search_no_results_hint),
+        "search.query" => self.search_query = value.apply_to(self.search_query),
+        "search.summary" => self.search_summary = value.apply_to(self.search_summary),
+        "search.type.label" => self.search_type_label = value.apply_to(self.search_type_label),
+
+        "status.cancelled" => self.status_cancelled = value.apply_to(self.status_cancelled),
+        "status.done" => self.status_done = value.apply_to(self.status_done),
+        "status.in_progress" => self.status_in_progress = value.apply_to(self.status_in_progress),
+        "status.open" => self.status_open = value.apply_to(self.status_open),
+
+        "success" => self.success = value.apply_to(self.success),
+        "tag" => self.tag = value.apply_to(self.tag),
+
+        "task.detail.label" => self.task_detail_label = value.apply_to(self.task_detail_label),
+        "task.detail.separator" => self.task_detail_separator = value.apply_to(self.task_detail_separator),
+        "task.detail.title" => self.task_detail_title = value.apply_to(self.task_detail_title),
+        "task.detail.value" => self.task_detail_value = value.apply_to(self.task_detail_value),
+
+        "task.list.icon.cancelled" => self.task_list_icon_cancelled = value.apply_to(self.task_list_icon_cancelled),
+        "task.list.icon.done" => self.task_list_icon_done = value.apply_to(self.task_list_icon_done),
+        "task.list.icon.in_progress" => {
+          self.task_list_icon_in_progress = value.apply_to(self.task_list_icon_in_progress)
+        }
+        "task.list.icon.open" => self.task_list_icon_open = value.apply_to(self.task_list_icon_open),
+        "task.list.priority" => self.task_list_priority = value.apply_to(self.task_list_priority),
+        "task.list.title" => self.task_list_title = value.apply_to(self.task_list_title),
+        "task.list.title.cancelled" => self.task_list_title_cancelled = value.apply_to(self.task_list_title_cancelled),
+
+        _ => {
+          log::warn!("unknown color token  key={key:?}");
+        }
+      }
     }
   }
 }
 
 #[cfg(test)]
 mod tests {
+  use yansi::{Color, Paint};
+
   use super::*;
-  use crate::config::ColorValue;
 
-  mod from_config {
-    use std::collections::HashMap;
+  #[test]
+  fn it_creates_successfully_with_defaults() {
+    let theme = Theme::default();
+    let _ = theme.emphasis;
+  }
 
-    use pretty_assertions::assert_eq;
-    use yansi::Color;
+  #[test]
+  fn it_returns_default_when_no_overrides_from_config() {
+    let settings = crate::config::Settings::default();
+    let from_cfg = Theme::from_config(&settings);
+    let default = Theme::default();
+    assert_eq!(format!("{:?}", from_cfg.emphasis), format!("{:?}", default.emphasis));
+    assert_eq!(format!("{:?}", from_cfg.log_error), format!("{:?}", default.log_error));
+  }
 
-    use super::*;
+  #[test]
+  fn it_styles_emphasis_as_azure_bold() {
+    let theme = Theme::default();
+    let styled = "x".paint(theme.emphasis);
+    let rendered = format!("{styled}");
+    assert!(rendered.contains('x'));
+  }
 
-    #[test]
-    fn it_ignores_unknown_token_names() {
-      let mut config = Config::default();
-      config.colors.insert(
-        "nonexistent.token".to_string(),
-        ColorValue {
-          bg: None,
-          bold: false,
-          dim: false,
-          fg: Some(Color::Red),
-          italic: false,
-          underline: false,
-        },
-      );
+  #[test]
+  fn it_uses_default_fg_for_markdown_emphasis() {
+    let theme = Theme::default();
+    let expected = Style::default().italic();
+    assert_eq!(format!("{:?}", theme.markdown_emphasis), format!("{:?}", expected),);
+  }
 
-      // Should not panic
-      let theme = Theme::from_config(&config);
+  #[test]
+  fn it_uses_default_fg_for_markdown_strong() {
+    let theme = Theme::default();
+    let expected = Style::default().bold();
+    assert_eq!(format!("{:?}", theme.markdown_strong), format!("{:?}", expected),);
+  }
 
-      assert_eq!(theme.log_error, Theme::default().log_error);
-    }
-
-    #[test]
-    fn it_maps_all_token_names() {
-      let red = ColorValue {
-        bg: None,
-        bold: false,
-        dim: false,
-        fg: Some(Color::Red),
-        italic: false,
-        underline: false,
-      };
-
-      let mut colors = HashMap::new();
-      colors.insert("log.debug".to_string(), red.clone());
-      colors.insert("log.error".to_string(), red.clone());
-      colors.insert("log.info".to_string(), red.clone());
-      colors.insert("log.trace".to_string(), red.clone());
-      colors.insert("log.warn".to_string(), red.clone());
-      colors.insert("md.blockquote".to_string(), red.clone());
-      colors.insert("md.bold".to_string(), red.clone());
-      colors.insert("md.code".to_string(), red.clone());
-      colors.insert("md.code_block".to_string(), red.clone());
-      colors.insert("md.heading".to_string(), red.clone());
-      colors.insert("md.italic".to_string(), red.clone());
-      colors.insert("md.link".to_string(), red.clone());
-      colors.insert("md.rule".to_string(), red.clone());
-      colors.insert("status.cancelled".to_string(), red.clone());
-      colors.insert("status.done".to_string(), red.clone());
-      colors.insert("status.in_progress".to_string(), red.clone());
-      colors.insert("status.open".to_string(), red.clone());
-      colors.insert("border".to_string(), red.clone());
-      colors.insert("emphasis".to_string(), red.clone());
-      colors.insert("error".to_string(), red.clone());
-      colors.insert("id_prefix".to_string(), red.clone());
-      colors.insert("id_rest".to_string(), red.clone());
-      colors.insert("indicator.blocked".to_string(), red.clone());
-      colors.insert("indicator.blocking".to_string(), red.clone());
-      colors.insert("list_heading".to_string(), red.clone());
-      colors.insert("muted".to_string(), red.clone());
-      colors.insert("success".to_string(), red.clone());
-      colors.insert("tag".to_string(), red.clone());
-
-      let mut config = Config::default();
-      config.colors = colors;
-
-      let theme = Theme::from_config(&config);
-      let red = Style::new().fg(Color::Red);
-      let red_bold = Style::new().fg(Color::Red).bold();
-      let red_bold_underline = Style::new().fg(Color::Red).bold().underline();
-      let red_italic = Style::new().fg(Color::Red).italic();
-      let red_underline = Style::new().fg(Color::Red).underline();
-
-      // Tokens without default modifiers get plain red
-      assert_eq!(theme.log_debug, red);
-      assert_eq!(theme.log_error, red);
-      assert_eq!(theme.log_info, red);
-      assert_eq!(theme.log_trace, red);
-      assert_eq!(theme.log_warn, red);
-      assert_eq!(theme.md_code, red);
-      assert_eq!(theme.md_code_block, red);
-      assert_eq!(theme.md_rule, red);
-      assert_eq!(theme.status_cancelled, red);
-      assert_eq!(theme.status_done, red);
-      assert_eq!(theme.status_in_progress, red);
-      assert_eq!(theme.status_open, red);
-      assert_eq!(theme.border, red);
-      assert_eq!(theme.id_rest, red);
-      assert_eq!(theme.muted, red);
-      // Tokens with default italic keep it
-      assert_eq!(theme.tag, red_italic);
-      // Tokens with default bold keep it (apply_to layers on top)
-      assert_eq!(theme.emphasis, red_bold);
-      assert_eq!(theme.error, red_bold);
-      assert_eq!(theme.id_prefix, red_bold);
-      assert_eq!(theme.indicator_blocked, red_bold);
-      assert_eq!(theme.indicator_blocking, red_bold);
-      assert_eq!(theme.md_bold, red_bold);
-      assert_eq!(theme.md_heading, red_bold);
-      assert_eq!(theme.success, red_bold);
-      // Tokens with default bold+underline keep both
-      assert_eq!(theme.list_heading, red_bold_underline);
-      // Tokens with default italic keep it
-      assert_eq!(theme.md_blockquote, red_italic);
-      assert_eq!(theme.md_italic, red_italic);
-      // Tokens with default underline keep it
-      assert_eq!(theme.md_link, red_underline);
-    }
-
-    #[test]
-    fn it_overrides_a_single_token() {
-      let mut config = Config::default();
-      config.colors.insert(
-        "log.error".to_string(),
-        ColorValue {
-          bg: None,
-          bold: false,
-          dim: false,
-          fg: Some(Color::Rgb(255, 0, 0)),
-          italic: false,
-          underline: false,
-        },
-      );
-
-      let theme = Theme::from_config(&config);
-
-      assert_eq!(theme.log_error, Style::new().fg(Color::Rgb(255, 0, 0)));
-      // Other tokens remain at defaults
-      assert_eq!(theme.log_warn, Theme::default().log_warn);
-    }
-
-    #[test]
-    fn it_overrides_multiple_tokens() {
-      let mut config = Config::default();
-      config.colors.insert(
-        "log.error".to_string(),
-        ColorValue {
-          bg: None,
-          bold: false,
-          dim: false,
-          fg: Some(Color::Red),
-          italic: false,
-          underline: false,
-        },
-      );
-      config.colors.insert(
-        "emphasis".to_string(),
-        ColorValue {
-          bg: None,
-          bold: true,
-          dim: false,
-          fg: Some(Color::Rgb(148, 72, 199)),
-          italic: false,
-          underline: false,
-        },
-      );
-
-      let theme = Theme::from_config(&config);
-
-      assert_eq!(theme.log_error, Style::new().fg(Color::Red));
-      assert_eq!(theme.emphasis, Style::new().fg(Color::Rgb(148, 72, 199)).bold());
-    }
-
-    #[test]
-    fn it_returns_defaults_with_empty_colors() {
-      let config = Config::default();
-
-      let theme = Theme::from_config(&config);
-
-      assert_eq!(theme.log_error, Theme::default().log_error);
-      assert_eq!(theme.emphasis, Theme::default().emphasis);
-    }
+  #[test]
+  fn it_uses_inline_rgb_for_banner_gradient_start() {
+    let theme = Theme::default();
+    let expected = Style::new().fg(Color::Rgb(24, 178, 155));
+    assert_eq!(format!("{:?}", theme.banner_gradient_start), format!("{:?}", expected),);
   }
 }

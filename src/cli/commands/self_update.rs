@@ -1,56 +1,50 @@
+use std::io::Write;
+
 use clap::Args;
 
 use crate::{
-  config::Config,
-  ui::{
-    components::{AlreadyOnVersion, UpdateAvailable, UpdateCancelled, UpdateComplete, UpdatePrompt},
-    theme::Theme,
-  },
+  cli,
+  ui::{composites::success_message::SuccessMessage, theme::Theme},
 };
 
-/// Binary name.
 const BIN_NAME: &str = "gest";
-
-/// Current version from Cargo.toml, used to detect whether an update is needed.
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
-
-/// GitHub repository name.
 const REPO_NAME: &str = "gest";
-
-/// GitHub repository owner.
 const REPO_OWNER: &str = "aaronmallen";
 
-/// Update gest to the latest (or a specific) release
+/// Update gest to the latest (or a pinned) GitHub release.
 #[derive(Debug, Args)]
 pub struct Command {
-  /// Pin to a specific version (bare semver, e.g. 1.2.3)
+  /// Pin to a specific version (bare semver, e.g. `1.2.3`).
   #[arg(long)]
   target: Option<String>,
 }
 
 impl Command {
-  pub fn call(&self, _config: &Config, theme: &Theme) -> crate::Result<()> {
+  /// Fetch releases, prompt for confirmation, and perform the in-place binary update.
+  pub fn call(&self, theme: &Theme) -> cli::Result<()> {
     let releases = self_update::backends::github::ReleaseList::configure()
       .repo_owner(REPO_OWNER)
       .repo_name(REPO_NAME)
-      .build()?
-      .fetch()?;
+      .build()
+      .map_err(|e| cli::Error::generic(e.to_string()))?
+      .fetch()
+      .map_err(|e| cli::Error::generic(e.to_string()))?;
 
     let latest = releases
       .first()
-      .ok_or_else(|| crate::Error::generic("no releases found on GitHub"))?;
+      .ok_or_else(|| cli::Error::generic("no releases found on GitHub"))?;
 
     let target_version = self.target.as_deref().unwrap_or(&latest.version);
 
     if target_version == CURRENT_VERSION {
-      AlreadyOnVersion::new(target_version).write_to(&mut std::io::stdout(), theme)?;
+      let msg = format!("Already on version {CURRENT_VERSION}");
+      println!("{}", SuccessMessage::new(&msg, theme));
       return Ok(());
     }
 
-    // Prompt for confirmation
-    UpdateAvailable::new(CURRENT_VERSION, target_version).write_to(&mut std::io::stdout())?;
-    UpdatePrompt.write_to(&mut std::io::stdout())?;
-    use std::io::Write;
+    println!("Update available: {CURRENT_VERSION} → {target_version}");
+    print!("Proceed? [y/N] ");
     std::io::stdout().flush()?;
 
     let mut answer = String::new();
@@ -58,7 +52,7 @@ impl Command {
     let answer = answer.trim().to_lowercase();
 
     if answer != "y" && answer != "yes" {
-      UpdateCancelled.write_to(&mut std::io::stdout())?;
+      println!("Update cancelled.");
       return Ok(());
     }
 
@@ -67,13 +61,17 @@ impl Command {
       .repo_name(REPO_NAME)
       .bin_name(BIN_NAME)
       .target_version_tag(target_version)
+      .identifier("tar.gz")
       .show_download_progress(true)
       .current_version(CURRENT_VERSION)
       .no_confirm(true)
-      .build()?
-      .update()?;
+      .build()
+      .map_err(|e| cli::Error::generic(e.to_string()))?
+      .update()
+      .map_err(|e| cli::Error::generic(e.to_string()))?;
 
-    UpdateComplete::new(status.version()).write_to(&mut std::io::stdout(), theme)?;
+    let msg = format!("Updated to version {}", status.version());
+    println!("{}", SuccessMessage::new(&msg, theme));
 
     Ok(())
   }

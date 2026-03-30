@@ -5,8 +5,7 @@ pub mod init;
 pub mod iteration;
 pub mod search;
 pub mod self_update;
+/// Shared tag-listing logic used by multiple subcommands.
+pub mod tags;
 pub mod task;
 pub mod version;
-
-pub(crate) mod json_utils;
-pub(crate) mod tags;

@@ -1,12 +1,14 @@
+//! Subcommands for viewing and modifying gest configuration.
+
 mod get;
 mod set;
 mod show;
 
 use clap::{Args, Subcommand};
 
-use crate::{config::Config, ui::theme::Theme};
+use crate::{cli, config::Settings, ui::theme::Theme};
 
-/// View and modify gest configuration
+/// Entry point for the `config` subcommand tree.
 #[derive(Debug, Args)]
 pub struct Command {
   #[command(subcommand)]
@@ -21,11 +23,12 @@ enum ConfigCommand {
 }
 
 impl Command {
-  pub fn call(&self, config: &Config, theme: &Theme) -> crate::Result<()> {
+  /// Dispatch to the appropriate config subcommand.
+  pub fn call(&self, settings: &Settings, theme: &Theme) -> cli::Result<()> {
     match &self.command {
-      ConfigCommand::Get(cmd) => cmd.call(config),
-      ConfigCommand::Set(cmd) => cmd.call(config, theme),
-      ConfigCommand::Show(cmd) => cmd.call(config),
+      ConfigCommand::Get(cmd) => cmd.call(settings),
+      ConfigCommand::Set(cmd) => cmd.call(theme),
+      ConfigCommand::Show(cmd) => cmd.call(settings, theme),
     }
   }
 }

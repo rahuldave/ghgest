@@ -1,40 +1,42 @@
+use std::path::Path;
+
 use chrono::Utc;
 use clap::Args;
 
 use crate::{
-  config,
-  config::Config,
-  store,
-  ui::{components::MetadataSet, theme::Theme},
+  cli, store,
+  ui::{composites::success_message::SuccessMessage, theme::Theme},
 };
 
-/// Set a metadata value on an iteration
+/// Set a metadata value on an iteration.
 #[derive(Debug, Args)]
 pub struct Command {
-  /// Iteration ID or unique prefix
+  /// Iteration ID or unique prefix.
   pub id: String,
-  /// Dot-delimited key path (e.g. outer.inner)
+  /// Dot-delimited key path (e.g. `outer.inner`).
   pub path: String,
-  /// Value to set (strings, numbers, and booleans are auto-detected)
+  /// Value to set (strings, numbers, and booleans are auto-detected).
   pub value: String,
 }
 
 impl Command {
-  pub fn call(&self, config: &Config, _theme: &Theme) -> crate::Result<()> {
-    let data_dir = config::data_dir(config)?;
-    let id = store::resolve_iteration_id(&data_dir, &self.id, false)?;
-    let mut iteration = store::read_iteration(&data_dir, &id)?;
+  /// Write a metadata key-value pair into the iteration, creating nested tables as needed.
+  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+    let id = store::resolve_iteration_id(data_dir, &self.id, false)?;
+    let mut iteration = store::read_iteration(data_dir, &id)?;
 
     set_dot_path(&mut iteration.metadata, &self.path, &self.value)?;
 
     iteration.updated_at = Utc::now();
-    store::write_iteration(&data_dir, &iteration)?;
+    store::write_iteration(data_dir, &iteration)?;
 
-    MetadataSet::new(&id, &self.path, &self.value).write_to(&mut std::io::stdout())?;
+    let msg = format!("Set {}.{} = {}", id, self.path, self.value);
+    println!("{}", SuccessMessage::new(&msg, theme));
     Ok(())
   }
 }
 
+/// Auto-detect the TOML type of a string value (integer, float, boolean, or string).
 fn parse_toml_value(s: &str) -> toml::Value {
   if let Ok(n) = s.parse::<i64>() {
     return toml::Value::Integer(n);
@@ -49,7 +51,8 @@ fn parse_toml_value(s: &str) -> toml::Value {
   }
 }
 
-fn set_dot_path(table: &mut toml::Table, path: &str, value: &str) -> crate::Result<()> {
+/// Insert a value at a dot-delimited path, creating intermediate tables as needed.
+fn set_dot_path(table: &mut toml::Table, path: &str, value: &str) -> cli::Result<()> {
   let segments: Vec<&str> = path.split('.').collect();
   let toml_value = parse_toml_value(value);
 
@@ -62,6 +65,7 @@ fn set_dot_path(table: &mut toml::Table, path: &str, value: &str) -> crate::Resu
   Ok(())
 }
 
+/// Recursively descend into nested tables, inserting the value at the final segment.
 fn set_nested(table: &mut toml::Table, segments: &[&str], value: toml::Value) {
   let key = segments[0].to_string();
 
@@ -80,5 +84,59 @@ fn set_nested(table: &mut toml::Table, segments: &[&str], value: toml::Value) {
     let mut new_table = toml::Table::new();
     set_nested(&mut new_table, &segments[1..], value);
     table.insert(key, toml::Value::Table(new_table));
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  mod call {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+    use crate::test_helpers::{make_test_config, make_test_iteration};
+
+    #[test]
+    fn it_sets_metadata_value() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      store::write_iteration(&data_dir, &iteration).unwrap();
+
+      let cmd = Command {
+        id: "zyxw".to_string(),
+        path: "priority".to_string(),
+        value: "high".to_string(),
+      };
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+
+      let loaded = store::read_iteration(&data_dir, &iteration.id).unwrap();
+      assert_eq!(
+        loaded.metadata.get("priority"),
+        Some(&toml::Value::String("high".to_string()))
+      );
+    }
+
+    #[test]
+    fn it_sets_nested_metadata_value() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      store::write_iteration(&data_dir, &iteration).unwrap();
+
+      let cmd = Command {
+        id: "zyxw".to_string(),
+        path: "config.timeout".to_string(),
+        value: "30".to_string(),
+      };
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+
+      let loaded = store::read_iteration(&data_dir, &iteration.id).unwrap();
+      let config = loaded.metadata.get("config").unwrap().as_table().unwrap();
+      assert_eq!(config.get("timeout"), Some(&toml::Value::Integer(30)));
+    }
   }
 }

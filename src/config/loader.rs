@@ -1,126 +1,94 @@
-use std::path::Path;
+//! Hierarchical TOML configuration loader.
+//!
+//! Merges the global config with per-directory configs found by walking
+//! from the filesystem root down to `cwd`. Closer configs win.
 
-use serde_json::Value;
+use std::path::{Path, PathBuf};
 
-use super::{Config, env::GEST_CONFIG};
+use toml::{Table, Value};
 
-const GLOBAL_CONFIG_NAMES: &[&str] = &["config.json", "config.toml", "config.yaml", "config.yml"];
-const PROJECT_EXTERNAL_NAMES: &[&str] = &[".gest.json", ".gest.toml", ".gest.yaml", ".gest.yml"];
-const PROJECT_INREPO_NAMES: &[&str] = &[
-  ".gest/config.json",
-  ".gest/config.toml",
-  ".gest/config.yaml",
-  ".gest/config.yml",
-];
+use super::{Error, Settings, env::GEST_CONFIG};
 
-pub fn load() -> crate::Result<Config> {
-  let mut base = serde_json::json!({});
+/// Project-level config file names, checked in priority order within each directory.
+const CONFIG_NAMES: &[&str] = &[".config/gest.toml", ".gest/config.toml", ".gest.toml"];
 
-  let global = load_global()?;
-  merge_value(&mut base, global);
+/// Filename for the global config under the user's config home.
+const GLOBAL_CONFIG_NAME: &str = "config.toml";
 
-  let cwd = std::env::current_dir()?;
-  let project_config = if walk_up_for_dir(&cwd, ".gest").is_some() {
-    log::debug!("found .gest directory, loading in-repo config");
-    find_config_from_root(&cwd, ".gest", PROJECT_INREPO_NAMES)?
-  } else if let Some(git_root) = walk_up_for_dir(&cwd, ".git") {
-    log::debug!("found .git root at {}, loading project config", git_root.display());
-    find_config(&git_root, PROJECT_EXTERNAL_NAMES)?
-  } else {
-    log::debug!("no .gest or .git found, loading config from cwd");
-    find_config(&cwd, PROJECT_EXTERNAL_NAMES)?
-  };
-  merge_value(&mut base, project_config);
+/// Loads and merges configuration from global and per-directory TOML files.
+pub fn load(cwd: &Path) -> Result<Settings, Error> {
+  let mut merged = empty_table();
 
-  let config: Config = serde_json::from_value(base)?;
-  log::info!("config loaded");
-  Ok(config)
+  deep_merge(&mut merged, load_global()?);
+  for dir in ancestors_root_first(cwd) {
+    deep_merge(&mut merged, load_first_match(&dir, CONFIG_NAMES)?);
+  }
+
+  merged
+    .try_into()
+    .map_err(|e: toml::de::Error| Error::Config(e.to_string()))
 }
 
-fn find_config(dir: &Path, names: &[&str]) -> crate::Result<Value> {
+/// Returns all ancestor directories of `path`, ordered from root to `path` itself.
+fn ancestors_root_first(path: &Path) -> Vec<PathBuf> {
+  let mut dirs: Vec<_> = path.ancestors().map(Path::to_path_buf).collect();
+  dirs.reverse();
+  dirs
+}
+
+/// Recursively merges `overlay` into `base`, with overlay values taking precedence.
+fn deep_merge(base: &mut Value, overlay: Value) {
+  match (base, overlay) {
+    (Value::Table(base_map), Value::Table(overlay_map)) => {
+      for (key, value) in overlay_map {
+        deep_merge(base_map.entry(key).or_insert(empty_table()), value);
+      }
+    }
+    (base, overlay) => *base = overlay,
+  }
+}
+
+fn empty_table() -> Value {
+  Value::Table(Table::new())
+}
+
+/// Returns the parsed TOML of the first file in `names` that exists under `dir`.
+fn load_first_match(dir: &Path, names: &[&str]) -> Result<Value, Error> {
   for name in names {
-    let path = dir.join(name);
-    let value = load_file(&path)?;
-    if value != serde_json::json!({}) {
+    let value = read_toml(&dir.join(name))?;
+    if value != empty_table() {
       return Ok(value);
     }
   }
-  Ok(serde_json::json!({}))
+  Ok(empty_table())
 }
 
-fn find_config_from_root(start: &Path, dir_name: &str, names: &[&str]) -> crate::Result<Value> {
-  if let Some(root) = walk_up_for_dir(start, dir_name) {
-    find_config(&root, names)
-  } else {
-    Ok(serde_json::json!({}))
-  }
-}
-
-fn load_file(path: &Path) -> crate::Result<Value> {
-  let content = match std::fs::read_to_string(path) {
-    Ok(c) => c,
-    Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-      log::trace!("config file not found: {}", path.display());
-      return Ok(serde_json::json!({}));
-    }
-    Err(e) => return Err(e.into()),
-  };
-
-  log::trace!("loaded config file: {}", path.display());
-  let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-  match ext {
-    "json" => Ok(serde_json::from_str(&content)?),
-    "toml" => {
-      let toml_value: toml::Value = toml::from_str(&content)?;
-      let json_str = serde_json::to_string(&toml_value)?;
-      Ok(serde_json::from_str(&json_str)?)
-    }
-    "yaml" | "yml" => Ok(yaml_serde::from_str(&content)?),
-    _ => Err(crate::Error::generic(format!(
-      "unsupported config file extension: {ext}"
-    ))),
-  }
-}
-
-fn load_global() -> crate::Result<Value> {
+/// Loads the global config from `$GEST_CONFIG` or the platform config home.
+fn load_global() -> Result<Value, Error> {
   if let Ok(path) = GEST_CONFIG.value() {
     log::debug!("loading global config from $GEST_CONFIG: {}", path.display());
-    return load_file(&path);
+    return read_toml(&path);
   }
 
   if let Some(config_home) = dir_spec::config_home() {
-    let config_dir = config_home.join("gest");
-    log::debug!("searching for global config in {}", config_dir.display());
-    return find_config(&config_dir, GLOBAL_CONFIG_NAMES);
+    let path = config_home.join("gest").join(GLOBAL_CONFIG_NAME);
+    log::debug!("searching for global config at {}", path.display());
+    return read_toml(&path);
   }
 
   log::trace!("no global config home found");
-  Ok(serde_json::json!({}))
+  Ok(empty_table())
 }
 
-fn merge_value(base: &mut Value, overlay: Value) {
-  match (base, overlay) {
-    (Value::Object(base_map), Value::Object(overlay_map)) => {
-      for (key, value) in overlay_map {
-        let entry = base_map.entry(key).or_insert(Value::Null);
-        merge_value(entry, value);
-      }
+/// Reads and parses a TOML file, returning an empty table if the file does not exist.
+fn read_toml(path: &Path) -> Result<Value, Error> {
+  match std::fs::read_to_string(path) {
+    Ok(content) => {
+      log::trace!("loaded config: {}", path.display());
+      toml::from_str(&content).map_err(|e| Error::Config(e.to_string()))
     }
-    (base, overlay) => {
-      *base = overlay;
-    }
-  }
-}
-
-fn walk_up_for_dir(start: &Path, name: &str) -> Option<std::path::PathBuf> {
-  let mut current = start.to_path_buf();
-  loop {
-    if current.join(name).is_dir() {
-      return Some(current);
-    }
-    if !current.pop() {
-      return None;
-    }
+    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(empty_table()),
+    Err(e) => Err(e.into()),
   }
 }
 
@@ -128,83 +96,240 @@ fn walk_up_for_dir(start: &Path, name: &str) -> Option<std::path::PathBuf> {
 mod tests {
   use super::*;
 
-  mod load_file {
+  mod ancestors_root_first {
     use pretty_assertions::assert_eq;
 
     use super::*;
 
     #[test]
-    fn it_parses_json() {
-      let tmp = tempfile::tempdir().unwrap();
-      let path = tmp.path().join("config.json");
-      std::fs::write(&path, r#"{"harness": {"command": "test"}}"#).unwrap();
+    fn it_returns_ancestors_ordered_from_root_to_path() {
+      let dirs = ancestors_root_first(Path::new("/a/b/c"));
 
-      let value = load_file(&path).unwrap();
-      assert_eq!(value["harness"]["command"], "test");
+      assert_eq!(
+        dirs,
+        vec![
+          PathBuf::from("/"),
+          PathBuf::from("/a"),
+          PathBuf::from("/a/b"),
+          PathBuf::from("/a/b/c"),
+        ]
+      );
     }
 
     #[test]
-    fn it_parses_toml() {
-      let tmp = tempfile::tempdir().unwrap();
-      let path = tmp.path().join("config.toml");
-      std::fs::write(&path, "[harness]\ncommand = \"test\"").unwrap();
+    fn it_returns_root_for_root_path() {
+      let dirs = ancestors_root_first(Path::new("/"));
 
-      let value = load_file(&path).unwrap();
-      assert_eq!(value["harness"]["command"], "test");
-    }
-
-    #[test]
-    fn it_parses_yaml() {
-      let tmp = tempfile::tempdir().unwrap();
-      let path = tmp.path().join("config.yaml");
-      std::fs::write(&path, "harness:\n  command: test").unwrap();
-
-      let value = load_file(&path).unwrap();
-      assert_eq!(value["harness"]["command"], "test");
-    }
-
-    #[test]
-    fn it_returns_empty_object_when_not_found() {
-      let value = load_file(Path::new("/nonexistent/config.toml")).unwrap();
-      assert_eq!(value, serde_json::json!({}));
-    }
-
-    #[test]
-    fn it_returns_error_for_unsupported_extension() {
-      let tmp = tempfile::tempdir().unwrap();
-      let path = tmp.path().join("config.xml");
-      std::fs::write(&path, "<config/>").unwrap();
-
-      let result = load_file(&path);
-      assert!(result.is_err());
+      assert_eq!(dirs, vec![PathBuf::from("/")]);
     }
   }
 
-  mod merge_value {
+  mod deep_merge {
     use pretty_assertions::assert_eq;
-    use serde_json::json;
 
     use super::*;
 
     #[test]
     fn it_adds_new_keys() {
-      let mut base = json!({"a": 1});
-      merge_value(&mut base, json!({"b": 2}));
-      assert_eq!(base, json!({"a": 1, "b": 2}));
+      let mut base: Value = toml::from_str("[storage]\ndata_dir = \"/a\"").unwrap();
+      let overlay: Value = toml::from_str("name = \"test\"").unwrap();
+      deep_merge(&mut base, overlay);
+
+      assert_eq!(base["storage"]["data_dir"], Value::String("/a".into()));
+      assert_eq!(base["name"], Value::String("test".into()));
     }
 
     #[test]
-    fn it_deep_merges_nested_objects() {
-      let mut base = json!({"harness": {"command": "claude"}});
-      merge_value(&mut base, json!({"harness": {"args": ["--flag"]}}));
-      assert_eq!(base, json!({"harness": {"command": "claude", "args": ["--flag"]}}));
+    fn it_merges_nested_tables() {
+      let mut base: Value = toml::from_str("[storage]\ndata_dir = \"/a\"").unwrap();
+      let overlay: Value = toml::from_str("[storage]\nbackup = true").unwrap();
+      deep_merge(&mut base, overlay);
+
+      assert_eq!(base["storage"]["data_dir"], Value::String("/a".into()));
+      assert_eq!(base["storage"]["backup"], Value::Boolean(true));
     }
 
     #[test]
     fn it_overwrites_scalars() {
-      let mut base = json!({"harness": {"command": "claude"}});
-      merge_value(&mut base, json!({"harness": {"command": "other"}}));
-      assert_eq!(base, json!({"harness": {"command": "other"}}));
+      let mut base: Value = toml::from_str("[storage]\ndata_dir = \"/a\"").unwrap();
+      let overlay: Value = toml::from_str("[storage]\ndata_dir = \"/b\"").unwrap();
+      deep_merge(&mut base, overlay);
+
+      assert_eq!(base["storage"]["data_dir"], Value::String("/b".into()));
+    }
+  }
+
+  mod load {
+    use pretty_assertions::assert_eq;
+    use temp_env::with_var_unset;
+    use tempfile::TempDir;
+
+    use super::*;
+
+    #[test]
+    fn it_loads_config_from_dot_config_gest_toml() {
+      let tmp = TempDir::new().unwrap();
+      let data_dir = tmp.path().join("data");
+      std::fs::create_dir_all(&data_dir).unwrap();
+      std::fs::create_dir_all(tmp.path().join(".config")).unwrap();
+      std::fs::write(
+        tmp.path().join(".config/gest.toml"),
+        format!("[storage]\ndata_dir = \"{}\"", data_dir.display()),
+      )
+      .unwrap();
+
+      with_var_unset("GEST_CONFIG", || {
+        let settings = load(tmp.path()).unwrap();
+        assert_eq!(settings.storage().data_dir(tmp.path().into()).unwrap(), data_dir);
+      })
+    }
+
+    #[test]
+    fn it_loads_config_from_gest_config_toml() {
+      let tmp = TempDir::new().unwrap();
+      let data_dir = tmp.path().join("data");
+      std::fs::create_dir_all(&data_dir).unwrap();
+      std::fs::create_dir_all(tmp.path().join(".gest")).unwrap();
+      std::fs::write(
+        tmp.path().join(".gest/config.toml"),
+        format!("[storage]\ndata_dir = \"{}\"", data_dir.display()),
+      )
+      .unwrap();
+
+      with_var_unset("GEST_CONFIG", || {
+        let settings = load(tmp.path()).unwrap();
+        assert_eq!(settings.storage().data_dir(tmp.path().into()).unwrap(), data_dir);
+      })
+    }
+
+    #[test]
+    fn it_loads_config_from_gest_toml() {
+      let tmp = TempDir::new().unwrap();
+      let data_dir = tmp.path().join("data");
+      std::fs::create_dir_all(&data_dir).unwrap();
+      std::fs::write(
+        tmp.path().join(".gest.toml"),
+        format!("[storage]\ndata_dir = \"{}\"", data_dir.display()),
+      )
+      .unwrap();
+
+      with_var_unset("GEST_CONFIG", || {
+        let settings = load(tmp.path()).unwrap();
+        assert_eq!(settings.storage().data_dir(tmp.path().into()).unwrap(), data_dir);
+      })
+    }
+
+    #[test]
+    fn it_loads_default_settings_when_no_config_exists() {
+      let tmp = TempDir::new().unwrap();
+
+      with_var_unset("GEST_CONFIG", || {
+        let settings = load(tmp.path()).unwrap();
+        assert_eq!(settings, Settings::default());
+      })
+    }
+
+    #[test]
+    fn it_merges_child_config_over_parent() {
+      let tmp = TempDir::new().unwrap();
+      let parent_dir = tmp.path().join("parent_data");
+      let child_dir = tmp.path().join("child_data");
+      let child = tmp.path().join("child");
+      std::fs::create_dir_all(&parent_dir).unwrap();
+      std::fs::create_dir_all(&child_dir).unwrap();
+      std::fs::create_dir_all(&child).unwrap();
+
+      std::fs::write(
+        tmp.path().join(".gest.toml"),
+        format!("[storage]\ndata_dir = \"{}\"", parent_dir.display()),
+      )
+      .unwrap();
+      std::fs::write(
+        child.join(".gest.toml"),
+        format!("[storage]\ndata_dir = \"{}\"", child_dir.display()),
+      )
+      .unwrap();
+
+      with_var_unset("GEST_CONFIG", || {
+        let settings = load(&child).unwrap();
+        assert_eq!(settings.storage().data_dir(child.clone()).unwrap(), child_dir);
+      })
+    }
+  }
+
+  mod load_first_match {
+    use pretty_assertions::assert_eq;
+    use tempfile::TempDir;
+
+    use super::*;
+
+    #[test]
+    fn it_returns_empty_table_when_no_files_exist() {
+      let tmp = TempDir::new().unwrap();
+      let value = load_first_match(tmp.path(), CONFIG_NAMES).unwrap();
+
+      assert_eq!(value, empty_table());
+    }
+
+    #[test]
+    fn it_returns_first_matching_file() {
+      let tmp = TempDir::new().unwrap();
+      std::fs::create_dir_all(tmp.path().join(".config")).unwrap();
+      std::fs::write(tmp.path().join(".config/gest.toml"), "[storage]\ndata_dir = \"/first\"").unwrap();
+      std::fs::write(tmp.path().join(".gest.toml"), "[storage]\ndata_dir = \"/second\"").unwrap();
+
+      let value = load_first_match(tmp.path(), CONFIG_NAMES).unwrap();
+      assert_eq!(value["storage"]["data_dir"], Value::String("/first".into()));
+    }
+  }
+
+  mod load_global {
+    use pretty_assertions::assert_eq;
+    use temp_env::{with_var, with_var_unset};
+    use tempfile::TempDir;
+
+    use super::*;
+
+    #[test]
+    fn it_loads_from_gest_config_env_var() {
+      let tmp = TempDir::new().unwrap();
+      let path = tmp.path().join("custom.toml");
+      std::fs::write(&path, "[storage]\ndata_dir = \"/custom\"").unwrap();
+
+      with_var("GEST_CONFIG", Some(path.to_str().unwrap()), || {
+        let value = load_global().unwrap();
+        assert_eq!(value["storage"]["data_dir"], Value::String("/custom".into()));
+      })
+    }
+
+    #[test]
+    fn it_returns_empty_table_when_no_global_config_exists() {
+      with_var_unset("GEST_CONFIG", || {
+        let value = load_global().unwrap();
+        assert_eq!(value, empty_table());
+      })
+    }
+  }
+
+  mod read_toml {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn it_parses_a_toml_file() {
+      let tmp = tempfile::tempdir().unwrap();
+      let path = tmp.path().join("config.toml");
+      std::fs::write(&path, "[storage]\ndata_dir = \"/tmp/gest\"").unwrap();
+
+      let value = read_toml(&path).unwrap();
+      assert_eq!(value["storage"]["data_dir"], Value::String("/tmp/gest".into()));
+    }
+
+    #[test]
+    fn it_returns_an_empty_table_when_not_found() {
+      let value = read_toml(Path::new("/nonexistent/config.toml")).unwrap();
+      assert_eq!(value, empty_table());
     }
   }
 }

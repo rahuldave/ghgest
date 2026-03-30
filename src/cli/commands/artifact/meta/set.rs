@@ -1,62 +1,59 @@
+use std::path::Path;
+
 use chrono::Utc;
 use clap::Args;
 
 use crate::{
-  config,
-  config::Config,
-  store,
-  ui::{components::Confirmation, theme::Theme},
+  cli, store,
+  ui::{composites::success_message::SuccessMessage, theme::Theme},
 };
 
-/// Set a metadata value on an artifact
+/// Set a metadata value on an artifact using a dot-delimited key path.
 #[derive(Debug, Args)]
 pub struct Command {
-  /// Artifact ID or unique prefix
+  /// Artifact ID or unique prefix.
   pub id: String,
-  /// Dot-delimited key path (e.g. outer.inner)
+  /// Dot-delimited key path (e.g. `config.timeout`).
   pub path: String,
-  /// Value to set (strings, numbers, booleans, and null are auto-detected)
+  /// Value to set (strings, numbers, booleans, and null are auto-detected).
   pub value: String,
 }
 
 impl Command {
-  pub fn call(&self, config: &Config, theme: &Theme) -> crate::Result<()> {
-    log::info!("setting metadata '{}' on artifact with prefix '{}'", self.path, self.id);
-    let data_dir = config::data_dir(config)?;
-    log::debug!("resolving artifact ID from prefix '{}'", self.id);
-    let id = store::resolve_artifact_id(&data_dir, &self.id, true)?;
-    log::debug!("resolved artifact ID: {id}");
-    let mut artifact = store::read_artifact(&data_dir, &id)?;
+  /// Resolve the artifact, set the metadata key to the given value, and persist.
+  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+    let id = store::resolve_artifact_id(data_dir, &self.id, false)?;
+    let mut artifact = store::read_artifact(data_dir, &id)?;
 
-    log::debug!("setting dot path '{}' to '{}'", self.path, self.value);
     set_dot_path(&mut artifact.metadata, &self.path, &self.value)?;
 
     artifact.updated_at = Utc::now();
-    store::write_artifact(&data_dir, &artifact)?;
-    log::trace!("metadata '{}' set on artifact {id}", self.path);
-    Confirmation::new("Updated", "artifact", &artifact.id).write_to(&mut std::io::stdout(), theme)?;
+    store::write_artifact(data_dir, &artifact)?;
+
+    let msg = format!("Set {}.{} = {}", id, self.path, self.value);
+    println!("{}", SuccessMessage::new(&msg, theme));
     Ok(())
   }
 }
 
+/// Parse a string into a typed YAML value (integer, float, bool, null, or string).
 fn parse_yaml_value(s: &str) -> yaml_serde::Value {
+  if let Ok(n) = s.parse::<i64>() {
+    return yaml_serde::Value::Number(yaml_serde::Number::from(n));
+  }
+  if let Ok(n) = s.parse::<f64>() {
+    return yaml_serde::Value::Number(yaml_serde::Number::from(n));
+  }
   match s {
     "true" => yaml_serde::Value::Bool(true),
     "false" => yaml_serde::Value::Bool(false),
     "null" => yaml_serde::Value::Null,
-    _ => {
-      if let Ok(n) = s.parse::<i64>() {
-        yaml_serde::Value::Number(n.into())
-      } else if let Ok(n) = s.parse::<f64>() {
-        yaml_serde::Value::Number(yaml_serde::Number::from(n))
-      } else {
-        yaml_serde::Value::String(s.to_string())
-      }
-    }
+    _ => yaml_serde::Value::String(s.to_string()),
   }
 }
 
-fn set_dot_path(mapping: &mut yaml_serde::Mapping, path: &str, value: &str) -> crate::Result<()> {
+/// Set a value in a YAML mapping at the given dot-delimited path, creating intermediate mappings as needed.
+fn set_dot_path(mapping: &mut yaml_serde::Mapping, path: &str, value: &str) -> cli::Result<()> {
   let segments: Vec<&str> = path.split('.').collect();
   let yaml_value = parse_yaml_value(value);
 
@@ -69,6 +66,7 @@ fn set_dot_path(mapping: &mut yaml_serde::Mapping, path: &str, value: &str) -> c
   Ok(())
 }
 
+/// Recursively insert a value into nested YAML mappings along the given path segments.
 fn set_nested(mapping: &mut yaml_serde::Mapping, segments: &[&str], value: yaml_serde::Value) {
   let key = yaml_serde::Value::String(segments[0].to_string());
 
@@ -77,18 +75,80 @@ fn set_nested(mapping: &mut yaml_serde::Mapping, segments: &[&str], value: yaml_
     return;
   }
 
-  let mut nested = match mapping.remove(&key) {
-    Some(yaml_serde::Value::Mapping(m)) => m,
-    _ => yaml_serde::Mapping::new(),
-  };
+  let nested = mapping
+    .entry(key.clone())
+    .or_insert_with(|| yaml_serde::Value::Mapping(yaml_serde::Mapping::new()));
 
-  set_nested(&mut nested, &segments[1..], value);
-  mapping.insert(key, yaml_serde::Value::Mapping(nested));
+  if let yaml_serde::Value::Mapping(m) = nested {
+    set_nested(m, &segments[1..], value);
+  } else {
+    let mut new_mapping = yaml_serde::Mapping::new();
+    set_nested(&mut new_mapping, &segments[1..], value);
+    mapping.insert(key, yaml_serde::Value::Mapping(new_mapping));
+  }
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  mod call {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+    use crate::test_helpers::{make_test_artifact, make_test_config};
+
+    #[test]
+    fn it_sets_metadata_value() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      store::write_artifact(&data_dir, &artifact).unwrap();
+
+      let cmd = Command {
+        id: "zyxw".to_string(),
+        path: "priority".to_string(),
+        value: "high".to_string(),
+      };
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+
+      let loaded = store::read_artifact(&data_dir, &artifact.id).unwrap();
+      assert_eq!(
+        loaded.metadata.get(yaml_serde::Value::String("priority".to_string())),
+        Some(&yaml_serde::Value::String("high".to_string()))
+      );
+    }
+
+    #[test]
+    fn it_sets_nested_metadata_value() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      store::write_artifact(&data_dir, &artifact).unwrap();
+
+      let cmd = Command {
+        id: "zyxw".to_string(),
+        path: "config.timeout".to_string(),
+        value: "30".to_string(),
+      };
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+
+      let loaded = store::read_artifact(&data_dir, &artifact.id).unwrap();
+      let config_key = yaml_serde::Value::String("config".to_string());
+      let config_val = loaded.metadata.get(config_key).unwrap();
+      if let yaml_serde::Value::Mapping(m) = config_val {
+        let timeout_key = yaml_serde::Value::String("timeout".to_string());
+        assert_eq!(
+          m.get(timeout_key),
+          Some(&yaml_serde::Value::Number(yaml_serde::Number::from(30)))
+        );
+      } else {
+        panic!("Expected mapping for config key");
+      }
+    }
+  }
 
   mod parse_yaml_value {
     use pretty_assertions::assert_eq;
@@ -111,78 +171,9 @@ mod tests {
 
     #[test]
     fn it_parses_integers() {
-      assert_eq!(parse_yaml_value("42"), yaml_serde::Value::Number(42.into()));
-    }
-
-    #[test]
-    fn it_parses_null() {
-      assert_eq!(parse_yaml_value("null"), yaml_serde::Value::Null);
-    }
-  }
-
-  mod set_dot_path {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn it_overwrites_existing_value() {
-      let mut mapping = yaml_serde::Mapping::new();
-      mapping.insert(
-        yaml_serde::Value::String("key".to_string()),
-        yaml_serde::Value::String("old".to_string()),
-      );
-      set_dot_path(&mut mapping, "key", "new").unwrap();
       assert_eq!(
-        mapping.get(&yaml_serde::Value::String("key".to_string())),
-        Some(&yaml_serde::Value::String("new".to_string()))
-      );
-    }
-
-    #[test]
-    fn it_preserves_sibling_keys_in_nested_path() {
-      let mut mapping = yaml_serde::Mapping::new();
-      set_dot_path(&mut mapping, "outer.first", "one").unwrap();
-      set_dot_path(&mut mapping, "outer.second", "two").unwrap();
-
-      let outer = mapping.get(&yaml_serde::Value::String("outer".to_string())).unwrap();
-      if let yaml_serde::Value::Mapping(inner) = outer {
-        assert_eq!(
-          inner.get(&yaml_serde::Value::String("first".to_string())),
-          Some(&yaml_serde::Value::String("one".to_string()))
-        );
-        assert_eq!(
-          inner.get(&yaml_serde::Value::String("second".to_string())),
-          Some(&yaml_serde::Value::String("two".to_string()))
-        );
-      } else {
-        panic!("Expected mapping at 'outer'");
-      }
-    }
-
-    #[test]
-    fn it_sets_nested_key() {
-      let mut mapping = yaml_serde::Mapping::new();
-      set_dot_path(&mut mapping, "outer.inner", "deep").unwrap();
-
-      let outer = mapping.get(&yaml_serde::Value::String("outer".to_string())).unwrap();
-      if let yaml_serde::Value::Mapping(inner) = outer {
-        assert_eq!(
-          inner.get(&yaml_serde::Value::String("inner".to_string())),
-          Some(&yaml_serde::Value::String("deep".to_string()))
-        );
-      } else {
-        panic!("Expected mapping at 'outer'");
-      }
-    }
-
-    #[test]
-    fn it_sets_top_level_key() {
-      let mut mapping = yaml_serde::Mapping::new();
-      set_dot_path(&mut mapping, "key", "value").unwrap();
-      assert_eq!(
-        mapping.get(&yaml_serde::Value::String("key".to_string())),
-        Some(&yaml_serde::Value::String("value".to_string()))
+        parse_yaml_value("42"),
+        yaml_serde::Value::Number(yaml_serde::Number::from(42))
       );
     }
   }

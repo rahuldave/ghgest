@@ -8,6 +8,45 @@ use super::{id::Id, link::Link};
 /// Canonical display ordering for iteration statuses.
 pub const STATUS_ORDER: &[Status] = &[Status::Active, Status::Completed, Status::Failed];
 
+/// A time-boxed planning container that groups related tasks.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct Iteration {
+  #[serde(with = "completed_at_serde")]
+  pub completed_at: Option<DateTime<Utc>>,
+  pub created_at: DateTime<Utc>,
+  pub description: String,
+  pub id: Id,
+  #[serde(default)]
+  pub links: Vec<Link>,
+  #[serde(default)]
+  pub metadata: toml::Table,
+  pub status: Status,
+  #[serde(default)]
+  pub tags: Vec<String>,
+  #[serde(default)]
+  pub tasks: Vec<String>,
+  pub title: String,
+  pub updated_at: DateTime<Utc>,
+}
+
+/// Criteria for filtering iterations when listing.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct IterationFilter {
+  pub all: bool,
+  pub status: Option<Status>,
+  pub tag: Option<String>,
+}
+
+/// Partial update payload for an existing iteration.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct IterationPatch {
+  pub description: Option<String>,
+  pub metadata: Option<toml::Table>,
+  pub status: Option<Status>,
+  pub tags: Option<Vec<String>>,
+  pub title: Option<String>,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct NewIteration {
   pub description: String,
@@ -64,42 +103,6 @@ impl FromStr for Status {
   }
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct Iteration {
-  #[serde(with = "completed_at_serde")]
-  pub completed_at: Option<DateTime<Utc>>,
-  pub created_at: DateTime<Utc>,
-  pub description: String,
-  pub id: Id,
-  #[serde(default)]
-  pub links: Vec<Link>,
-  #[serde(default)]
-  pub metadata: toml::Table,
-  pub status: Status,
-  #[serde(default)]
-  pub tags: Vec<String>,
-  #[serde(default)]
-  pub tasks: Vec<String>,
-  pub title: String,
-  pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct IterationFilter {
-  pub all: bool,
-  pub status: Option<Status>,
-  pub tag: Option<String>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct IterationPatch {
-  pub description: Option<String>,
-  pub metadata: Option<toml::Table>,
-  pub status: Option<Status>,
-  pub tags: Option<Vec<String>>,
-  pub title: Option<String>,
-}
-
 mod completed_at_serde {
   use chrono::{DateTime, Utc};
   use serde::{self, Deserialize, Deserializer, Serializer};
@@ -133,41 +136,6 @@ mod completed_at_serde {
 mod tests {
   use super::*;
 
-  mod status {
-    use super::*;
-
-    mod display {
-      use pretty_assertions::assert_eq;
-
-      use super::*;
-
-      #[test]
-      fn it_formats_as_lowercase() {
-        assert_eq!(Status::Active.to_string(), "active");
-        assert_eq!(Status::Completed.to_string(), "completed");
-        assert_eq!(Status::Failed.to_string(), "failed");
-      }
-    }
-
-    mod from_str {
-      use pretty_assertions::assert_eq;
-
-      use super::*;
-
-      #[test]
-      fn it_parses_valid_statuses() {
-        assert_eq!("active".parse::<Status>().unwrap(), Status::Active);
-        assert_eq!("completed".parse::<Status>().unwrap(), Status::Completed);
-        assert_eq!("failed".parse::<Status>().unwrap(), Status::Failed);
-      }
-
-      #[test]
-      fn it_rejects_unknown() {
-        assert!("invalid".parse::<Status>().is_err());
-      }
-    }
-  }
-
   mod iteration {
     use super::*;
 
@@ -199,6 +167,41 @@ mod tests {
         let toml_str = toml::to_string(&iteration).unwrap();
         let roundtripped: Iteration = toml::from_str(&toml_str).unwrap();
         assert_eq!(iteration, roundtripped);
+      }
+    }
+  }
+
+  mod status {
+    use super::*;
+
+    mod display {
+      use pretty_assertions::assert_eq;
+
+      use super::*;
+
+      #[test]
+      fn it_formats_as_lowercase() {
+        assert_eq!(Status::Active.to_string(), "active");
+        assert_eq!(Status::Completed.to_string(), "completed");
+        assert_eq!(Status::Failed.to_string(), "failed");
+      }
+    }
+
+    mod from_str {
+      use pretty_assertions::assert_eq;
+
+      use super::*;
+
+      #[test]
+      fn it_parses_valid_statuses() {
+        assert_eq!("active".parse::<Status>().unwrap(), Status::Active);
+        assert_eq!("completed".parse::<Status>().unwrap(), Status::Completed);
+        assert_eq!("failed".parse::<Status>().unwrap(), Status::Failed);
+      }
+
+      #[test]
+      fn it_rejects_unknown() {
+        assert!("invalid".parse::<Status>().is_err());
       }
     }
   }

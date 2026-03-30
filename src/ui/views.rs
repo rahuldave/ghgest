@@ -1,0 +1,7 @@
+//! Full-page view types that compose UI composites into complete command output.
+
+pub mod artifact;
+pub mod iteration;
+pub mod search;
+pub mod system;
+pub mod task;

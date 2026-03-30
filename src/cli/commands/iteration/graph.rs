@@ -1,230 +1,162 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, path::Path};
 
 use clap::Args;
-use yansi::Paint;
 
 use crate::{
-  config,
-  config::Config,
-  model::{Task, link::RelationshipType},
+  cli,
+  model::link::RelationshipType,
   store,
-  ui::{components::Id, theme::Theme, utils::shortest_unique_prefixes},
+  ui::{
+    composites::iteration_graph::{PhaseData, TaskData},
+    theme::Theme,
+    views::iteration::IterationGraphView,
+  },
 };
 
-/// Display the phased execution graph for an iteration
+/// Display the phased execution graph for an iteration.
 #[derive(Debug, Args)]
 pub struct Command {
-  /// Iteration ID or unique prefix
+  /// Iteration ID or unique prefix.
   pub id: String,
-  /// Output graph data as JSON
-  #[arg(short, long)]
-  pub json: bool,
+}
+
+/// Intermediate representation of a task used to build graph view data.
+struct TaskRow {
+  blocked_by: Option<String>,
+  id: String,
+  is_blocking: bool,
+  priority: Option<u8>,
+  status: String,
+  tags: Vec<String>,
+  title: String,
 }
 
 impl Command {
-  pub fn call(&self, config: &Config, theme: &Theme) -> crate::Result<()> {
-    let data_dir = config::data_dir(config)?;
-    let id = store::resolve_iteration_id(&data_dir, &self.id, true)?;
-    let iteration = store::read_iteration(&data_dir, &id)?;
+  /// Load iteration tasks, group by phase, and render the execution graph.
+  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
+    let id = store::resolve_iteration_id(data_dir, &self.id, true)?;
+    let iteration = store::read_iteration(data_dir, &id)?;
 
-    // Resolve all task references to actual tasks
-    let mut tasks: Vec<Task> = Vec::new();
+    let mut phase_map: BTreeMap<u16, Vec<TaskRow>> = BTreeMap::new();
+
     for task_ref in &iteration.tasks {
       let task_id_str = task_ref.strip_prefix("tasks/").unwrap_or(task_ref);
-      match task_id_str.parse::<crate::model::Id>() {
-        Ok(task_id) => match store::read_task(&data_dir, &task_id) {
-          Ok(task) => tasks.push(task),
-          Err(e) => {
-            eprintln!("Warning: could not read task {}: {e}", task_id.short());
-          }
-        },
-        Err(e) => {
-          eprintln!("Warning: invalid task reference '{task_ref}': {e}");
-        }
+      if let Ok(task_id) = task_id_str.parse()
+        && let Ok(task) = store::read_task(data_dir, &task_id)
+      {
+        let phase = task.phase.unwrap_or(0);
+        let status_str = match task.status {
+          crate::model::task::Status::Open => "open",
+          crate::model::task::Status::InProgress => "in-progress",
+          crate::model::task::Status::Done => "done",
+          crate::model::task::Status::Cancelled => "cancelled",
+        };
+
+        let is_blocking = task.links.iter().any(|l| l.rel == RelationshipType::Blocks);
+
+        let blocked_by = task
+          .links
+          .iter()
+          .find(|l| l.rel == RelationshipType::BlockedBy)
+          .map(|l| l.ref_.strip_prefix("tasks/").unwrap_or(&l.ref_).to_string());
+
+        phase_map.entry(phase).or_default().push(TaskRow {
+          blocked_by,
+          id: task.id.to_string(),
+          is_blocking,
+          priority: task.priority,
+          status: status_str.to_string(),
+          tags: task.tags,
+          title: task.title,
+        });
       }
     }
 
-    if self.json {
-      let graph = build_json_graph(&tasks);
-      let json = serde_json::to_string_pretty(&graph)?;
-      println!("{json}");
-      return Ok(());
-    }
+    let phases: Vec<PhaseData> = phase_map
+      .iter()
+      .enumerate()
+      .map(|(idx, (_, tasks))| PhaseData {
+        number: (idx + 1) as u32,
+        name: None,
+        tasks: tasks
+          .iter()
+          .map(|t| TaskData {
+            status: &t.status,
+            id: &t.id,
+            title: &t.title,
+            priority: t.priority,
+            tags: &t.tags,
+            is_blocking: t.is_blocking,
+            blocked_by: t.blocked_by.as_deref(),
+          })
+          .collect(),
+      })
+      .collect();
 
-    render_graph(&mut std::io::stdout(), &iteration.title, &tasks, theme)?;
+    let view = IterationGraphView::new(&iteration.title, phases, theme);
+    println!("{view}");
+
     Ok(())
   }
 }
 
-fn build_json_graph(tasks: &[Task]) -> serde_json::Value {
-  let mut phases: BTreeMap<u16, Vec<serde_json::Value>> = BTreeMap::new();
-  let mut unphased: Vec<serde_json::Value> = Vec::new();
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::{
+    model::task::Status,
+    store,
+    test_helpers::{make_test_config, make_test_iteration, make_test_task},
+  };
 
-  for task in tasks {
-    let entry = serde_json::json!({
-      "id": task.id.short(),
-      "title": task.title,
-      "status": task.status.to_string(),
-      "priority": task.priority,
-      "assigned_to": task.assigned_to,
-      "blocked_by": blocked_by_ids(task),
-    });
+  mod call {
+    use super::*;
 
-    match task.phase {
-      Some(phase) => phases.entry(phase).or_default().push(entry),
-      None => unphased.push(entry),
-    }
-  }
+    #[test]
+    fn it_renders_empty_graph() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      store::write_iteration(&data_dir, &iteration).unwrap();
 
-  let mut result = serde_json::Map::new();
-  let phase_entries: Vec<serde_json::Value> = phases
-    .into_iter()
-    .map(|(phase, tasks)| {
-      serde_json::json!({
-        "phase": phase,
-        "tasks": tasks,
-      })
-    })
-    .collect();
+      let cmd = Command {
+        id: "zyxw".to_string(),
+      };
 
-  result.insert("phases".to_string(), serde_json::Value::Array(phase_entries));
-  if !unphased.is_empty() {
-    result.insert("unphased".to_string(), serde_json::Value::Array(unphased));
-  }
-
-  serde_json::Value::Object(result)
-}
-
-fn blocked_by_ids(task: &Task) -> Vec<String> {
-  task
-    .links
-    .iter()
-    .filter(|l| l.rel == RelationshipType::BlockedBy)
-    .map(|l| {
-      let id_str = l.ref_.strip_prefix("tasks/").unwrap_or(&l.ref_);
-      id_str[..8.min(id_str.len())].to_string()
-    })
-    .collect()
-}
-
-fn render_graph(w: &mut impl std::io::Write, title: &str, tasks: &[Task], theme: &Theme) -> std::io::Result<()> {
-  writeln!(w, "{}", title.paint(theme.md_heading))?;
-  writeln!(w)?;
-
-  // Compute shortest unique prefixes for all tasks
-  let id_strings: Vec<String> = tasks.iter().map(|t| t.id.to_string()).collect();
-  let prefix_lens = shortest_unique_prefixes(&id_strings);
-  let prefix_map: std::collections::HashMap<String, usize> = id_strings
-    .iter()
-    .zip(&prefix_lens)
-    .map(|(id, &len)| (id.clone(), len))
-    .collect();
-
-  // Group tasks by phase
-  let mut phases: BTreeMap<u16, Vec<&Task>> = BTreeMap::new();
-  let mut unphased: Vec<&Task> = Vec::new();
-
-  for task in tasks {
-    match task.phase {
-      Some(phase) => phases.entry(phase).or_default().push(task),
-      None => unphased.push(task),
-    }
-  }
-
-  // Sort tasks within each phase by priority (P0 first)
-  for tasks in phases.values_mut() {
-    tasks.sort_by_key(|t| t.priority.unwrap_or(u8::MAX));
-  }
-  unphased.sort_by_key(|t| t.priority.unwrap_or(u8::MAX));
-
-  let total_phases = phases.len() + if unphased.is_empty() { 0 } else { 1 };
-  let mut phase_idx = 0;
-
-  for (phase_num, phase_tasks) in &phases {
-    phase_idx += 1;
-    let is_last = phase_idx == total_phases;
-    render_phase(
-      w,
-      &format!("Phase {phase_num}"),
-      phase_tasks,
-      is_last,
-      &prefix_map,
-      theme,
-    )?;
-  }
-
-  if !unphased.is_empty() {
-    render_phase(w, "Unphased", &unphased, true, &prefix_map, theme)?;
-  }
-
-  Ok(())
-}
-
-fn render_phase(
-  w: &mut impl std::io::Write,
-  label: &str,
-  tasks: &[&Task],
-  is_last: bool,
-  prefix_map: &std::collections::HashMap<String, usize>,
-  theme: &Theme,
-) -> std::io::Result<()> {
-  writeln!(
-    w,
-    "{}  {}",
-    "◆".paint(theme.md_heading),
-    label.paint(theme.list_heading)
-  )?;
-
-  for (i, task) in tasks.iter().enumerate() {
-    let is_last_task = i == tasks.len() - 1;
-    let connector = if is_last_task { "└─" } else { "├─" };
-
-    let status_glyph = match task.status {
-      crate::model::task::Status::Done => "●",
-      crate::model::task::Status::InProgress => "◐",
-      crate::model::task::Status::Cancelled => "✗",
-      crate::model::task::Status::Open => "○",
-    };
-
-    let mut parts = Vec::new();
-
-    // Priority
-    if let Some(p) = task.priority {
-      parts.push(format!("[P{}]", p).paint(theme.muted).to_string());
+      cmd.call(&data_dir, &Theme::default()).unwrap();
     }
 
-    // ID with prefix highlighting
-    let id_str = task.id.to_string();
-    let prefix_len = prefix_map.get(&id_str).copied().unwrap_or(1);
-    parts.push(Id::new(&task.id, prefix_len, theme).to_string());
+    #[test]
+    fn it_renders_graph_with_tasks() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
 
-    // Title
-    parts.push(format!("\"{}\"", task.title));
+      let mut t1 = make_test_task("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
+      t1.title = "First task".to_string();
+      t1.phase = Some(1);
+      t1.status = Status::Done;
+      store::write_task(&data_dir, &t1).unwrap();
 
-    let main = parts.join(" ");
+      let mut t2 = make_test_task("nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn");
+      t2.title = "Second task".to_string();
+      t2.phase = Some(2);
+      t2.status = Status::Open;
+      store::write_task(&data_dir, &t2).unwrap();
 
-    // Annotations
-    let mut annotations = Vec::new();
-    if let Some(ref assigned) = task.assigned_to {
-      annotations.push(format!("assigned: {assigned}"));
+      let mut iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      iteration.tasks = vec![
+        "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk".to_string(),
+        "tasks/nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn".to_string(),
+      ];
+      store::write_iteration(&data_dir, &iteration).unwrap();
+
+      let cmd = Command {
+        id: "zyxw".to_string(),
+      };
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
     }
-    let blockers = blocked_by_ids(task);
-    if !blockers.is_empty() {
-      annotations.push(format!("blocked-by: {}", blockers.join(", ")));
-    }
-
-    let annotation_str = if annotations.is_empty() {
-      String::new()
-    } else {
-      format!("  {}", format!("({})", annotations.join(", ")).paint(theme.muted))
-    };
-
-    writeln!(w, "{connector} {status_glyph}  {main}{annotation_str}")?;
   }
-
-  if !is_last {
-    writeln!(w, "│")?;
-  }
-
-  Ok(())
 }

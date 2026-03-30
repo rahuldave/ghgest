@@ -1,26 +1,15 @@
-use std::path::Path;
+//! Factory helpers for building model instances in tests.
+
+use std::path::PathBuf;
 
 use chrono::Utc;
 
 use crate::{
-  config::{Config, StorageConfig},
+  config::Settings,
   model::{Artifact, Iteration, Task, iteration, task::Status},
 };
 
-/// Create a test `Config` whose `data_dir` points at the given directory.
-/// Also calls `ensure_dirs` so the store subdirectories exist.
-pub fn make_test_config(dir: &Path) -> Config {
-  crate::store::ensure_dirs(dir).unwrap();
-  Config {
-    storage: StorageConfig {
-      data_dir: Some(dir.to_path_buf()),
-    },
-    ..Config::default()
-  }
-}
-
-/// Create a minimal `Artifact` with sensible defaults. `id` must be a valid
-/// 32-character lowercase hex string.
+/// Create a minimal [`Artifact`] with sensible defaults for the given encoded ID.
 pub fn make_test_artifact(id: &str) -> Artifact {
   let now = Utc::now();
   Artifact {
@@ -36,8 +25,12 @@ pub fn make_test_artifact(id: &str) -> Artifact {
   }
 }
 
-/// Create a minimal `Iteration` with sensible defaults. `id` must be a valid
-/// 32-character reversed-hex string.
+/// Build a [`Settings`] whose `data_dir` points at the given path.
+pub fn make_test_config(data_dir: PathBuf) -> Settings {
+  toml::from_str(&format!("[storage]\ndata_dir = \"{}\"", data_dir.display())).unwrap()
+}
+
+/// Create a minimal [`Iteration`] with sensible defaults for the given encoded ID.
 pub fn make_test_iteration(id: &str) -> Iteration {
   let now = Utc::now();
   Iteration {
@@ -55,8 +48,7 @@ pub fn make_test_iteration(id: &str) -> Iteration {
   }
 }
 
-/// Create a minimal `Task` with sensible defaults. `id` must be a valid
-/// 32-character lowercase hex string.
+/// Create a minimal [`Task`] with sensible defaults for the given encoded ID.
 pub fn make_test_task(id: &str) -> Task {
   let now = Utc::now();
   Task {

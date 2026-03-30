@@ -1,11 +1,13 @@
 mod get;
 mod set;
 
+use std::path::Path;
+
 use clap::{Args, Subcommand};
 
-use crate::{config::Config, ui::theme::Theme};
+use crate::{cli, ui::theme::Theme};
 
-/// Read or write task metadata fields
+/// Read or write task metadata fields.
 #[derive(Debug, Args)]
 pub struct Command {
   #[command(subcommand)]
@@ -19,10 +21,11 @@ enum MetaCommand {
 }
 
 impl Command {
-  pub fn call(&self, config: &Config, theme: &Theme) -> crate::Result<()> {
+  /// Dispatch to the get or set metadata subcommand.
+  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
     match &self.command {
-      MetaCommand::Get(cmd) => cmd.call(config),
-      MetaCommand::Set(cmd) => cmd.call(config, theme),
+      MetaCommand::Get(cmd) => cmd.call(data_dir),
+      MetaCommand::Set(cmd) => cmd.call(data_dir, theme),
     }
   }
 }

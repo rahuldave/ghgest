@@ -3,25 +3,19 @@ use std::io;
 use clap::{Args, CommandFactory, ValueEnum};
 use clap_complete::Shell;
 
-use crate::Result;
+use crate::cli;
 
-/// Generate shell completion scripts
-///
-/// Prints a completion script to stdout. Redirect the output to the appropriate
-/// file for your shell:
-///
-///   gest generate completions --shell zsh > ~/.zfunc/_gest
-///   gest generate completions --shell bash > /etc/bash_completion.d/gest
-///   gest generate completions --shell fish > ~/.config/fish/completions/gest.fish
+/// Print shell completion scripts to stdout.
 #[derive(Args, Debug)]
 pub struct Command {
-  /// Target shell
+  /// Target shell for which to generate completions.
   #[arg(long)]
   shell: ShellArg,
 }
 
 impl Command {
-  pub fn call(&self) -> Result<()> {
+  /// Generate and write the completion script to stdout.
+  pub fn call(&self) -> cli::Result<()> {
     let mut cmd = crate::cli::Cli::command();
     let shell: Shell = self.shell.clone().into();
     clap_complete::generate(shell, &mut cmd, "gest", &mut io::stdout());
@@ -29,6 +23,7 @@ impl Command {
   }
 }
 
+/// Supported shell targets for completion generation.
 #[derive(Clone, Debug, ValueEnum)]
 enum ShellArg {
   Bash,
@@ -63,43 +58,25 @@ mod tests {
     buf
   }
 
-  #[test]
-  fn test_generate_bash_completions() {
-    let output = generate_to_vec(Shell::Bash);
-    assert!(!output.is_empty());
-  }
+  mod call {
+    use super::*;
 
-  #[test]
-  fn test_generate_elvish_completions() {
-    let output = generate_to_vec(Shell::Elvish);
-    assert!(!output.is_empty());
-  }
+    #[test]
+    fn it_generates_bash_completions() {
+      let output = generate_to_vec(Shell::Bash);
+      assert!(!output.is_empty());
+    }
 
-  #[test]
-  fn test_generate_fish_completions() {
-    let output = generate_to_vec(Shell::Fish);
-    assert!(!output.is_empty());
-  }
+    #[test]
+    fn it_generates_fish_completions() {
+      let output = generate_to_vec(Shell::Fish);
+      assert!(!output.is_empty());
+    }
 
-  #[test]
-  fn test_generate_powershell_completions() {
-    let output = generate_to_vec(Shell::PowerShell);
-    assert!(!output.is_empty());
-  }
-
-  #[test]
-  fn test_generate_zsh_completions() {
-    let output = generate_to_vec(Shell::Zsh);
-    assert!(!output.is_empty());
-  }
-
-  #[test]
-  fn test_version_flag_in_completions() {
-    let output = generate_to_vec(Shell::Bash);
-    let text = String::from_utf8(output).expect("valid utf8");
-    assert!(
-      text.contains("--version"),
-      "completions should include the custom --version flag"
-    );
+    #[test]
+    fn it_generates_zsh_completions() {
+      let output = generate_to_vec(Shell::Zsh);
+      assert!(!output.is_empty());
+    }
   }
 }

@@ -10,11 +10,13 @@ mod tag;
 mod untag;
 mod update;
 
+use std::path::Path;
+
 use clap::{Args, Subcommand};
 
-use crate::{config::Config, ui::theme::Theme};
+use crate::{cli, config::Settings, ui::theme::Theme};
 
-/// Manage iterations (execution plans grouping tasks into phases)
+/// Manage iterations (execution plans grouping tasks into phases).
 #[derive(Debug, Args)]
 pub struct Command {
   #[command(subcommand)]
@@ -37,19 +39,20 @@ enum IterationCommand {
 }
 
 impl Command {
-  pub fn call(&self, config: &Config, theme: &Theme) -> crate::Result<()> {
+  /// Dispatch to the appropriate iteration subcommand.
+  pub fn call(&self, _settings: &Settings, theme: &Theme, data_dir: &Path) -> cli::Result<()> {
     match &self.command {
-      IterationCommand::Add(cmd) => cmd.call(config, theme),
-      IterationCommand::Create(cmd) => cmd.call(config, theme),
-      IterationCommand::Graph(cmd) => cmd.call(config, theme),
-      IterationCommand::Link(cmd) => cmd.call(config, theme),
-      IterationCommand::List(cmd) => cmd.call(config, theme),
-      IterationCommand::Meta(cmd) => cmd.call(config, theme),
-      IterationCommand::Remove(cmd) => cmd.call(config, theme),
-      IterationCommand::Show(cmd) => cmd.call(config, theme),
-      IterationCommand::Tag(cmd) => cmd.call(config, theme),
-      IterationCommand::Untag(cmd) => cmd.call(config, theme),
-      IterationCommand::Update(cmd) => cmd.call(config, theme),
+      IterationCommand::Add(cmd) => cmd.call(data_dir, theme),
+      IterationCommand::Create(cmd) => cmd.call(data_dir, theme),
+      IterationCommand::Graph(cmd) => cmd.call(data_dir, theme),
+      IterationCommand::Link(cmd) => cmd.call(data_dir, theme),
+      IterationCommand::List(cmd) => cmd.call(data_dir, theme),
+      IterationCommand::Meta(cmd) => cmd.call(data_dir, theme),
+      IterationCommand::Remove(cmd) => cmd.call(data_dir, theme),
+      IterationCommand::Show(cmd) => cmd.call(data_dir, theme),
+      IterationCommand::Tag(cmd) => cmd.call(data_dir, theme),
+      IterationCommand::Untag(cmd) => cmd.call(data_dir, theme),
+      IterationCommand::Update(cmd) => cmd.call(data_dir, theme),
     }
   }
 }

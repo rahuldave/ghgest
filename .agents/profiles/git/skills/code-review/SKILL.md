@@ -51,8 +51,8 @@ Evaluate the changeset against this checklist:
 - New functionality has corresponding tests
 - Edge cases are tested
 - Existing tests are not weakened or removed without justification
-- CLI-facing changes (`src/cli/`) should have corresponding integration tests in
-  `tests/integration/`. Flag missing integration test coverage as a **Warning**.
+- CLI-facing changes (`src/cli/`) should have corresponding integration tests in `tests/integration/`. Flag missing
+  integration test coverage as a **Warning**.
 
 #### Dependency Hygiene
 

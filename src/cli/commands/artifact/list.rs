@@ -1,128 +1,76 @@
-use std::collections::BTreeMap;
+use std::path::Path;
 
 use clap::Args;
 
 use crate::{
-  config,
-  config::Config,
+  cli,
   model::ArtifactFilter,
   store,
   ui::{
-    components::{EmptyList, Group, GroupedList, ListRow},
+    composites::{artifact_list_row::ArtifactListRow, empty_list::EmptyList},
     theme::Theme,
-    utils::shortest_unique_prefixes,
+    views::artifact::ArtifactListView,
   },
 };
 
-/// List artifacts, optionally filtered by type or tag
+/// List artifacts, optionally filtered by type, tag, or archive status.
 #[derive(Debug, Args)]
 pub struct Command {
-  /// Show only archived artifacts
-  #[arg(long, conflicts_with = "show_all")]
+  /// Show only archived artifacts.
+  #[arg(long)]
   pub archived: bool,
-  /// Output artifact list as JSON
+  /// Output as JSON.
   #[arg(short, long)]
   pub json: bool,
-  /// Filter by artifact type (e.g. spec, adr, rfc)
-  #[arg(long = "type")]
+  /// Filter by artifact type (e.g. spec, adr, rfc).
+  #[arg(short = 'k', long = "type")]
   pub kind: Option<String>,
-  /// Include archived artifacts alongside active ones
-  #[arg(short = 'a', long = "all", conflicts_with = "archived")]
+  /// Include archived artifacts alongside active ones.
+  #[arg(short = 'a', long = "all")]
   pub show_all: bool,
-  /// Filter by tag
+  /// Filter by tag.
   #[arg(long)]
   pub tag: Option<String>,
 }
 
 impl Command {
-  pub fn call(&self, config: &Config, theme: &Theme) -> crate::Result<()> {
-    log::info!("listing artifacts");
+  /// Fetch, filter, and display the artifact list (or JSON output).
+  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
     let filter = ArtifactFilter {
-      show_all: self.show_all,
-      only_archived: self.archived,
       kind: self.kind.clone(),
+      only_archived: self.archived,
+      show_all: self.show_all,
       tag: self.tag.clone(),
     };
-    log::debug!(
-      "filter: kind={:?}, tag={:?}, archived={}, show_all={}",
-      filter.kind,
-      filter.tag,
-      self.archived,
-      self.show_all
-    );
 
-    let data_dir = config::data_dir(config)?;
-    let artifacts = store::list_artifacts(&data_dir, &filter)?;
-    log::trace!("found {} artifact(s)", artifacts.len());
+    let artifacts = store::list_artifacts(data_dir, &filter)?;
 
     if self.json {
-      let json: Vec<serde_json::Value> = artifacts
-        .iter()
-        .map(|a| {
-          serde_json::json!({
-            "id": a.id.to_string(),
-            "title": a.title,
-            "type": a.kind,
-            "tags": a.tags,
-          })
-        })
-        .collect();
-      println!("{}", serde_json::to_string_pretty(&json)?);
-    } else if artifacts.is_empty() {
-      EmptyList::new("artifacts").write_to(&mut std::io::stdout())?;
-    } else {
-      let id_strings: Vec<String> = artifacts.iter().map(|a| a.id.to_string()).collect();
-      let prefix_lens = shortest_unique_prefixes(&id_strings);
-
-      // Group artifacts by kind, sorted alphabetically with "Other" last
-      let mut grouped: BTreeMap<String, Vec<(usize, &crate::model::Artifact)>> = BTreeMap::new();
-      for (i, artifact) in artifacts.iter().enumerate() {
-        let key = artifact.kind.clone().unwrap_or_default();
-        grouped.entry(key).or_default().push((i, artifact));
-      }
-
-      // Sort each group by created_at (oldest first)
-      for entries in grouped.values_mut() {
-        entries.sort_by_key(|(_, a)| a.created_at);
-      }
-
-      // Build groups: named kinds alphabetically, then "Other" (empty kind) last
-      let mut groups: Vec<Group> = Vec::new();
-      let other_entries = grouped.remove("");
-
-      for (kind, entries) in &grouped {
-        let heading = capitalize(kind);
-        let rows = entries
-          .iter()
-          .map(|(idx, a)| build_row(a, prefix_lens[*idx], theme))
-          .collect();
-        groups.push(Group::new(heading, rows));
-      }
-
-      if let Some(entries) = other_entries {
-        let rows = entries
-          .iter()
-          .map(|(idx, a)| build_row(a, prefix_lens[*idx], theme))
-          .collect();
-        groups.push(Group::new("Other", rows));
-      }
-
-      GroupedList::new(groups, theme).write_to(&mut std::io::stdout())?;
+      let json = serde_json::to_string_pretty(&artifacts).map_err(|e| cli::Error::generic(e.to_string()))?;
+      println!("{json}");
+      return Ok(());
     }
 
+    if artifacts.is_empty() {
+      println!("{}", EmptyList::new("artifacts", theme));
+      return Ok(());
+    }
+
+    let total = artifacts.len();
+    let archived = artifacts.iter().filter(|a| a.archived_at.is_some()).count();
+
+    let id_strings: Vec<String> = artifacts.iter().map(|a| a.id.to_string()).collect();
+
+    let rows: Vec<ArtifactListRow> = artifacts
+      .iter()
+      .enumerate()
+      .map(|(i, a)| ArtifactListRow::new(&id_strings[i], &a.title, &a.tags, theme).archived(a.archived_at.is_some()))
+      .collect();
+
+    let view = ArtifactListView::new(total, archived, theme).rows(rows);
+    println!("{view}");
+
     Ok(())
-  }
-}
-
-fn build_row(artifact: &crate::model::Artifact, prefix_len: usize, theme: &Theme) -> Vec<String> {
-  ListRow::new(&artifact.id, prefix_len, &artifact.title, &artifact.tags, theme).build()
-}
-
-fn capitalize(s: &str) -> String {
-  let mut chars = s.chars();
-  match chars.next() {
-    None => String::new(),
-    Some(c) => c.to_uppercase().to_string() + chars.as_str(),
   }
 }
 
@@ -138,164 +86,103 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_handles_empty_list() {
+    fn it_filters_by_tag() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path());
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+
+      let mut a1 = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      a1.tags = vec!["spec".to_string()];
+      store::write_artifact(&data_dir, &a1).unwrap();
+
+      let a2 = make_test_artifact("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
+      store::write_artifact(&data_dir, &a2).unwrap();
 
       let cmd = Command {
-        archived: false,
-        show_all: false,
         json: false,
+        show_all: false,
+        archived: false,
+        kind: None,
+        tag: Some("spec".to_string()),
+      };
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+    }
+
+    #[test]
+    fn it_handles_empty_list() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+
+      let cmd = Command {
+        json: false,
+        show_all: false,
+        archived: false,
         kind: None,
         tag: None,
       };
 
-      cmd.call(&config, &Theme::default()).unwrap();
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+    }
+
+    #[test]
+    fn it_includes_archived_with_show_all() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+
+      let a = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      store::write_artifact(&data_dir, &a).unwrap();
+      store::archive_artifact(&data_dir, &a.id).unwrap();
+
+      let cmd = Command {
+        json: false,
+        show_all: true,
+        archived: false,
+        kind: None,
+        tag: None,
+      };
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
     }
 
     #[test]
     fn it_lists_artifacts() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path());
-      store::write_artifact(
-        dir.path(),
-        &make_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Artifact One"),
-      )
-      .unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      store::write_artifact(&data_dir, &artifact).unwrap();
 
       let cmd = Command {
-        archived: false,
-        show_all: false,
         json: false,
-        kind: None,
-        tag: None,
-      };
-
-      cmd.call(&config, &Theme::default()).unwrap();
-    }
-
-    #[test]
-    fn it_outputs_json_empty() {
-      let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path());
-
-      let cmd = Command {
-        archived: false,
         show_all: false,
-        json: true,
+        archived: false,
         kind: None,
         tag: None,
       };
 
-      cmd.call(&config, &Theme::default()).unwrap();
+      cmd.call(&data_dir, &Theme::default()).unwrap();
     }
 
     #[test]
     fn it_outputs_json() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path());
-      store::write_artifact(
-        dir.path(),
-        &make_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "JSON Artifact"),
-      )
-      .unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      store::write_artifact(&data_dir, &artifact).unwrap();
 
       let cmd = Command {
-        archived: false,
-        show_all: false,
         json: true,
+        show_all: false,
+        archived: false,
         kind: None,
         tag: None,
       };
 
-      cmd.call(&config, &Theme::default()).unwrap();
-    }
-
-    #[test]
-    fn it_filters_by_type() {
-      let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path());
-      let mut artifact = make_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Typed");
-      artifact.kind = Some("spec".to_string());
-      store::write_artifact(dir.path(), &artifact).unwrap();
-
-      let mut other = make_artifact("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Other");
-      other.kind = Some("note".to_string());
-      store::write_artifact(dir.path(), &other).unwrap();
-
-      let cmd = Command {
-        archived: false,
-        show_all: false,
-        json: false,
-        kind: Some("spec".to_string()),
-        tag: None,
-      };
-
-      cmd.call(&config, &Theme::default()).unwrap();
-    }
-
-    #[test]
-    fn it_filters_by_tag() {
-      let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path());
-      let mut artifact = make_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Tagged");
-      artifact.tags = vec!["important".to_string()];
-      store::write_artifact(dir.path(), &artifact).unwrap();
-
-      let cmd = Command {
-        archived: false,
-        show_all: false,
-        json: false,
-        kind: None,
-        tag: Some("important".to_string()),
-      };
-
-      cmd.call(&config, &Theme::default()).unwrap();
-    }
-
-    #[test]
-    fn it_handles_filtered_empty() {
-      let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path());
-      let mut artifact = make_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "A Spec");
-      artifact.kind = Some("spec".to_string());
-      store::write_artifact(dir.path(), &artifact).unwrap();
-
-      let cmd = Command {
-        archived: false,
-        show_all: false,
-        json: false,
-        kind: Some("nonexistent".to_string()),
-        tag: None,
-      };
-
-      cmd.call(&config, &Theme::default()).unwrap();
-    }
-
-    #[test]
-    fn it_includes_archived_artifacts() {
-      let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path());
-      let artifact = make_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Archived");
-      store::write_artifact(dir.path(), &artifact).unwrap();
-      store::archive_artifact(dir.path(), &artifact.id).unwrap();
-
-      let cmd = Command {
-        archived: false,
-        show_all: true,
-        json: false,
-        kind: None,
-        tag: None,
-      };
-
-      cmd.call(&config, &Theme::default()).unwrap();
-    }
-  }
-
-  fn make_artifact(id: &str, title: &str) -> crate::model::Artifact {
-    crate::model::Artifact {
-      title: title.to_string(),
-      ..make_test_artifact(id)
+      cmd.call(&data_dir, &Theme::default()).unwrap();
     }
   }
 }

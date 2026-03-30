@@ -1,4 +1,4 @@
-/// Split a comma-separated string into a `Vec<String>`, trimming whitespace and filtering empty strings.
+/// Split a comma-separated string into trimmed, non-empty tag strings.
 pub fn parse_tags(s: &str) -> Vec<String> {
   s.split(',')
     .map(|s| s.trim().to_string())
@@ -6,17 +6,15 @@ pub fn parse_tags(s: &str) -> Vec<String> {
     .collect()
 }
 
-/// Parse a slice of "key=value" strings into a `Vec` of `(String, String)` pairs.
-///
-/// Returns an error if any entry does not contain an `=` separator.
-pub fn split_key_value_pairs(pairs: &[String]) -> crate::Result<Vec<(String, String)>> {
+/// Parse `"key=value"` strings into `(key, value)` pairs, returning an error on missing `=`.
+pub fn split_key_value_pairs(pairs: &[String]) -> crate::cli::Result<Vec<(String, String)>> {
   pairs
     .iter()
     .map(|pair| {
       pair
         .split_once('=')
         .map(|(k, v)| (k.to_string(), v.to_string()))
-        .ok_or_else(|| crate::Error::generic(format!("Invalid metadata format '{pair}', expected key=value")))
+        .ok_or_else(|| crate::cli::Error::generic(format!("Invalid metadata format '{pair}', expected key=value")))
     })
     .collect()
 }
@@ -25,7 +23,7 @@ pub fn split_key_value_pairs(pairs: &[String]) -> crate::Result<Vec<(String, Str
 mod tests {
   use super::*;
 
-  mod parse_tags_tests {
+  mod parse_tags {
     use pretty_assertions::assert_eq;
 
     use super::*;
@@ -63,7 +61,7 @@ mod tests {
     }
   }
 
-  mod split_key_value_pairs_tests {
+  mod split_key_value_pairs {
     use pretty_assertions::assert_eq;
 
     use super::*;

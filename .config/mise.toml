@@ -1,6 +1,3 @@
-[settings]
-lockfile = true
-
 [task_config]
 includes = ["tasks"]
 

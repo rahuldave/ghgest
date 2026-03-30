@@ -17,11 +17,11 @@ run `mise format && mise lint`
 
 Run `git diff --name-only` to identify changed files.
 
-For each changed file, dispatch an agent to audit that file against
-`docs/dev/code-style.md`. Launch all agents in parallel.
+For each changed file, dispatch an agent to audit that file against`docs/dev/code-style.md` and `docs/dev/testing.md`.
+Launch all agents in parallel.
 
-Each agent should read the full file and check for style violations, reporting any issues with file
-paths and line numbers.
+Each agent should read the full file and check for style violations, reporting any issues with file paths and line
+numbers.
 
 ### 3. Fix Violations
 

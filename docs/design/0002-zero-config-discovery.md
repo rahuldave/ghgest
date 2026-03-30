@@ -1,7 +1,8 @@
 ---
 id: "0002"
 title: Zero-Config Discovery with Fallback Chain
-status: active
+status: superseded
+superseded_by: "0009"
 tags: [config, discovery]
 created: 2026-03-26
 ---
@@ -10,7 +11,7 @@ created: 2026-03-26
 
 ## Status
 
-![Active](https://img.shields.io/badge/Active-green?style=for-the-badge)
+[![Superseded][superseded-badge]][0009]
 
 ## Summary
 
@@ -76,3 +77,7 @@ or env vars. `config set` stores raw values as-is to preserve portability.
 - Walk-up search adds startup latency (negligible in practice)
 - SHA-256 hashing of project root means moving a repo creates a new external data dir
 - Supporting three config formats means three code paths to maintain
+
+[0009]: https://github.com/aaronmallen/gest/blob/main/docs/design/0009-zero-config-discovery-toml-only.md
+[superseded-badge]:
+  https://img.shields.io/badge/0009--zero--config--discovery--toml--only-black?style=for-the-badge&label=Superseded&labelColor=orange

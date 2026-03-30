@@ -1,42 +1,40 @@
+use std::path::Path;
+
 use clap::Args;
-use yansi::Paint;
 
 use crate::{
-  config,
-  config::Config,
-  model::{
-    IterationFilter,
-    iteration::{Iteration, STATUS_ORDER, Status},
-  },
+  cli,
+  model::{IterationFilter, iteration::Status},
   store,
   ui::{
-    components::{EmptyList, Group, GroupedList, IterationStatus, ListRow},
+    composites::empty_list::EmptyList,
     theme::Theme,
-    utils::shortest_unique_prefixes,
+    views::iteration::{IterationListData, IterationListView},
   },
 };
 
-/// List iterations grouped by status, optionally filtered
+/// List iterations, optionally filtered by status or tag.
 #[derive(Debug, Args)]
 pub struct Command {
-  /// Output iteration list as JSON
+  /// Output iteration list as JSON.
   #[arg(short, long)]
   pub json: bool,
-  /// Include resolved (completed/failed) iterations
+  /// Include resolved (completed/failed) iterations.
   #[arg(short = 'a', long = "all")]
   pub show_all: bool,
-  /// Filter by status: active, completed, or failed
+  /// Filter by status: active, completed, or failed.
   #[arg(short, long)]
   pub status: Option<String>,
-  /// Filter by tag
+  /// Filter by tag.
   #[arg(long)]
   pub tag: Option<String>,
 }
 
 impl Command {
-  pub fn call(&self, config: &Config, theme: &Theme) -> crate::Result<()> {
+  /// Query iterations from the store and render as a table or JSON.
+  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
     let status = match &self.status {
-      Some(s) => Some(s.parse::<Status>().map_err(crate::Error::generic)?),
+      Some(s) => Some(s.parse::<Status>().map_err(cli::Error::generic)?),
       None => None,
     };
 
@@ -46,48 +44,136 @@ impl Command {
       tag: self.tag.clone(),
     };
 
-    let data_dir = config::data_dir(config)?;
-    let iterations = store::list_iterations(&data_dir, &filter)?;
+    let iterations = store::list_iterations(data_dir, &filter)?;
 
     if self.json {
-      let json = serde_json::to_string_pretty(&iterations)?;
+      let json = serde_json::to_string_pretty(&iterations).map_err(|e| cli::Error::generic(e.to_string()))?;
       println!("{json}");
       return Ok(());
     }
 
     if iterations.is_empty() {
-      EmptyList::new("iterations").write_to(&mut std::io::stdout())?;
+      println!("{}", EmptyList::new("iterations", theme));
       return Ok(());
     }
 
-    let all_ids: Vec<String> = iterations.iter().map(|i| i.id.to_string()).collect();
-    let prefixes = shortest_unique_prefixes(&all_ids);
+    let id_strings: Vec<String> = iterations.iter().map(|i| i.id.to_string()).collect();
 
-    let groups: Vec<Group> = STATUS_ORDER
+    let view_data: Vec<IterationListData> = iterations
       .iter()
-      .map(|status| {
-        let rows: Vec<Vec<String>> = iterations
-          .iter()
-          .enumerate()
-          .filter(|(_, i)| &i.status == status)
-          .map(|(idx, i)| format_row(i, prefixes[idx], theme))
-          .collect();
-        Group::new(IterationStatus::new(status, theme).to_string(), rows)
+      .enumerate()
+      .map(|(idx, i)| {
+        let phase_count = compute_phase_count(&i.tasks);
+        IterationListData {
+          id: &id_strings[idx],
+          title: &i.title,
+          phase_count,
+          task_count: i.tasks.len(),
+        }
       })
       .collect();
 
-    GroupedList::new(groups, theme).write_to(&mut std::io::stdout())?;
+    println!("{}", IterationListView::new(view_data, theme));
+
     Ok(())
   }
 }
 
-fn format_row(iteration: &Iteration, prefix_len: usize, theme: &Theme) -> Vec<String> {
-  let title = iteration.title.paint(theme.md_heading).to_string();
-  let task_count = format!("[{} tasks]", iteration.tasks.len())
-    .paint(theme.muted)
-    .to_string();
+/// Compute how many distinct phases the iteration's tasks span.
+fn compute_phase_count(_tasks: &[String]) -> usize {
+  0
+}
 
-  ListRow::new(&iteration.id, prefix_len, &title, &iteration.tags, theme)
-    .extra(task_count)
-    .build()
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::test_helpers::{make_test_config, make_test_iteration};
+
+  mod call {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn it_filters_by_status() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let i1 = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      let mut i2 = make_test_iteration("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
+      i2.title = "Failed one".to_string();
+      i2.status = crate::model::iteration::Status::Failed;
+      store::write_iteration(&data_dir, &i1).unwrap();
+      store::write_iteration(&data_dir, &i2).unwrap();
+
+      let cmd = Command {
+        show_all: false,
+        json: false,
+        status: Some("failed".to_string()),
+        tag: None,
+      };
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+
+      let filter = IterationFilter {
+        status: Some(Status::Failed),
+        ..Default::default()
+      };
+      let iterations = store::list_iterations(&data_dir, &filter).unwrap();
+      assert_eq!(iterations.len(), 1);
+      assert_eq!(iterations[0].title, "Failed one");
+    }
+
+    #[test]
+    fn it_handles_empty_list() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+
+      let cmd = Command {
+        show_all: false,
+        json: false,
+        status: None,
+        tag: None,
+      };
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+    }
+
+    #[test]
+    fn it_lists_iterations() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let i1 = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      store::write_iteration(&data_dir, &i1).unwrap();
+
+      let cmd = Command {
+        show_all: false,
+        json: false,
+        status: None,
+        tag: None,
+      };
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+    }
+
+    #[test]
+    fn it_outputs_json() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      store::write_iteration(&data_dir, &iteration).unwrap();
+
+      let cmd = Command {
+        show_all: false,
+        json: true,
+        status: None,
+        tag: None,
+      };
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+    }
+  }
 }

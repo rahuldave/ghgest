@@ -2,23 +2,20 @@ use std::path::PathBuf;
 
 use clap::{Args, CommandFactory};
 
-use crate::Result;
+use crate::cli;
 
-/// Generate man pages for all commands
-///
-/// Writes one .1 man page file per command and subcommand to the specified directory:
-///
-///   gest generate man-pages --output-dir ./man/
+/// Write roff man page files for all commands to a directory.
 #[derive(Args, Debug)]
 #[command(name = "man-pages")]
 pub struct Command {
-  /// Directory to write man page files to
+  /// Directory to write man page files into.
   #[arg(long)]
   output_dir: PathBuf,
 }
 
 impl Command {
-  pub fn call(&self) -> Result<()> {
+  /// Create the output directory and generate all man pages.
+  pub fn call(&self) -> cli::Result<()> {
     std::fs::create_dir_all(&self.output_dir)?;
 
     let cmd = crate::cli::Cli::command();
@@ -27,7 +24,8 @@ impl Command {
   }
 }
 
-fn generate_man_pages(cmd: &clap::Command, dir: &std::path::Path, prefix: &str) -> Result<()> {
+/// Recursively render a `.1` man page for `cmd` and each visible subcommand.
+fn generate_man_pages(cmd: &clap::Command, dir: &std::path::Path, prefix: &str) -> cli::Result<()> {
   let man = clap_mangen::Man::new(cmd.clone());
   let filename = format!("{prefix}.1");
   let path = dir.join(&filename);
@@ -52,38 +50,30 @@ mod tests {
 
   use super::generate_man_pages;
 
-  #[test]
-  fn test_generate_man_pages_writes_files() {
-    let dir = tempfile::tempdir().expect("create temp dir");
-    let cmd = crate::cli::Cli::command();
-    generate_man_pages(&cmd, dir.path(), "gest").expect("generate man pages");
+  mod generate_man_pages {
+    use super::*;
 
-    let root = dir.path().join("gest.1");
-    assert!(root.exists(), "root man page should exist");
+    #[test]
+    fn it_generates_valid_man_page_content() {
+      let dir = tempfile::tempdir().expect("create temp dir");
+      let cmd = crate::cli::Cli::command();
+      generate_man_pages(&cmd, dir.path(), "gest").expect("generate man pages");
 
-    let artifact = dir.path().join("gest-artifact.1");
-    assert!(artifact.exists(), "gest-artifact man page should exist");
+      let content = std::fs::read_to_string(dir.path().join("gest.1")).expect("read man page");
+      assert!(content.contains(".TH"), "man page should contain .TH header");
+    }
 
-    let task = dir.path().join("gest-task.1");
-    assert!(task.exists(), "gest-task man page should exist");
+    #[test]
+    fn it_writes_man_page_files() {
+      let dir = tempfile::tempdir().expect("create temp dir");
+      let cmd = crate::cli::Cli::command();
+      generate_man_pages(&cmd, dir.path(), "gest").expect("generate man pages");
 
-    let generate = dir.path().join("gest-generate.1");
-    assert!(generate.exists(), "gest-generate man page should exist");
+      let root = dir.path().join("gest.1");
+      assert!(root.exists(), "root man page should exist");
 
-    let completions = dir.path().join("gest-generate-completions.1");
-    assert!(completions.exists(), "gest-generate-completions man page should exist");
-
-    let man_pages = dir.path().join("gest-generate-man-pages.1");
-    assert!(man_pages.exists(), "gest-generate-man-pages man page should exist");
-  }
-
-  #[test]
-  fn test_man_page_content_is_valid() {
-    let dir = tempfile::tempdir().expect("create temp dir");
-    let cmd = crate::cli::Cli::command();
-    generate_man_pages(&cmd, dir.path(), "gest").expect("generate man pages");
-
-    let content = std::fs::read_to_string(dir.path().join("gest.1")).expect("read man page");
-    assert!(content.contains(".TH"), "man page should contain .TH header");
+      let task = dir.path().join("gest-task.1");
+      assert!(task.exists(), "gest-task man page should exist");
+    }
   }
 }

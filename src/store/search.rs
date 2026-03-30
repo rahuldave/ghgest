@@ -4,12 +4,14 @@ use rayon::prelude::*;
 
 use crate::model::{Artifact, ArtifactFilter, Task, TaskFilter};
 
+/// Collected search results across entity types.
 pub struct SearchResults {
   pub artifacts: Vec<Artifact>,
   pub tasks: Vec<Task>,
 }
 
-pub fn search(data_dir: &Path, query: &str, show_all: bool) -> crate::Result<SearchResults> {
+/// Perform a case-insensitive full-text search across tasks and artifacts.
+pub fn search(data_dir: &Path, query: &str, show_all: bool) -> super::Result<SearchResults> {
   let query_lower = query.to_lowercase();
 
   let task_filter = TaskFilter {

@@ -1,7 +1,8 @@
 ---
 id: "0006"
 title: UI Components as Display+Write Types
-status: active
+status: superseded
+superseded_by: "0010"
 tags: [cli, ui, architecture]
 created: 2026-03-26
 ---
@@ -10,7 +11,7 @@ created: 2026-03-26
 
 ## Status
 
-![Active](https://img.shields.io/badge/Active-green?style=for-the-badge)
+[![Superseded][superseded-badge]][0010]
 
 ## Summary
 
@@ -70,3 +71,7 @@ and utils, which in turn use the Theme (see ADR-0007).
 
 - More types to maintain — each distinct output pattern is a struct
 - Indirection between "what the command does" and "what gets printed"
+
+[0010]: https://github.com/aaronmallen/gest/blob/main/docs/design/0010-atomic-ui-architecture.md
+[superseded-badge]:
+  https://img.shields.io/badge/0010--atomic--ui--architecture-black?style=for-the-badge&label=Superseded&labelColor=orange

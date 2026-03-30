@@ -7,7 +7,7 @@ keywords = ["cli", "agent", "artifact", "task"]
 license = "MIT"
 name = "gest"
 repository = "https://github.com/aaronmallen/gest"
-version = "0.2.3"
+version = "0.3.0"
 
 [package.metadata.binstall]
 bin-dir = "{bin}{binary-ext}"
@@ -15,8 +15,8 @@ pkg-fmt = "tgz"
 pkg-url = "{repo}/releases/download/v{version}/{name}-v{version}-{target}.tar.gz"
 
 [dependencies]
-chrono = { version = "0.4", features = ["serde"] }
-clap = { version = "4", features = ["derive"] }
+chrono = { features = ["serde"], version = "0.4" }
+clap = { features = ["derive"], version = "4" }
 clap_complete = "4"
 clap_mangen = "0.3"
 dir_spec = "0.5"
@@ -25,7 +25,7 @@ pulldown-cmark = "0.13"
 rand = "0.10"
 rayon = "1"
 semver = "1"
-serde = { version = "1", features = ["derive"] }
+serde = { features = ["derive"], version = "1" }
 serde_json = "1"
 sha2 = "0.11"
 tempfile = "3"
@@ -33,17 +33,14 @@ terminal_size = "0.4"
 thiserror = "2"
 toml = "1"
 typed-env = "0.3"
+unicode-width = "0.2"
 yaml_serde = "0.10"
-yansi = { version = "1", features = ["detect-env", "detect-tty"] }
+yansi = { features = ["detect-env", "detect-tty", "hyperlink"], version = "1" }
 
 [dependencies.self_update]
-default-features = false
-features = ["archive-tar", "compression-flate2", "reqwest", "rustls"]
+features = ["archive-tar", "compression-flate2", "rustls"]
 version = "0.43"
 
 [dev-dependencies]
-assert_cmd = "2"
-predicates = "3"
 pretty_assertions = "1"
-serde_json = "1"
 temp-env = "0.3"

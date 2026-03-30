@@ -59,11 +59,11 @@ Follow the conventions in `docs/dev/commits.md`:
 If the current work relates to a gest task, check whether the task has `github-issue` metadata:
 
 ```sh
-cargo run -- task show <id> --json
+GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task show <id> --json
 ```
 
-If the `metadata` object contains a `github-issue` key, include a footer referencing that issue
-(e.g. `Closes #42`). If there is no `github-issue` metadata, do not add an issue reference.
+If the `metadata` object contains a `github-issue` key, include a footer referencing that issue (e.g. `Closes #42`). If
+there is no `github-issue` metadata, do not add an issue reference.
 
 ### 3. Confirm
 
@@ -85,8 +85,8 @@ jj commit -m "<approved message>"
 jj describe -m "<approved message>"
 ```
 
-Use `jj commit -m` when the work is complete and you want to move on to the next change. Use
-`jj describe -m` when you want to set the message but continue working in the same change.
+Use `jj commit -m` when the work is complete and you want to move on to the next change. Use `jj describe -m` when you
+want to set the message but continue working in the same change.
 
-There is no staging area in jj -- all tracked file changes in the working copy are included
-automatically. Never use raw `git` commands.
+There is no staging area in jj -- all tracked file changes in the working copy are included automatically. Never use raw
+`git` commands.

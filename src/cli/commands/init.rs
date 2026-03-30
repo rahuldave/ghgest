@@ -3,13 +3,11 @@ use std::path::Path;
 use clap::Args;
 
 use crate::{
-  config::Config,
-  ui::{
-    components::{AlreadyInitialized, InitCreated},
-    theme::Theme,
-  },
+  cli,
+  ui::{theme::Theme, views::system::InitView},
 };
 
+/// Directories created inside `.gest/` during initialization.
 const SUBDIRS: &[&str] = &[
   "artifacts",
   "artifacts/archive",
@@ -19,19 +17,21 @@ const SUBDIRS: &[&str] = &[
   "tasks/archive",
 ];
 
-/// Initialize a .gest directory in the current project
+/// Initialize a `.gest` directory in the current project.
 #[derive(Debug, Args)]
 pub struct Command;
 
 impl Command {
-  pub fn call(&self, _config: &Config, theme: &Theme) -> crate::Result<()> {
+  /// Create the `.gest/` directory tree under the current working directory.
+  pub fn call(&self, theme: &Theme) -> cli::Result<()> {
     let cwd = std::env::current_dir()?;
     let base = cwd.join(".gest");
     init_at(&base, theme)
   }
 }
 
-fn init_at(base: &Path, theme: &Theme) -> crate::Result<()> {
+/// Create any missing subdirectories under `base` and display the result.
+fn init_at(base: &Path, theme: &Theme) -> cli::Result<()> {
   let mut created_subdirs = Vec::new();
   for subdir in SUBDIRS {
     let path = base.join(subdir);
@@ -41,11 +41,8 @@ fn init_at(base: &Path, theme: &Theme) -> crate::Result<()> {
     }
   }
 
-  if created_subdirs.is_empty() {
-    AlreadyInitialized.write_to(&mut std::io::stdout(), theme)?;
-  } else {
-    InitCreated::new(created_subdirs).write_to(&mut std::io::stdout(), theme)?;
-  }
+  let view = InitView::new(".gest/", ".gest/config.toml", theme);
+  println!("{view}");
 
   Ok(())
 }

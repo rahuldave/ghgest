@@ -2,19 +2,15 @@ use std::thread;
 
 use clap::Args;
 
-use crate::{
-  Result,
-  config::Config,
-  ui::{components::Banner, theme::Theme},
-};
+use crate::ui::{composites::banner::Banner, theme::Theme};
 
-/// Print the current gest version and build information
+/// Print the current version, platform info, and check for available updates.
 #[derive(Args, Debug)]
 pub struct Command;
 
 impl Command {
-  pub fn call(&self, _config: &Config, _theme: &Theme) -> Result<()> {
-    // Spawn a background thread to check for newer releases
+  /// Display a version banner, appending an update notice if a newer release exists.
+  pub fn call(&self, theme: &Theme) -> crate::cli::Result<()> {
     let check_handle = thread::spawn(|| -> Option<String> {
       let releases = self_update::backends::github::ReleaseList::configure()
         .repo_owner("aaronmallen")
@@ -33,14 +29,20 @@ impl Command {
       }
     });
 
-    // Print banner immediately (no latency added)
-    println!("{}", Banner::new().with_color().with_author().with_version());
+    let mut banner = Banner::new(
+      env!("CARGO_PKG_VERSION"),
+      std::env::consts::OS,
+      "",
+      "",
+      "aaronmallen",
+      theme,
+    );
 
-    // Join the background thread and warn if a newer version is available
     if let Ok(Some(latest_version)) = check_handle.join() {
-      log::warn!("A newer version of gest is available: v{latest_version}. Run 'gest self-update' to update.");
+      banner = banner.update_version(latest_version);
     }
 
+    println!("{banner}");
     Ok(())
   }
 }

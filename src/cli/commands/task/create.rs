@@ -1,47 +1,47 @@
-use std::io::IsTerminal;
+use std::{io::IsTerminal, path::Path};
 
 use clap::Args;
 
 use crate::{
-  config,
-  config::Config,
-  model::{NewTask, Status},
+  cli,
+  model::{NewTask, task::Status},
   store,
-  ui::{components::Confirmation, theme::Theme},
+  ui::{theme::Theme, views::task::TaskCreateView},
 };
 
-/// Create a new task
+/// Create a new task with optional metadata, tags, and status.
 #[derive(Debug, Args)]
 pub struct Command {
-  /// Task title
+  /// Task title.
   pub title: String,
-  /// Actor assigned to this task
+  /// Actor assigned to this task.
   #[arg(long)]
   pub assigned_to: Option<String>,
-  /// Description text (opens $EDITOR if omitted and stdin is a terminal)
+  /// Description text (opens `$EDITOR` if omitted and stdin is a terminal).
   #[arg(short, long)]
   pub description: Option<String>,
-  /// Key=value metadata pair (repeatable, e.g. -m key=value)
+  /// Key=value metadata pair (repeatable, e.g. `-m key=value`).
   #[arg(short, long)]
   pub metadata: Vec<String>,
-  /// Execution phase for parallel grouping
+  /// Execution phase for parallel grouping.
   #[arg(long)]
   pub phase: Option<u16>,
-  /// Priority level (0-4, where 0 is highest)
+  /// Priority level (0-4, where 0 is highest).
   #[arg(short, long)]
   pub priority: Option<u8>,
-  /// Initial status: open, in-progress, done, or cancelled (default: open)
+  /// Initial status: open, in-progress, done, or cancelled (default: open).
   #[arg(short, long)]
   pub status: Option<String>,
-  /// Comma-separated list of tags
+  /// Comma-separated list of tags.
   #[arg(long)]
   pub tags: Option<String>,
 }
 
 impl Command {
-  pub fn call(&self, config: &Config, theme: &Theme) -> crate::Result<()> {
+  /// Persist a new task and print a confirmation view.
+  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
     let status = match &self.status {
-      Some(s) => s.parse::<Status>().map_err(crate::Error::generic)?,
+      Some(s) => s.parse::<Status>().map_err(cli::Error::generic)?,
       None => Status::Open,
     };
 
@@ -74,13 +74,28 @@ impl Command {
       title: self.title.clone(),
     };
 
-    let data_dir = config::data_dir(config)?;
-    let task = store::create_task(&data_dir, new)?;
-    Confirmation::new("Created", "task", &task.id).write_to(&mut std::io::stdout(), theme)?;
+    let task = store::create_task(data_dir, new)?;
+
+    let status_str = match task.status {
+      Status::Open => "open",
+      Status::InProgress => "in-progress",
+      Status::Done => "done",
+      Status::Cancelled => "cancelled",
+    };
+    let mut fields = vec![("title", task.title.clone())];
+    fields.push(("status", status_str.to_string()));
+
+    let view = TaskCreateView {
+      id: &task.id.to_string(),
+      fields,
+      theme,
+    };
+    println!("{view}");
     Ok(())
   }
 
-  fn read_description(&self) -> crate::Result<String> {
+  /// Read description from the flag, `$EDITOR`, or return empty.
+  fn read_description(&self) -> cli::Result<String> {
     if let Some(ref desc) = self.description {
       return Ok(desc.clone());
     }
@@ -90,7 +105,7 @@ impl Command {
     {
       let content = crate::cli::editor::edit_temp(None, ".md")?;
       if content.trim().is_empty() {
-        return Err(crate::Error::generic("Aborting: empty description"));
+        return Err(cli::Error::generic("Aborting: empty description"));
       }
       return Ok(content);
     }
@@ -107,79 +122,13 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use super::*;
-    use crate::{store, test_helpers::make_test_config};
-
-    #[test]
-    fn it_resolves_task_created_with_cancelled_status() {
-      let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path());
-
-      let cmd = Command {
-        title: "Cancelled Task".to_string(),
-        assigned_to: None,
-        description: Some("Cancelled".to_string()),
-        metadata: vec![],
-        phase: None,
-        priority: None,
-        status: Some("cancelled".to_string()),
-        tags: None,
-      };
-
-      cmd.call(&config, &Theme::default()).unwrap();
-
-      let filter = crate::model::TaskFilter::default();
-      let tasks = store::list_tasks(dir.path(), &filter).unwrap();
-      assert_eq!(tasks.len(), 0);
-
-      let filter = crate::model::TaskFilter {
-        all: true,
-        ..Default::default()
-      };
-      let tasks = store::list_tasks(dir.path(), &filter).unwrap();
-      assert_eq!(tasks.len(), 1);
-      assert_eq!(tasks[0].status, Status::Cancelled);
-      assert!(tasks[0].resolved_at.is_some());
-    }
-
-    #[test]
-    fn it_resolves_task_created_with_done_status() {
-      let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path());
-
-      let cmd = Command {
-        title: "Done Task".to_string(),
-        assigned_to: None,
-        description: Some("Already done".to_string()),
-        metadata: vec![],
-        phase: None,
-        priority: None,
-        status: Some("done".to_string()),
-        tags: None,
-      };
-
-      cmd.call(&config, &Theme::default()).unwrap();
-
-      // Should not appear in active tasks
-      let filter = crate::model::TaskFilter::default();
-      let tasks = store::list_tasks(dir.path(), &filter).unwrap();
-      assert_eq!(tasks.len(), 0);
-
-      // Should appear when including all
-      let filter = crate::model::TaskFilter {
-        all: true,
-        ..Default::default()
-      };
-      let tasks = store::list_tasks(dir.path(), &filter).unwrap();
-      assert_eq!(tasks.len(), 1);
-      assert_eq!(tasks[0].title, "Done Task");
-      assert_eq!(tasks[0].status, Status::Done);
-      assert!(tasks[0].resolved_at.is_some());
-    }
+    use crate::test_helpers::make_test_config;
 
     #[test]
     fn it_creates_a_task_with_all_flags() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path());
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
 
       let cmd = Command {
         title: "Full Task".to_string(),
@@ -192,10 +141,10 @@ mod tests {
         tags: Some("rust,cli".to_string()),
       };
 
-      cmd.call(&config, &Theme::default()).unwrap();
+      cmd.call(&data_dir, &Theme::default()).unwrap();
 
       let filter = crate::model::TaskFilter::default();
-      let tasks = store::list_tasks(dir.path(), &filter).unwrap();
+      let tasks = store::list_tasks(&data_dir, &filter).unwrap();
       assert_eq!(tasks.len(), 1);
 
       let task = &tasks[0];
@@ -213,7 +162,8 @@ mod tests {
     #[test]
     fn it_creates_a_task_with_defaults() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path());
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
 
       let cmd = Command {
         title: "My Task".to_string(),
@@ -226,14 +176,81 @@ mod tests {
         tags: None,
       };
 
-      cmd.call(&config, &Theme::default()).unwrap();
+      cmd.call(&data_dir, &Theme::default()).unwrap();
 
       let filter = crate::model::TaskFilter::default();
-      let tasks = store::list_tasks(dir.path(), &filter).unwrap();
+      let tasks = store::list_tasks(&data_dir, &filter).unwrap();
       assert_eq!(tasks.len(), 1);
       assert_eq!(tasks[0].title, "My Task");
       assert_eq!(tasks[0].status, Status::Open);
       assert!(tasks[0].description.is_empty());
+    }
+
+    #[test]
+    fn it_resolves_task_created_with_cancelled_status() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+
+      let cmd = Command {
+        title: "Cancelled Task".to_string(),
+        assigned_to: None,
+        description: Some("Cancelled".to_string()),
+        metadata: vec![],
+        phase: None,
+        priority: None,
+        status: Some("cancelled".to_string()),
+        tags: None,
+      };
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+
+      let filter = crate::model::TaskFilter::default();
+      let tasks = store::list_tasks(&data_dir, &filter).unwrap();
+      assert_eq!(tasks.len(), 0);
+
+      let filter = crate::model::TaskFilter {
+        all: true,
+        ..Default::default()
+      };
+      let tasks = store::list_tasks(&data_dir, &filter).unwrap();
+      assert_eq!(tasks.len(), 1);
+      assert_eq!(tasks[0].status, Status::Cancelled);
+      assert!(tasks[0].resolved_at.is_some());
+    }
+
+    #[test]
+    fn it_resolves_task_created_with_done_status() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+
+      let cmd = Command {
+        title: "Done Task".to_string(),
+        assigned_to: None,
+        description: Some("Already done".to_string()),
+        metadata: vec![],
+        phase: None,
+        priority: None,
+        status: Some("done".to_string()),
+        tags: None,
+      };
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+
+      let filter = crate::model::TaskFilter::default();
+      let tasks = store::list_tasks(&data_dir, &filter).unwrap();
+      assert_eq!(tasks.len(), 0);
+
+      let filter = crate::model::TaskFilter {
+        all: true,
+        ..Default::default()
+      };
+      let tasks = store::list_tasks(&data_dir, &filter).unwrap();
+      assert_eq!(tasks.len(), 1);
+      assert_eq!(tasks[0].title, "Done Task");
+      assert_eq!(tasks[0].status, Status::Done);
+      assert!(tasks[0].resolved_at.is_some());
     }
   }
 }

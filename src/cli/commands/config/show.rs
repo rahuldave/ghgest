@@ -1,76 +1,47 @@
-use std::path::PathBuf;
-
 use clap::Args;
 
-use crate::{config::Config, ui::components::ConfigDisplay};
+use crate::{
+  cli,
+  config::Settings,
+  ui::{theme::Theme, views::system::ConfigView},
+};
 
-const GLOBAL_CONFIG_NAMES: &[&str] = &["config.json", "config.toml", "config.yaml", "config.yml"];
-const PROJECT_EXTERNAL_NAMES: &[&str] = &[".gest.json", ".gest.toml", ".gest.yaml", ".gest.yml"];
-const PROJECT_INREPO_NAMES: &[&str] = &[
-  ".gest/config.json",
-  ".gest/config.toml",
-  ".gest/config.yaml",
-  ".gest/config.yml",
-];
-
-/// Display the merged configuration and discovered config file sources
+/// Display the merged configuration and discovered config file sources.
 #[derive(Debug, Args)]
 pub struct Command;
 
 impl Command {
-  pub fn call(&self, config: &Config) -> crate::Result<()> {
-    let json = serde_json::to_value(config)?;
-    let sources = discover_sources();
+  /// Render active settings, data directory, log level, and config file locations.
+  pub fn call(&self, settings: &Settings, theme: &Theme) -> cli::Result<()> {
+    let cwd = std::env::current_dir()?;
+    let data_dir_path = settings.storage().data_dir(cwd)?;
+    let data_dir = data_dir_path.display().to_string();
+    let log_level = settings.log().level().unwrap_or("warn");
 
-    ConfigDisplay::new(&json, &sources).write_to(&mut std::io::stdout())?;
+    let mut view = ConfigView::new(&data_dir, log_level, theme).has_color_overrides(!settings.colors().is_empty());
+
+    if let Some(config_home) = dir_spec::config_home() {
+      let global = config_home.join("gest/config.toml");
+      if global.exists() {
+        let global_str = global.display().to_string();
+        view = view.global_config(Box::leak(global_str.into_boxed_str()));
+      }
+    }
+
+    if let Ok(cwd) = std::env::current_dir() {
+      for name in &[".gest/config.toml", ".gest.toml"] {
+        let path = cwd.join(name);
+        if path.exists() {
+          let path_str = path.display().to_string();
+          view = view.project_config(Box::leak(path_str.into_boxed_str()));
+          break;
+        }
+      }
+    }
+
+    println!("{view}");
     Ok(())
   }
-}
-
-fn discover_sources() -> Vec<PathBuf> {
-  let mut sources = Vec::new();
-
-  if let Ok(cwd) = std::env::current_dir() {
-    for name in PROJECT_INREPO_NAMES {
-      let path = cwd.join(name);
-      if path.exists() {
-        sources.push(path);
-      }
-    }
-    for name in PROJECT_EXTERNAL_NAMES {
-      let path = cwd.join(name);
-      if path.exists() {
-        sources.push(path);
-      }
-    }
-    let mut current = cwd;
-    loop {
-      if current.join(".git").is_dir() {
-        for name in PROJECT_EXTERNAL_NAMES {
-          let path = current.join(name);
-          if path.exists() && !sources.contains(&path) {
-            sources.push(path);
-          }
-        }
-        break;
-      }
-      if !current.pop() {
-        break;
-      }
-    }
-  }
-
-  if let Some(config_home) = dir_spec::config_home() {
-    let config_dir = config_home.join("gest");
-    for name in GLOBAL_CONFIG_NAMES {
-      let path = config_dir.join(name);
-      if path.exists() {
-        sources.push(path);
-      }
-    }
-  }
-
-  sources
 }
 
 #[cfg(test)]
@@ -82,9 +53,9 @@ mod tests {
 
     #[test]
     fn it_succeeds_with_default_config() {
-      let config = crate::config::Config::default();
+      let settings = Settings::default();
       let cmd = Command;
-      cmd.call(&config).unwrap();
+      cmd.call(&settings, &Theme::default()).unwrap();
     }
   }
 }

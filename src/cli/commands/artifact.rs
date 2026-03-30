@@ -1,3 +1,5 @@
+//! CLI commands for managing artifacts (specs, ADRs, RFCs, notes, and other documents).
+
 mod archive;
 mod create;
 mod list;
@@ -7,11 +9,13 @@ mod tag;
 mod untag;
 mod update;
 
+use std::path::Path;
+
 use clap::{Args, Subcommand};
 
-use crate::{config::Config, ui::theme::Theme};
+use crate::{cli, config::Settings, ui::theme::Theme};
 
-/// Manage artifacts (specs, ADRs, RFCs, notes, and other documents)
+/// Top-level artifact command that dispatches to subcommands.
 #[derive(Debug, Args)]
 pub struct Command {
   #[command(subcommand)]
@@ -31,16 +35,17 @@ enum ArtifactCommand {
 }
 
 impl Command {
-  pub fn call(&self, config: &Config, theme: &Theme) -> crate::Result<()> {
+  /// Dispatch to the appropriate artifact subcommand.
+  pub fn call(&self, _settings: &Settings, theme: &Theme, data_dir: &Path) -> cli::Result<()> {
     match &self.command {
-      ArtifactCommand::Archive(cmd) => cmd.call(config, theme),
-      ArtifactCommand::Create(cmd) => cmd.call(config, theme),
-      ArtifactCommand::List(cmd) => cmd.call(config, theme),
-      ArtifactCommand::Meta(cmd) => cmd.call(config, theme),
-      ArtifactCommand::Show(cmd) => cmd.call(config, theme),
-      ArtifactCommand::Tag(cmd) => cmd.call(config, theme),
-      ArtifactCommand::Untag(cmd) => cmd.call(config, theme),
-      ArtifactCommand::Update(cmd) => cmd.call(config, theme),
+      ArtifactCommand::Archive(cmd) => cmd.call(data_dir, theme),
+      ArtifactCommand::Create(cmd) => cmd.call(data_dir, theme),
+      ArtifactCommand::List(cmd) => cmd.call(data_dir, theme),
+      ArtifactCommand::Meta(cmd) => cmd.call(data_dir, theme),
+      ArtifactCommand::Show(cmd) => cmd.call(data_dir, theme),
+      ArtifactCommand::Tag(cmd) => cmd.call(data_dir, theme),
+      ArtifactCommand::Untag(cmd) => cmd.call(data_dir, theme),
+      ArtifactCommand::Update(cmd) => cmd.call(data_dir, theme),
     }
   }
 }

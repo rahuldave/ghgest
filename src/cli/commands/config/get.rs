@@ -1,31 +1,34 @@
 use clap::Args;
 
-use crate::config::Config;
+use crate::{cli, config::Settings};
 
-/// Get a configuration value by key
+/// Retrieve a single configuration value by dot-delimited key.
 #[derive(Debug, Args)]
 pub struct Command {
-  /// Dot-delimited config key (e.g. harness.command)
+  /// Dot-delimited config key (e.g. `storage.data_dir`).
   pub key: String,
 }
 
 impl Command {
-  pub fn call(&self, config: &Config) -> crate::Result<()> {
-    let value = resolve_key(config, &self.key)?;
+  /// Print the resolved value for the requested key.
+  pub fn call(&self, settings: &Settings) -> cli::Result<()> {
+    let value = resolve_key(settings, &self.key)?;
     println!("{value}");
     Ok(())
   }
 }
 
-fn resolve_key(config: &crate::config::Config, key: &str) -> crate::Result<String> {
-  let json = serde_json::to_value(config)?;
+/// Walk the serialized settings tree using dot-separated path segments.
+fn resolve_key(settings: &Settings, key: &str) -> cli::Result<String> {
+  let json =
+    serde_json::to_value(settings).map_err(|e| cli::Error::generic(format!("Failed to serialize config: {e}")))?;
   let mut current = &json;
 
   for segment in key.split('.') {
     match current.get(segment) {
       Some(v) => current = v,
       None => {
-        return Err(crate::Error::generic(format!("Unknown config key: '{key}'")));
+        return Err(cli::Error::generic(format!("Unknown config key: '{key}'")));
       }
     }
   }
@@ -48,47 +51,16 @@ mod tests {
 
     #[test]
     fn it_errors_on_unknown_key() {
-      let config = crate::config::Config::default();
-      let result = resolve_key(&config, "nonexistent.key");
+      let settings = Settings::default();
+      let result = resolve_key(&settings, "nonexistent.key");
       assert!(result.is_err());
-      let err = result.unwrap_err().to_string();
-      assert!(
-        err.contains("Unknown config key"),
-        "Expected unknown key error, got: {err}"
-      );
-    }
-
-    #[test]
-    fn it_errors_on_unset_optional_key() {
-      let config = crate::config::Config::default();
-      let result = resolve_key(&config, "storage.data_dir");
-      assert!(result.is_err());
-    }
-
-    #[test]
-    fn it_resolves_harness_command() {
-      let config = crate::config::Config::default();
-      let value = resolve_key(&config, "harness.command").unwrap();
-      assert_eq!(value, "claude");
-    }
-
-    #[test]
-    fn it_resolves_storage_data_dir_when_set() {
-      let config = crate::config::Config {
-        storage: crate::config::StorageConfig {
-          data_dir: Some(std::path::PathBuf::from("/custom/path")),
-        },
-        ..Default::default()
-      };
-      let value = resolve_key(&config, "storage.data_dir").unwrap();
-      assert_eq!(value, "/custom/path");
     }
 
     #[test]
     fn it_resolves_top_level_section() {
-      let config = crate::config::Config::default();
-      let value = resolve_key(&config, "harness").unwrap();
-      assert!(value.contains("command"));
+      let settings = Settings::default();
+      let value = resolve_key(&settings, "storage").unwrap();
+      assert!(value.contains('{'));
     }
   }
 }

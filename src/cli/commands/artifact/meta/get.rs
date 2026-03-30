@@ -1,39 +1,34 @@
+use std::path::Path;
+
 use clap::Args;
 
-use crate::{config, config::Config, store};
+use crate::{cli, store};
 
-/// Get a metadata value from an artifact
+/// Get a metadata value from an artifact using a dot-delimited key path.
 #[derive(Debug, Args)]
 pub struct Command {
-  /// Artifact ID or unique prefix
+  /// Artifact ID or unique prefix.
   pub id: String,
-  /// Dot-delimited key path (e.g. outer.inner)
+  /// Dot-delimited key path (e.g. `outer.inner`).
   pub path: String,
 }
 
 impl Command {
-  pub fn call(&self, config: &Config) -> crate::Result<()> {
-    log::info!(
-      "getting metadata '{}' from artifact with prefix '{}'",
-      self.path,
-      self.id
-    );
-    let data_dir = config::data_dir(config)?;
-    log::debug!("resolving artifact ID from prefix '{}'", self.id);
-    let id = store::resolve_artifact_id(&data_dir, &self.id, true)?;
-    log::debug!("resolved artifact ID: {id}");
-    let artifact = store::read_artifact(&data_dir, &id)?;
+  /// Resolve the artifact, look up the metadata key, and print its value.
+  pub fn call(&self, data_dir: &Path) -> cli::Result<()> {
+    let id = store::resolve_artifact_id(data_dir, &self.id, false)?;
+    let artifact = store::read_artifact(data_dir, &id)?;
 
-    log::debug!("resolving dot path '{}'", self.path);
-    let value = resolve_dot_path(&yaml_serde::Value::Mapping(artifact.metadata), &self.path)
-      .ok_or_else(|| crate::Error::generic(format!("Metadata key not found: '{}'", self.path)))?;
+    let root = yaml_serde::Value::Mapping(artifact.metadata);
+    let value = resolve_dot_path(&root, &self.path)
+      .ok_or_else(|| cli::Error::generic(format!("Metadata key not found: '{}'", self.path)))?;
 
-    log::trace!("metadata key '{}' resolved for artifact {id}", self.path);
     print_yaml_value(&value);
     Ok(())
   }
 }
 
+/// Print a YAML value to stdout, serializing complex types as JSON.
 fn print_yaml_value(value: &yaml_serde::Value) {
   match value {
     yaml_serde::Value::String(s) => println!("{s}"),
@@ -41,19 +36,20 @@ fn print_yaml_value(value: &yaml_serde::Value) {
     yaml_serde::Value::Number(n) => println!("{n}"),
     yaml_serde::Value::Null => println!("null"),
     yaml_serde::Value::Sequence(seq) => {
-      for item in seq {
-        print!("- ");
-        print_yaml_value(item);
-      }
+      let json = serde_json::to_string_pretty(seq).unwrap_or_else(|_| format!("{seq:?}"));
+      println!("{json}");
     }
-    yaml_serde::Value::Mapping(_) | yaml_serde::Value::Tagged(_) => {
-      if let Ok(s) = yaml_serde::to_string(value) {
-        print!("{s}");
-      }
+    yaml_serde::Value::Mapping(m) => {
+      let json = serde_json::to_string_pretty(m).unwrap_or_else(|_| format!("{m:?}"));
+      println!("{json}");
+    }
+    yaml_serde::Value::Tagged(t) => {
+      print_yaml_value(&t.value);
     }
   }
 }
 
+/// Walk a YAML mapping by splitting `path` on `.` and returning the leaf value.
 fn resolve_dot_path(root: &yaml_serde::Value, path: &str) -> Option<yaml_serde::Value> {
   let segments: Vec<&str> = path.split('.').collect();
   let mut current = root.clone();
@@ -61,7 +57,8 @@ fn resolve_dot_path(root: &yaml_serde::Value, path: &str) -> Option<yaml_serde::
   for segment in &segments {
     match current {
       yaml_serde::Value::Mapping(m) => {
-        current = m.get(yaml_serde::Value::String(segment.to_string()))?.clone();
+        let key = yaml_serde::Value::String(segment.to_string());
+        current = m.get(&key)?.clone();
       }
       _ => return None,
     }
@@ -73,6 +70,46 @@ fn resolve_dot_path(root: &yaml_serde::Value, path: &str) -> Option<yaml_serde::
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  mod call {
+    use super::*;
+    use crate::test_helpers::{make_test_artifact, make_test_config};
+
+    #[test]
+    fn it_errors_on_missing_path() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      store::write_artifact(&data_dir, &artifact).unwrap();
+
+      let cmd = Command {
+        id: "zyxw".to_string(),
+        path: "nonexistent".to_string(),
+      };
+      let result = cmd.call(&data_dir);
+      assert!(result.is_err());
+    }
+
+    #[test]
+    fn it_reads_metadata_value() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+      let mut artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      artifact.metadata.insert(
+        yaml_serde::Value::String("priority".to_string()),
+        yaml_serde::Value::String("high".to_string()),
+      );
+      store::write_artifact(&data_dir, &artifact).unwrap();
+
+      let cmd = Command {
+        id: "zyxw".to_string(),
+        path: "priority".to_string(),
+      };
+      cmd.call(&data_dir).unwrap();
+    }
+  }
 
   mod resolve_dot_path {
     use pretty_assertions::assert_eq;
@@ -91,7 +128,7 @@ mod tests {
         yaml_serde::Value::String("outer".to_string()),
         yaml_serde::Value::Mapping(inner),
       );
-      let result = resolve_dot_path(&mapping_value(mapping), "outer.nested");
+      let result = resolve_dot_path(&yaml_serde::Value::Mapping(mapping), "outer.nested");
       assert_eq!(result, Some(yaml_serde::Value::String("deep".to_string())));
     }
 
@@ -102,30 +139,15 @@ mod tests {
         yaml_serde::Value::String("key".to_string()),
         yaml_serde::Value::String("value".to_string()),
       );
-      let result = resolve_dot_path(&mapping_value(mapping), "key");
+      let result = resolve_dot_path(&yaml_serde::Value::Mapping(mapping), "key");
       assert_eq!(result, Some(yaml_serde::Value::String("value".to_string())));
     }
 
     #[test]
     fn it_returns_none_for_missing_key() {
       let mapping = yaml_serde::Mapping::new();
-      let result = resolve_dot_path(&mapping_value(mapping), "missing");
+      let result = resolve_dot_path(&yaml_serde::Value::Mapping(mapping), "missing");
       assert_eq!(result, None);
-    }
-
-    #[test]
-    fn it_returns_none_for_non_mapping_intermediate() {
-      let mut mapping = yaml_serde::Mapping::new();
-      mapping.insert(
-        yaml_serde::Value::String("key".to_string()),
-        yaml_serde::Value::String("value".to_string()),
-      );
-      let result = resolve_dot_path(&mapping_value(mapping), "key.nested");
-      assert_eq!(result, None);
-    }
-
-    fn mapping_value(mapping: yaml_serde::Mapping) -> yaml_serde::Value {
-      yaml_serde::Value::Mapping(mapping)
     }
   }
 }

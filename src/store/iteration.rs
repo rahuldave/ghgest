@@ -2,10 +2,14 @@ use std::{fs, path::Path};
 
 use chrono::Utc;
 
-use super::fs::{ensure_dirs, move_entity_file, read_dir_files, resolve_id};
+use super::{
+  Error,
+  fs::{ensure_dirs, move_entity_file, read_dir_files, resolve_id},
+};
 use crate::model::{Id, Iteration, IterationFilter, IterationPatch, NewIteration};
 
-pub fn add_task(data_dir: &Path, iteration_id: &Id, task_id: &str) -> crate::Result<Iteration> {
+/// Append a task reference to an iteration (idempotent).
+pub fn add_task(data_dir: &Path, iteration_id: &Id, task_id: &str) -> super::Result<Iteration> {
   let mut iteration = read_iteration(data_dir, iteration_id)?;
   if !iteration.tasks.contains(&task_id.to_string()) {
     iteration.tasks.push(task_id.to_string());
@@ -15,7 +19,8 @@ pub fn add_task(data_dir: &Path, iteration_id: &Id, task_id: &str) -> crate::Res
   Ok(iteration)
 }
 
-pub fn create_iteration(data_dir: &Path, new: NewIteration) -> crate::Result<Iteration> {
+/// Persist a new iteration, resolving it immediately if the status is terminal.
+pub fn create_iteration(data_dir: &Path, new: NewIteration) -> super::Result<Iteration> {
   let now = Utc::now();
   let iteration = Iteration {
     completed_at: None,
@@ -41,13 +46,15 @@ pub fn create_iteration(data_dir: &Path, new: NewIteration) -> crate::Result<Ite
   Ok(iteration)
 }
 
+/// Check whether an iteration has been moved to the resolved directory.
 pub fn is_iteration_resolved(data_dir: &Path, id: &Id) -> bool {
   let resolved_path = data_dir.join(format!("iterations/resolved/{id}.toml"));
   let active_path = data_dir.join(format!("iterations/{id}.toml"));
   resolved_path.exists() && !active_path.exists()
 }
 
-pub fn list_iterations(data_dir: &Path, filter: &IterationFilter) -> crate::Result<Vec<Iteration>> {
+/// List iterations matching the given filter criteria.
+pub fn list_iterations(data_dir: &Path, filter: &IterationFilter) -> super::Result<Vec<Iteration>> {
   let mut iterations = Vec::new();
 
   for path in read_dir_files(&data_dir.join("iterations"), "toml")? {
@@ -81,7 +88,8 @@ pub fn list_iterations(data_dir: &Path, filter: &IterationFilter) -> crate::Resu
   Ok(iterations)
 }
 
-pub fn read_iteration(data_dir: &Path, id: &Id) -> crate::Result<Iteration> {
+/// Load a single iteration by exact ID, checking both active and resolved directories.
+pub fn read_iteration(data_dir: &Path, id: &Id) -> super::Result<Iteration> {
   let active = data_dir.join(format!("iterations/{id}.toml"));
   let resolved = data_dir.join(format!("iterations/resolved/{id}.toml"));
 
@@ -91,7 +99,7 @@ pub fn read_iteration(data_dir: &Path, id: &Id) -> crate::Result<Iteration> {
     log::debug!("reading resolved iteration {id}");
     resolved
   } else {
-    return Err(crate::Error::generic(format!("Iteration not found: '{id}'")));
+    return Err(Error::generic(format!("Iteration not found: '{id}'")));
   };
 
   log::trace!("reading iteration from {}", path.display());
@@ -100,7 +108,8 @@ pub fn read_iteration(data_dir: &Path, id: &Id) -> crate::Result<Iteration> {
   Ok(iteration)
 }
 
-pub fn remove_task(data_dir: &Path, iteration_id: &Id, task_id: &str) -> crate::Result<Iteration> {
+/// Remove a task reference from an iteration.
+pub fn remove_task(data_dir: &Path, iteration_id: &Id, task_id: &str) -> super::Result<Iteration> {
   let mut iteration = read_iteration(data_dir, iteration_id)?;
   iteration.tasks.retain(|t| t != task_id);
   iteration.updated_at = Utc::now();
@@ -108,7 +117,8 @@ pub fn remove_task(data_dir: &Path, iteration_id: &Id, task_id: &str) -> crate::
   Ok(iteration)
 }
 
-pub fn resolve_iteration(data_dir: &Path, id: &Id) -> crate::Result<()> {
+/// Move an iteration to the resolved directory, setting its `completed_at` timestamp.
+pub fn resolve_iteration(data_dir: &Path, id: &Id) -> super::Result<()> {
   let mut iteration = read_iteration(data_dir, id)?;
   let now = Utc::now();
   iteration.completed_at = Some(now);
@@ -125,7 +135,8 @@ pub fn resolve_iteration(data_dir: &Path, id: &Id) -> crate::Result<()> {
   Ok(())
 }
 
-pub fn resolve_iteration_id(data_dir: &Path, prefix: &str, include_resolved: bool) -> crate::Result<Id> {
+/// Resolve a short ID prefix to a full iteration [`Id`].
+pub fn resolve_iteration_id(data_dir: &Path, prefix: &str, include_resolved: bool) -> super::Result<Id> {
   log::debug!("resolving iteration ID prefix '{prefix}'");
   resolve_id(
     &data_dir.join("iterations"),
@@ -137,7 +148,8 @@ pub fn resolve_iteration_id(data_dir: &Path, prefix: &str, include_resolved: boo
   )
 }
 
-pub fn update_iteration(data_dir: &Path, id: &Id, patch: IterationPatch) -> crate::Result<Iteration> {
+/// Apply a partial update to an existing iteration, moving it between active/resolved as needed.
+pub fn update_iteration(data_dir: &Path, id: &Id, patch: IterationPatch) -> super::Result<Iteration> {
   let mut iteration = read_iteration(data_dir, id)?;
   let was_resolved = is_iteration_resolved(data_dir, id);
 
@@ -184,7 +196,8 @@ pub fn update_iteration(data_dir: &Path, id: &Id, patch: IterationPatch) -> crat
   Ok(iteration)
 }
 
-pub fn write_iteration(data_dir: &Path, iteration: &Iteration) -> crate::Result<()> {
+/// Serialize and write an iteration to the active iterations directory.
+pub fn write_iteration(data_dir: &Path, iteration: &Iteration) -> super::Result<()> {
   ensure_dirs(data_dir)?;
   let path = data_dir.join(format!("iterations/{}.toml", iteration.id));
   let content = toml::to_string(iteration)?;
@@ -201,6 +214,35 @@ mod tests {
     Iteration {
       title: title.to_string(),
       ..crate::test_helpers::make_test_iteration(id)
+    }
+  }
+
+  mod add_task {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn it_adds_a_task_reference() {
+      let dir = tempfile::tempdir().unwrap();
+      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test");
+      crate::store::write_iteration(dir.path(), &iteration).unwrap();
+
+      let updated =
+        crate::store::add_iteration_task(dir.path(), &iteration.id, "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk").unwrap();
+      assert_eq!(updated.tasks, vec!["tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"]);
+    }
+
+    #[test]
+    fn it_is_idempotent() {
+      let dir = tempfile::tempdir().unwrap();
+      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test");
+      crate::store::write_iteration(dir.path(), &iteration).unwrap();
+
+      crate::store::add_iteration_task(dir.path(), &iteration.id, "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk").unwrap();
+      let updated =
+        crate::store::add_iteration_task(dir.path(), &iteration.id, "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk").unwrap();
+      assert_eq!(updated.tasks.len(), 1);
     }
   }
 
@@ -227,51 +269,10 @@ mod tests {
     }
   }
 
-  mod read_iteration {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn it_roundtrips() {
-      let dir = tempfile::tempdir().unwrap();
-      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test");
-      crate::store::write_iteration(dir.path(), &iteration).unwrap();
-
-      let loaded = crate::store::read_iteration(dir.path(), &iteration.id).unwrap();
-      assert_eq!(iteration, loaded);
-    }
-
-    #[test]
-    fn it_reads_resolved() {
-      let dir = tempfile::tempdir().unwrap();
-      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test");
-      crate::store::write_iteration(dir.path(), &iteration).unwrap();
-      crate::store::resolve_iteration(dir.path(), &iteration.id).unwrap();
-
-      let loaded = crate::store::read_iteration(dir.path(), &iteration.id).unwrap();
-      assert_eq!(loaded.title, "Test");
-      assert!(loaded.completed_at.is_some());
-    }
-  }
-
   mod list_iterations {
     use pretty_assertions::assert_eq;
 
     use super::*;
-
-    #[test]
-    fn it_returns_active_iterations() {
-      let dir = tempfile::tempdir().unwrap();
-      let i1 = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "One");
-      let i2 = make_test_iteration("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Two");
-      crate::store::write_iteration(dir.path(), &i1).unwrap();
-      crate::store::write_iteration(dir.path(), &i2).unwrap();
-
-      let filter = IterationFilter::default();
-      let iterations = crate::store::list_iterations(dir.path(), &filter).unwrap();
-      assert_eq!(iterations.len(), 2);
-    }
 
     #[test]
     fn it_excludes_resolved_by_default() {
@@ -283,21 +284,6 @@ mod tests {
       let filter = IterationFilter::default();
       let iterations = crate::store::list_iterations(dir.path(), &filter).unwrap();
       assert_eq!(iterations.len(), 0);
-    }
-
-    #[test]
-    fn it_includes_resolved_when_all() {
-      let dir = tempfile::tempdir().unwrap();
-      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Resolved");
-      crate::store::write_iteration(dir.path(), &iteration).unwrap();
-      crate::store::resolve_iteration(dir.path(), &iteration.id).unwrap();
-
-      let filter = IterationFilter {
-        all: true,
-        ..Default::default()
-      };
-      let iterations = crate::store::list_iterations(dir.path(), &filter).unwrap();
-      assert_eq!(iterations.len(), 1);
     }
 
     #[test]
@@ -335,34 +321,61 @@ mod tests {
       assert_eq!(iterations.len(), 1);
       assert_eq!(iterations[0].title, "Tagged");
     }
+
+    #[test]
+    fn it_includes_resolved_when_all() {
+      let dir = tempfile::tempdir().unwrap();
+      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Resolved");
+      crate::store::write_iteration(dir.path(), &iteration).unwrap();
+      crate::store::resolve_iteration(dir.path(), &iteration.id).unwrap();
+
+      let filter = IterationFilter {
+        all: true,
+        ..Default::default()
+      };
+      let iterations = crate::store::list_iterations(dir.path(), &filter).unwrap();
+      assert_eq!(iterations.len(), 1);
+    }
+
+    #[test]
+    fn it_returns_active_iterations() {
+      let dir = tempfile::tempdir().unwrap();
+      let i1 = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "One");
+      let i2 = make_test_iteration("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Two");
+      crate::store::write_iteration(dir.path(), &i1).unwrap();
+      crate::store::write_iteration(dir.path(), &i2).unwrap();
+
+      let filter = IterationFilter::default();
+      let iterations = crate::store::list_iterations(dir.path(), &filter).unwrap();
+      assert_eq!(iterations.len(), 2);
+    }
   }
 
-  mod add_task {
+  mod read_iteration {
     use pretty_assertions::assert_eq;
 
     use super::*;
 
     #[test]
-    fn it_adds_a_task_reference() {
+    fn it_reads_resolved() {
       let dir = tempfile::tempdir().unwrap();
       let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test");
       crate::store::write_iteration(dir.path(), &iteration).unwrap();
+      crate::store::resolve_iteration(dir.path(), &iteration.id).unwrap();
 
-      let updated =
-        crate::store::add_iteration_task(dir.path(), &iteration.id, "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk").unwrap();
-      assert_eq!(updated.tasks, vec!["tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"]);
+      let loaded = crate::store::read_iteration(dir.path(), &iteration.id).unwrap();
+      assert_eq!(loaded.title, "Test");
+      assert!(loaded.completed_at.is_some());
     }
 
     #[test]
-    fn it_is_idempotent() {
+    fn it_roundtrips() {
       let dir = tempfile::tempdir().unwrap();
       let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test");
       crate::store::write_iteration(dir.path(), &iteration).unwrap();
 
-      crate::store::add_iteration_task(dir.path(), &iteration.id, "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk").unwrap();
-      let updated =
-        crate::store::add_iteration_task(dir.path(), &iteration.id, "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk").unwrap();
-      assert_eq!(updated.tasks.len(), 1);
+      let loaded = crate::store::read_iteration(dir.path(), &iteration.id).unwrap();
+      assert_eq!(iteration, loaded);
     }
   }
 
@@ -390,21 +403,6 @@ mod tests {
 
     use super::*;
     use crate::model::IterationPatch;
-
-    #[test]
-    fn it_updates_title() {
-      let dir = tempfile::tempdir().unwrap();
-      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Old Title");
-      crate::store::write_iteration(dir.path(), &iteration).unwrap();
-
-      let patch = IterationPatch {
-        title: Some("New Title".to_string()),
-        ..Default::default()
-      };
-
-      let updated = crate::store::update_iteration(dir.path(), &iteration.id, patch).unwrap();
-      assert_eq!(updated.title, "New Title");
-    }
 
     #[test]
     fn it_resolves_on_terminal_status() {
@@ -437,6 +435,21 @@ mod tests {
       let updated = crate::store::update_iteration(dir.path(), &iteration.id, patch).unwrap();
       assert!(updated.completed_at.is_none());
       assert!(!crate::store::is_iteration_resolved(dir.path(), &iteration.id));
+    }
+
+    #[test]
+    fn it_updates_title() {
+      let dir = tempfile::tempdir().unwrap();
+      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Old Title");
+      crate::store::write_iteration(dir.path(), &iteration).unwrap();
+
+      let patch = IterationPatch {
+        title: Some("New Title".to_string()),
+        ..Default::default()
+      };
+
+      let updated = crate::store::update_iteration(dir.path(), &iteration.id, patch).unwrap();
+      assert_eq!(updated.title, "New Title");
     }
   }
 }

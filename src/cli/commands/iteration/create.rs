@@ -1,36 +1,38 @@
+use std::path::Path;
+
 use clap::Args;
 
 use crate::{
-  config,
-  config::Config,
+  cli,
   model::{NewIteration, iteration::Status},
   store,
-  ui::{components::Confirmation, theme::Theme},
+  ui::{composites::success_message::SuccessMessage, theme::Theme},
 };
 
-/// Create a new iteration
+/// Create a new iteration.
 #[derive(Debug, Args)]
 pub struct Command {
-  /// Iteration title
+  /// Iteration title.
   pub title: String,
-  /// Description text
+  /// Description text.
   #[arg(short, long)]
   pub description: Option<String>,
-  /// Key=value metadata pair (repeatable, e.g. -m key=value)
+  /// Key=value metadata pair (repeatable, e.g. `-m key=value`).
   #[arg(short, long)]
   pub metadata: Vec<String>,
-  /// Initial status: active, completed, or failed (default: active)
+  /// Initial status: active, completed, or failed (default: active).
   #[arg(short, long)]
   pub status: Option<String>,
-  /// Comma-separated list of tags
+  /// Comma-separated list of tags.
   #[arg(long)]
   pub tags: Option<String>,
 }
 
 impl Command {
-  pub fn call(&self, config: &Config, theme: &Theme) -> crate::Result<()> {
+  /// Build a `NewIteration` from CLI args, persist it, and print confirmation.
+  pub fn call(&self, data_dir: &Path, theme: &Theme) -> cli::Result<()> {
     let status = match &self.status {
-      Some(s) => s.parse::<Status>().map_err(crate::Error::generic)?,
+      Some(s) => s.parse::<Status>().map_err(cli::Error::generic)?,
       None => Status::Active,
     };
 
@@ -59,9 +61,100 @@ impl Command {
       title: self.title.clone(),
     };
 
-    let data_dir = config::data_dir(config)?;
-    let iteration = store::create_iteration(&data_dir, new)?;
-    Confirmation::new("Created", "iteration", &iteration.id).write_to(&mut std::io::stdout(), theme)?;
+    let iteration = store::create_iteration(data_dir, new)?;
+
+    let msg = format!("Created iteration {}", iteration.id);
+    println!("{}", SuccessMessage::new(&msg, theme));
     Ok(())
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  mod call {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+    use crate::{model::IterationFilter, test_helpers::make_test_config};
+
+    #[test]
+    fn it_creates_an_iteration_with_all_flags() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+
+      let cmd = Command {
+        title: "Full Iteration".to_string(),
+        description: Some("A description".to_string()),
+        metadata: vec!["team=backend".to_string()],
+        status: Some("active".to_string()),
+        tags: Some("sprint,q1".to_string()),
+      };
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+
+      let filter = IterationFilter::default();
+      let iterations = store::list_iterations(&data_dir, &filter).unwrap();
+      assert_eq!(iterations.len(), 1);
+      assert_eq!(iterations[0].title, "Full Iteration");
+      assert_eq!(iterations[0].description, "A description");
+      assert_eq!(iterations[0].tags, vec!["sprint", "q1"]);
+      assert_eq!(iterations[0].metadata.get("team").unwrap().as_str().unwrap(), "backend");
+    }
+
+    #[test]
+    fn it_creates_an_iteration_with_defaults() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+
+      let cmd = Command {
+        title: "Sprint 1".to_string(),
+        description: None,
+        metadata: vec![],
+        status: None,
+        tags: None,
+      };
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+
+      let filter = IterationFilter::default();
+      let iterations = store::list_iterations(&data_dir, &filter).unwrap();
+      assert_eq!(iterations.len(), 1);
+      assert_eq!(iterations[0].title, "Sprint 1");
+      assert_eq!(iterations[0].status, Status::Active);
+    }
+
+    #[test]
+    fn it_resolves_iteration_created_with_completed_status() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
+
+      let cmd = Command {
+        title: "Done Iteration".to_string(),
+        description: None,
+        metadata: vec![],
+        status: Some("completed".to_string()),
+        tags: None,
+      };
+
+      cmd.call(&data_dir, &Theme::default()).unwrap();
+
+      let filter = IterationFilter::default();
+      let iterations = store::list_iterations(&data_dir, &filter).unwrap();
+      assert_eq!(iterations.len(), 0);
+
+      let filter = IterationFilter {
+        all: true,
+        ..Default::default()
+      };
+      let iterations = store::list_iterations(&data_dir, &filter).unwrap();
+      assert_eq!(iterations.len(), 1);
+      assert_eq!(iterations[0].status, Status::Completed);
+      assert!(iterations[0].completed_at.is_some());
+    }
   }
 }

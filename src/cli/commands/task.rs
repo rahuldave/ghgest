@@ -1,3 +1,5 @@
+//! Task management commands for creating, updating, listing, and linking tasks.
+
 mod create;
 mod link;
 mod list;
@@ -7,11 +9,13 @@ mod tag;
 mod untag;
 mod update;
 
+use std::path::Path;
+
 use clap::{Args, Subcommand};
 
-use crate::{config::Config, ui::theme::Theme};
+use crate::{cli, config::Settings, ui::theme::Theme};
 
-/// Manage tasks (issues, work items, and their lifecycle)
+/// Top-level CLI command that dispatches to task subcommands.
 #[derive(Debug, Args)]
 pub struct Command {
   #[command(subcommand)]
@@ -31,16 +35,17 @@ enum TaskCommand {
 }
 
 impl Command {
-  pub fn call(&self, config: &Config, theme: &Theme) -> crate::Result<()> {
+  /// Route to the appropriate task subcommand.
+  pub fn call(&self, _settings: &Settings, theme: &Theme, data_dir: &Path) -> cli::Result<()> {
     match &self.command {
-      TaskCommand::Create(cmd) => cmd.call(config, theme),
-      TaskCommand::Link(cmd) => cmd.call(config, theme),
-      TaskCommand::List(cmd) => cmd.call(config, theme),
-      TaskCommand::Meta(cmd) => cmd.call(config, theme),
-      TaskCommand::Show(cmd) => cmd.call(config, theme),
-      TaskCommand::Tag(cmd) => cmd.call(config, theme),
-      TaskCommand::Untag(cmd) => cmd.call(config, theme),
-      TaskCommand::Update(cmd) => cmd.call(config, theme),
+      TaskCommand::Create(cmd) => cmd.call(data_dir, theme),
+      TaskCommand::Link(cmd) => cmd.call(data_dir, theme),
+      TaskCommand::List(cmd) => cmd.call(data_dir, theme),
+      TaskCommand::Meta(cmd) => cmd.call(data_dir, theme),
+      TaskCommand::Show(cmd) => cmd.call(data_dir, theme),
+      TaskCommand::Tag(cmd) => cmd.call(data_dir, theme),
+      TaskCommand::Untag(cmd) => cmd.call(data_dir, theme),
+      TaskCommand::Update(cmd) => cmd.call(data_dir, theme),
     }
   }
 }

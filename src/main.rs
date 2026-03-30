@@ -1,6 +1,5 @@
 mod cli;
 mod config;
-mod error;
 mod logger;
 mod model;
 mod store;
@@ -8,14 +7,14 @@ mod store;
 mod test_helpers;
 mod ui;
 
-pub use error::{Error, Result};
-
+/// Run the CLI, printing any top-level error to stderr and exiting non-zero.
 fn main() {
   ui::init();
 
   if let Err(e) = cli::run() {
     let theme = ui::theme::Theme::default();
-    let _ = ui::components::ErrorMessage::new(&e.to_string()).write_to(&mut std::io::stderr(), &theme);
+    let msg = ui::composites::error_message::ErrorMessage::new(e.to_string(), &theme);
+    let _ = std::io::Write::write_fmt(&mut std::io::stderr(), format_args!("{msg}"));
     std::process::exit(1);
   }
 }

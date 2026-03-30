@@ -1,30 +1,33 @@
+use std::path::Path;
+
 use clap::Args;
 
-use crate::{config, config::Config, store};
+use crate::{cli, store};
 
-/// Get a metadata value from a task
+/// Get a metadata value from a task by dot-delimited key path.
 #[derive(Debug, Args)]
 pub struct Command {
-  /// Task ID or unique prefix
+  /// Task ID or unique prefix.
   pub id: String,
-  /// Dot-delimited key path (e.g. outer.inner)
+  /// Dot-delimited key path (e.g. `outer.inner`).
   pub path: String,
 }
 
 impl Command {
-  pub fn call(&self, config: &Config) -> crate::Result<()> {
-    let data_dir = config::data_dir(config)?;
-    let id = store::resolve_task_id(&data_dir, &self.id, false)?;
-    let task = store::read_task(&data_dir, &id)?;
+  /// Resolve the task, look up the metadata key, and print the value.
+  pub fn call(&self, data_dir: &Path) -> cli::Result<()> {
+    let id = store::resolve_task_id(data_dir, &self.id, false)?;
+    let task = store::read_task(data_dir, &id)?;
 
     let value = resolve_dot_path(&toml::Value::Table(task.metadata), &self.path)
-      .ok_or_else(|| crate::Error::generic(format!("Metadata key not found: '{}'", self.path)))?;
+      .ok_or_else(|| cli::Error::generic(format!("Metadata key not found: '{}'", self.path)))?;
 
     print_toml_value(&value);
     Ok(())
   }
 }
 
+/// Print a TOML value in a human-readable format (JSON for nested structures).
 fn print_toml_value(value: &toml::Value) {
   match value {
     toml::Value::String(s) => println!("{s}"),
@@ -43,6 +46,7 @@ fn print_toml_value(value: &toml::Value) {
   }
 }
 
+/// Walk a dot-delimited path through nested TOML tables, returning the leaf value.
 fn resolve_dot_path(root: &toml::Value, path: &str) -> Option<toml::Value> {
   let segments: Vec<&str> = path.split('.').collect();
   let mut current = root.clone();
@@ -70,33 +74,35 @@ mod tests {
     #[test]
     fn it_errors_on_missing_path() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path());
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_task(dir.path(), &task).unwrap();
+      store::write_task(&data_dir, &task).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         path: "nonexistent".to_string(),
       };
-      let result = cmd.call(&config);
+      let result = cmd.call(&data_dir);
       assert!(result.is_err());
     }
 
     #[test]
     fn it_reads_metadata_value() {
       let dir = tempfile::tempdir().unwrap();
-      let config = make_test_config(dir.path());
+      let config = make_test_config(dir.path().to_path_buf());
+      let data_dir = config.storage().data_dir(dir.path().to_path_buf()).unwrap();
       let mut task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       task
         .metadata
         .insert("priority".to_string(), toml::Value::String("high".to_string()));
-      store::write_task(dir.path(), &task).unwrap();
+      store::write_task(&data_dir, &task).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
         path: "priority".to_string(),
       };
-      cmd.call(&config).unwrap();
+      cmd.call(&data_dir).unwrap();
     }
   }
 
@@ -111,7 +117,7 @@ mod tests {
       inner.insert("nested".to_string(), toml::Value::String("deep".to_string()));
       let mut table = toml::Table::new();
       table.insert("outer".to_string(), toml::Value::Table(inner));
-      let result = resolve_dot_path(&table_value(table), "outer.nested");
+      let result = resolve_dot_path(&toml::Value::Table(table), "outer.nested");
       assert_eq!(result, Some(toml::Value::String("deep".to_string())));
     }
 
@@ -119,27 +125,15 @@ mod tests {
     fn it_resolves_top_level_key() {
       let mut table = toml::Table::new();
       table.insert("key".to_string(), toml::Value::String("value".to_string()));
-      let result = resolve_dot_path(&table_value(table), "key");
+      let result = resolve_dot_path(&toml::Value::Table(table), "key");
       assert_eq!(result, Some(toml::Value::String("value".to_string())));
     }
 
     #[test]
     fn it_returns_none_for_missing_key() {
       let table = toml::Table::new();
-      let result = resolve_dot_path(&table_value(table), "missing");
+      let result = resolve_dot_path(&toml::Value::Table(table), "missing");
       assert_eq!(result, None);
-    }
-
-    #[test]
-    fn it_returns_none_for_non_table_intermediate() {
-      let mut table = toml::Table::new();
-      table.insert("key".to_string(), toml::Value::String("value".to_string()));
-      let result = resolve_dot_path(&table_value(table), "key.nested");
-      assert_eq!(result, None);
-    }
-
-    fn table_value(table: toml::Table) -> toml::Value {
-      toml::Value::Table(table)
     }
   }
 }

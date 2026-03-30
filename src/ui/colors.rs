@@ -1,26 +1,80 @@
+//! Named RGB color constants that form the application's visual palette.
+
 use yansi::Color;
 
-// Accents
-pub static AZURE: Color = Color::Rgb(78, 142, 210);
-pub static EMBER: Color = Color::Rgb(214, 93, 42);
-pub static JADE: Color = Color::Rgb(46, 172, 118);
-#[allow(dead_code)]
-pub static ROSE: Color = Color::Rgb(196, 72, 118);
+/// Warm yellow accent for warnings and in-progress states.
+pub const AMBER: Color = Color::Rgb(204, 152, 32);
 
-// Brand core
-#[allow(dead_code)]
-pub static DUSK: Color = Color::Rgb(42, 38, 50);
-#[allow(dead_code)]
-pub static OBSIDIAN: Color = Color::Rgb(24, 22, 28);
-pub static PEWTER: Color = Color::Rgb(124, 118, 134);
-pub static SILVER: Color = Color::Rgb(218, 214, 224);
-pub static VIOLET: Color = Color::Rgb(148, 72, 199);
-pub static VIOLET_DARK: Color = Color::Rgb(112, 48, 158);
-pub static VIOLET_LIGHT: Color = Color::Rgb(178, 118, 224);
+/// Primary brand blue.
+pub const AZURE: Color = Color::Rgb(78, 168, 224);
 
-// Semantic
-pub static BORDER: Color = Color::Rgb(56, 52, 64);
-pub static DIM: Color = Color::Rgb(82, 78, 88);
-pub static ERROR: Color = Color::Rgb(210, 52, 52);
-pub static SUCCESS: Color = Color::Rgb(48, 180, 96);
-pub static WARNING: Color = Color::Rgb(214, 162, 28);
+/// Darker shade of azure for subtle accents.
+pub const AZURE_DARK: Color = Color::Rgb(50, 120, 176);
+
+/// Lighter shade of azure for highlights.
+pub const AZURE_LIGHT: Color = Color::Rgb(124, 196, 240);
+
+/// Subtle rule / border gray.
+pub const BORDER: Color = Color::Rgb(48, 50, 58);
+
+/// De-emphasized foreground.
+pub const DIM: Color = Color::Rgb(88, 94, 110);
+
+/// Very dark background tone.
+pub const DUSK: Color = Color::Rgb(20, 21, 25);
+
+/// Warm orange accent.
+pub const EMBER: Color = Color::Rgb(208, 88, 48);
+
+/// Semantic error red.
+pub const ERROR: Color = Color::Rgb(208, 56, 56);
+
+/// Semantic success green.
+pub const JADE: Color = Color::Rgb(54, 190, 120);
+
+/// Near-black background.
+pub const OBSIDIAN: Color = Color::Rgb(13, 14, 18);
+
+/// Mid-tone neutral for secondary text.
+pub const PEWTER: Color = Color::Rgb(124, 130, 148);
+
+/// Light neutral for primary content.
+pub const SILVER: Color = Color::Rgb(196, 200, 212);
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn assert_rgb(color: Color, r: u8, g: u8, b: u8) {
+    assert_eq!(color, Color::Rgb(r, g, b));
+  }
+
+  #[test]
+  fn it_verifies_accent_colors() {
+    assert_rgb(AMBER, 204, 152, 32);
+    assert_rgb(JADE, 54, 190, 120);
+    assert_rgb(EMBER, 208, 88, 48);
+  }
+
+  #[test]
+  fn it_verifies_brand_colors() {
+    assert_rgb(AZURE, 78, 168, 224);
+    assert_rgb(AZURE_DARK, 50, 120, 176);
+    assert_rgb(AZURE_LIGHT, 124, 196, 240);
+  }
+
+  #[test]
+  fn it_verifies_core_neutrals() {
+    assert_rgb(OBSIDIAN, 13, 14, 18);
+    assert_rgb(DUSK, 20, 21, 25);
+    assert_rgb(BORDER, 48, 50, 58);
+    assert_rgb(DIM, 88, 94, 110);
+    assert_rgb(PEWTER, 124, 130, 148);
+    assert_rgb(SILVER, 196, 200, 212);
+  }
+
+  #[test]
+  fn it_verifies_semantic_colors() {
+    assert_rgb(ERROR, 208, 56, 56);
+  }
+}

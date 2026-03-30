@@ -7,9 +7,8 @@ model: haiku
 
 # Task Runner (mise)
 
-You are a task runner expert. You handle ALL task execution for this project using
-[mise](https://mise.jdx.dev/). Other skills and agents delegate task execution to you rather than
-running task commands directly.
+You are a task runner expert. You handle ALL task execution for this project using [mise](https://mise.jdx.dev/). Other
+skills and agents delegate task execution to you rather than running task commands directly.
 
 ## Setup
 

@@ -10,6 +10,27 @@ static LOGGER: Logger = Logger;
 
 struct Logger;
 
+/// Per-level styles derived from the active [`Theme`].
+struct LogStyles {
+  debug: Style,
+  error: Style,
+  info: Style,
+  trace: Style,
+  warn: Style,
+}
+
+impl From<&Theme> for LogStyles {
+  fn from(theme: &Theme) -> Self {
+    Self {
+      debug: theme.log_debug,
+      error: theme.log_error,
+      info: theme.log_info,
+      trace: theme.log_trace,
+      warn: theme.log_warn,
+    }
+  }
+}
+
 impl Log for Logger {
   fn enabled(&self, _metadata: &Metadata) -> bool {
     true
@@ -37,45 +58,25 @@ impl Log for Logger {
   }
 }
 
-struct LogStyles {
-  debug: Style,
-  error: Style,
-  info: Style,
-  trace: Style,
-  warn: Style,
-}
-
-impl From<&Theme> for LogStyles {
-  fn from(theme: &Theme) -> Self {
-    Self {
-      debug: theme.log_debug,
-      error: theme.log_error,
-      info: theme.log_info,
-      trace: theme.log_trace,
-      warn: theme.log_warn,
-    }
-  }
-}
-
-/// Apply theme styles and (optionally) adjust the log level.
+/// Apply theme styles and set the log level.
 ///
-/// Call this after config is available so log output is properly styled and
-/// the level reflects the full precedence chain (CLI > env > config > default).
+/// Call after config is loaded so log output is properly styled.
 pub fn init(level: log::LevelFilter, theme: &Theme) {
   let _ = LOG_STYLES.set(LogStyles::from(theme));
   log::set_max_level(level);
 }
 
-/// Register the global logger and set the initial level.
+/// Register the global logger before config is available.
 ///
-/// Call this early -- before config loading -- so that discovery log calls
-/// are captured.  Styles are *not* set here because the theme depends on
-/// config which hasn't been loaded yet.
+/// Styles are not set here because the theme depends on config.
 pub fn init_early(level: log::LevelFilter) {
   let _ = log::set_logger(&LOGGER);
   log::set_max_level(level);
 }
 
+/// Determine the effective log level from CLI verbosity, env var, and config value.
+///
+/// Precedence: CLI flags > environment > config > default (`Warn`).
 pub fn resolve_level(verbosity: u8, env_level: Option<&str>, config_level: Option<&str>) -> log::LevelFilter {
   if verbosity > 0 {
     return match verbosity {

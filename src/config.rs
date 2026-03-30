@@ -1,52 +1,55 @@
-mod color_value;
-mod discovery;
+//! Application configuration loading and settings.
+//!
+//! Configuration is loaded hierarchically: global config is merged with
+//! per-project TOML files discovered by walking up from the working directory.
+
+pub mod colors;
 pub mod env;
 mod loader;
+mod log;
+mod storage;
 
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-pub use self::{color_value::ColorValue, discovery::data_dir, loader::load};
+pub use self::loader::load;
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct Config {
-  #[serde(default)]
-  pub colors: HashMap<String, ColorValue>,
-  #[serde(default)]
-  pub harness: HarnessConfig,
-  #[serde(default)]
-  pub log: LogConfig,
-  #[serde(default)]
-  pub storage: StorageConfig,
+/// Errors that can occur during configuration loading or resolution.
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+  #[error("invalid config: {0}")]
+  Config(String),
+  #[error("failed to resolve user's {0} directory")]
+  DirectoryNotFound(&'static str),
+  #[error(transparent)]
+  Io(#[from] std::io::Error),
+  #[error("{0} is not a directory.")]
+  NotADirectory(PathBuf),
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct HarnessConfig {
-  #[serde(default = "default_harness_command")]
-  pub command: String,
+/// Top-level configuration, composed of color, log, and storage sections.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(default)]
+pub struct Settings {
+  colors: colors::Settings,
+  log: log::Settings,
+  storage: storage::Settings,
 }
 
-impl Default for HarnessConfig {
-  fn default() -> Self {
-    Self {
-      command: default_harness_command(),
-    }
+impl Settings {
+  /// Returns the color customization settings.
+  pub fn colors(&self) -> &colors::Settings {
+    &self.colors
   }
-}
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct LogConfig {
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub level: Option<String>,
-}
+  /// Returns the logging settings.
+  pub fn log(&self) -> &log::Settings {
+    &self.log
+  }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct StorageConfig {
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub data_dir: Option<PathBuf>,
-}
-
-fn default_harness_command() -> String {
-  "claude".to_string()
+  /// Returns the data storage settings.
+  pub fn storage(&self) -> &storage::Settings {
+    &self.storage
+  }
 }
