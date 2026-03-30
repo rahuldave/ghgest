@@ -12,8 +12,9 @@ use crate::{
 /// Create a new artifact from inline text, a source file, an editor, or stdin.
 #[derive(Debug, Args)]
 pub struct Command {
-  /// Artifact title.
-  pub title: String,
+  /// Artifact title (auto-extracted from first # heading if omitted).
+  #[arg(short, long)]
+  pub title: Option<String>,
   /// Body content as an inline string (skips editor and stdin).
   #[arg(short, long)]
   pub body: Option<String>,
@@ -53,12 +54,19 @@ impl Command {
 
     let body = self.read_body()?;
 
+    let title = if let Some(ref t) = self.title {
+      t.clone()
+    } else {
+      extract_title(&body)
+        .ok_or_else(|| cli::Error::generic("No title found: body has no `# ` heading and no --title provided"))?
+    };
+
     let new = NewArtifact {
       body,
       kind: self.kind.clone(),
       metadata,
       tags,
-      title: self.title.clone(),
+      title,
     };
 
     let artifact = store::create_artifact(data_dir, new)?;
@@ -96,6 +104,18 @@ impl Command {
   }
 }
 
+fn extract_title(body: &str) -> Option<String> {
+  for line in body.lines() {
+    if let Some(rest) = line.strip_prefix("# ") {
+      let title = rest.trim();
+      if !title.is_empty() {
+        return Some(title.to_string());
+      }
+    }
+  }
+  None
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -115,7 +135,7 @@ mod tests {
       std::fs::write(&source_path, "# From File\n\nFile content.").unwrap();
 
       let cmd = Command {
-        title: "Sourced Artifact".to_string(),
+        title: Some("Sourced Artifact".to_string()),
         body: None,
         kind: None,
         metadata: vec![],
@@ -137,7 +157,7 @@ mod tests {
       let ctx = make_test_context(dir.path());
 
       let cmd = Command {
-        title: "Full Artifact".to_string(),
+        title: Some("Full Artifact".to_string()),
         body: Some("# Content\n\nSome body text.".to_string()),
         kind: Some("spec".to_string()),
         metadata: vec!["version=1".to_string()],
@@ -164,7 +184,7 @@ mod tests {
       let ctx = make_test_context(dir.path());
 
       let cmd = Command {
-        title: "My Artifact".to_string(),
+        title: Some("My Artifact".to_string()),
         body: None,
         kind: None,
         metadata: vec![],
@@ -178,6 +198,84 @@ mod tests {
       let artifacts = store::list_artifacts(&ctx.data_dir, &filter).unwrap();
       assert_eq!(artifacts.len(), 1);
       assert_eq!(artifacts[0].title, "My Artifact");
+    }
+
+    #[test]
+    fn it_extracts_title_from_body_when_title_omitted() {
+      let dir = tempfile::tempdir().unwrap();
+      let ctx = make_test_context(dir.path());
+
+      let cmd = Command {
+        title: None,
+        body: Some("# Auto Title\n\nBody text.".to_string()),
+        kind: None,
+        metadata: vec![],
+        source: None,
+        tags: None,
+      };
+
+      cmd.call(&ctx).unwrap();
+
+      let filter = crate::model::ArtifactFilter::default();
+      let artifacts = store::list_artifacts(&ctx.data_dir, &filter).unwrap();
+      assert_eq!(artifacts.len(), 1);
+      assert_eq!(artifacts[0].title, "Auto Title");
+    }
+
+    #[test]
+    fn it_errors_when_no_title_and_no_heading() {
+      let dir = tempfile::tempdir().unwrap();
+      let ctx = make_test_context(dir.path());
+
+      let cmd = Command {
+        title: None,
+        body: Some("No heading here".to_string()),
+        kind: None,
+        metadata: vec![],
+        source: None,
+        tags: None,
+      };
+
+      let result = cmd.call(&ctx);
+      assert!(result.is_err());
+      let err = result.unwrap_err().to_string();
+      assert!(err.contains("No title found"), "unexpected error: {err}");
+    }
+  }
+
+  mod extract_title_tests {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn it_extracts_first_h1_heading() {
+      let body = "Some preamble\n# My Title\n\nBody text";
+      assert_eq!(extract_title(body), Some("My Title".to_string()));
+    }
+
+    #[test]
+    fn it_ignores_h2_headings() {
+      let body = "## Not a title\n# Real Title";
+      assert_eq!(extract_title(body), Some("Real Title".to_string()));
+    }
+
+    #[test]
+    fn it_returns_none_when_no_heading() {
+      let body = "No heading here\nJust text";
+      assert_eq!(extract_title(body), None);
+    }
+
+    #[test]
+    fn it_skips_empty_h1() {
+      let body = "# \n# Actual Title";
+      assert_eq!(extract_title(body), Some("Actual Title".to_string()));
+    }
+
+    #[test]
+    fn it_trims_whitespace_from_title() {
+      let body = "#   Spaced Title  \n";
+      assert_eq!(extract_title(body), Some("Spaced Title".to_string()));
     }
   }
 }
