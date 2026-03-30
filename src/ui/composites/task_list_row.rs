@@ -121,7 +121,7 @@ impl Display for TaskListRow<'_> {
 
     if let Some(blocker_id) = self.blocked_by {
       let label = "blocked-by".paint(self.theme.indicator_blocked_by_label);
-      let id = blocker_id.paint(self.theme.indicator_blocked_by_id);
+      let id = Id::new(blocker_id, self.theme);
       row = row.col(format!("{label} {id}"));
     }
 
