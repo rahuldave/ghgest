@@ -7,10 +7,17 @@ use crate::ui::{
   theme::Theme,
 };
 
+/// A label-value pair in a success message, optionally pre-styled.
+struct Field {
+  label: String,
+  styled: bool,
+  value: String,
+}
+
 /// Renders a success message with a checkmark icon, optional entity ID, and optional key-value fields.
 pub struct SuccessMessage<'a> {
   action: String,
-  fields: Vec<(String, String)>,
+  fields: Vec<Field>,
   id: Option<&'a str>,
   theme: &'a Theme,
 }
@@ -33,7 +40,21 @@ impl<'a> SuccessMessage<'a> {
 
   /// Appends a label-value pair to render below the action line.
   pub fn field(mut self, label: impl Into<String>, value: impl Into<String>) -> Self {
-    self.fields.push((label.into(), value.into()));
+    self.fields.push(Field {
+      label: label.into(),
+      styled: false,
+      value: value.into(),
+    });
+    self
+  }
+
+  /// Appends a pre-styled label-value pair that bypasses default value styling.
+  pub fn styled_field(mut self, label: impl Into<String>, value: impl Display) -> Self {
+    self.fields.push(Field {
+      label: label.into(),
+      styled: true,
+      value: value.to_string(),
+    });
     self
   }
 }
@@ -53,14 +74,18 @@ impl Display for SuccessMessage<'_> {
 
     if !self.fields.is_empty() {
       writeln!(f)?;
-      let max_label = self.fields.iter().map(|(l, _)| l.len()).max().unwrap_or(0);
-      for (label, value) in &self.fields {
-        write!(
-          f,
-          "\n  {}  {}",
-          Label::new(label.as_str(), self.theme.task_detail_label).pad_to(max_label),
-          Value::new(value.as_str(), self.theme.task_detail_value),
-        )?;
+      let max_label = self.fields.iter().map(|f| f.label.len()).max().unwrap_or(0);
+      for field in &self.fields {
+        let label = Label::new(field.label.as_str(), self.theme.task_detail_label).pad_to(max_label);
+        if field.styled {
+          write!(f, "\n  {label}  {}", field.value)?;
+        } else {
+          write!(
+            f,
+            "\n  {label}  {}",
+            Value::new(field.value.as_str(), self.theme.task_detail_value),
+          )?;
+        }
       }
     }
 

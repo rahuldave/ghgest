@@ -80,16 +80,17 @@ impl Command {
     let task = store::update_task(data_dir, &id, patch)?;
     let id_str = task.id.to_string();
 
-    let mut fields = Vec::new();
-    if self.status.is_some() {
-      let status_str = match task.status {
+    let status_str = if self.status.is_some() {
+      Some(match task.status {
         Status::Open => "open",
         Status::InProgress => "in-progress",
         Status::Done => "done",
         Status::Cancelled => "cancelled",
-      };
-      fields.push(("status", status_str.to_string()));
-    }
+      })
+    } else {
+      None
+    };
+    let mut fields = Vec::new();
     if self.assigned_to.is_some() {
       fields.push(("assigned", task.assigned_to.as_deref().unwrap_or("").to_string()));
     }
@@ -97,6 +98,7 @@ impl Command {
     let view = TaskUpdateView {
       id: &id_str,
       fields,
+      status: status_str,
       theme,
     };
     println!("{view}");

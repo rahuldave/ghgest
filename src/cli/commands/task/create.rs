@@ -84,12 +84,12 @@ impl Command {
       Status::Done => "done",
       Status::Cancelled => "cancelled",
     };
-    let mut fields = vec![("title", task.title.clone())];
-    fields.push(("status", status_str.to_string()));
+    let fields = vec![("title", task.title.clone())];
 
     let view = TaskCreateView {
       id: &task.id.to_string(),
       fields,
+      status: status_str,
       theme,
     };
     println!("{view}");

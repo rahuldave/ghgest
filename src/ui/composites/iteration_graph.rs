@@ -4,6 +4,7 @@ use yansi::Paint;
 
 use crate::ui::{
   atoms::{badge::Badge, icon::Icon, id::Id, title::Title},
+  composites::status_badge::StatusBadge,
   layout::Row,
   theme::Theme,
 };
@@ -151,21 +152,16 @@ impl<'a> IterationGraph<'a> {
     write!(f, "{}", self.title.paint(self.theme.iteration_graph_title))
   }
 
-  fn status_badge(&self, task: &TaskData<'_>) -> Badge {
-    if task.blocked_by.is_some() {
-      let icon = Icon::blocked(self.theme);
-      return Badge::new(format!("{icon} blocked"), self.theme.indicator_blocked);
-    }
-
-    let icon = Icon::status(task.status, self.theme);
-    let (label, style) = match task.status {
-      "open" => ("open", self.theme.status_open),
-      "in-progress" => ("in progress", self.theme.status_in_progress),
-      "done" => ("done", self.theme.status_done),
-      "cancelled" => ("cancelled", self.theme.status_cancelled),
-      other => (other, self.theme.status_open),
+  fn status_badge<'b>(&self, task: &TaskData<'b>) -> StatusBadge<'b>
+  where
+    'a: 'b,
+  {
+    let status = if task.blocked_by.is_some() {
+      "blocked"
+    } else {
+      task.status
     };
-    Badge::new(format!("{icon} {label}"), style)
+    StatusBadge::new(status, self.theme)
   }
 
   fn total_tasks(&self) -> usize {

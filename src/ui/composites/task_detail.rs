@@ -3,7 +3,8 @@ use std::fmt::{self, Display, Formatter};
 use yansi::Paint;
 
 use crate::ui::{
-  atoms::{icon::Icon, id::Id, label::Label, separator::Separator, tag::Tags, value::Value},
+  atoms::{id::Id, label::Label, separator::Separator, tag::Tags, value::Value},
+  composites::status_badge::StatusBadge,
   markdown,
   theme::Theme,
   utils,
@@ -119,21 +120,8 @@ impl<'a> TaskDetail<'a> {
     }
   }
 
-  fn status_style(&self) -> yansi::Style {
-    match self.status {
-      "open" => self.theme.status_open,
-      "in-progress" => self.theme.status_in_progress,
-      "done" => self.theme.status_done,
-      "cancelled" => self.theme.status_cancelled,
-      _ => self.theme.status_open,
-    }
-  }
-
-  fn status_text(&self) -> &str {
-    match self.status {
-      "in-progress" => "in progress",
-      other => other,
-    }
+  fn status_badge(&self) -> StatusBadge<'_> {
+    StatusBadge::new(self.status, self.theme)
   }
 }
 
@@ -152,14 +140,7 @@ impl Display for TaskDetail<'_> {
       Value::new(self.title, self.theme.task_detail_title),
     )?;
 
-    let icon = Icon::status(self.status, self.theme);
-    writeln!(
-      f,
-      "{INDENT}{}{GAP}{} {}",
-      self.label("status", lw),
-      icon,
-      Value::new(self.status_text(), self.status_style()),
-    )?;
+    writeln!(f, "{INDENT}{}{GAP}{}", self.label("status", lw), self.status_badge(),)?;
 
     if let Some(p) = self.priority {
       writeln!(

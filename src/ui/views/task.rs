@@ -2,7 +2,8 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::ui::{
   composites::{
-    grouped_list::GroupedList, success_message::SuccessMessage, task_detail::TaskDetail, task_list_row::TaskListRow,
+    grouped_list::GroupedList, status_badge::StatusBadge, success_message::SuccessMessage, task_detail::TaskDetail,
+    task_list_row::TaskListRow,
   },
   theme::Theme,
 };
@@ -12,6 +13,8 @@ pub struct TaskCreateView<'a> {
   /// Label-value pairs to display below the confirmation line.
   pub fields: Vec<(&'a str, String)>,
   pub id: &'a str,
+  /// The task status string for the status badge.
+  pub status: &'a str,
   pub theme: &'a Theme,
 }
 
@@ -21,6 +24,7 @@ impl Display for TaskCreateView<'_> {
     for (label, value) in &self.fields {
       msg = msg.field(*label, value.as_str());
     }
+    msg = msg.styled_field("status", StatusBadge::new(self.status, self.theme));
     write!(f, "{msg}")
   }
 }
@@ -128,12 +132,17 @@ pub struct TaskUpdateView<'a> {
   /// Label-value pairs for the changed fields.
   pub fields: Vec<(&'a str, String)>,
   pub id: &'a str,
+  /// The task status string, shown as a badge when present.
+  pub status: Option<&'a str>,
   pub theme: &'a Theme,
 }
 
 impl Display for TaskUpdateView<'_> {
   fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     let mut msg = SuccessMessage::new("updated task", self.theme).id(self.id);
+    if let Some(status) = self.status {
+      msg = msg.styled_field("status", StatusBadge::new(status, self.theme));
+    }
     for (label, value) in &self.fields {
       msg = msg.field(*label, value.as_str());
     }
@@ -174,10 +183,8 @@ mod tests {
         let t = theme();
         let view = TaskCreateView {
           id: "nfkbqmrx",
-          fields: vec![
-            ("title", "openai streaming adapter".to_string()),
-            ("status", "\u{25CB} open".to_string()),
-          ],
+          fields: vec![("title", "openai streaming adapter".to_string())],
+          status: "open",
           theme: &t,
         };
         let out = view.to_string();
@@ -186,6 +193,8 @@ mod tests {
         assert!(out.contains("created task"), "should contain action text");
         assert!(out.contains("nf"), "should contain id prefix");
         assert!(out.contains("openai streaming adapter"), "should contain title field");
+        assert!(out.contains('\u{25CB}'), "should contain status icon");
+        assert!(out.contains("open"), "should contain status text");
       }
 
       #[test]
@@ -194,6 +203,7 @@ mod tests {
         let view = TaskCreateView {
           id: "abcd1234",
           fields: vec![],
+          status: "open",
           theme: &t,
         };
         let out = view.to_string();
@@ -362,11 +372,12 @@ mod tests {
       use super::*;
 
       #[test]
-      fn it_renders_with_fields() {
+      fn it_renders_with_status() {
         let t = theme();
         let view = TaskUpdateView {
           id: "nfkbqmrx",
-          fields: vec![("status", "\u{25CF} done".to_string())],
+          fields: vec![],
+          status: Some("done"),
           theme: &t,
         };
         let out = view.to_string();
@@ -374,7 +385,8 @@ mod tests {
         assert!(out.contains('\u{2713}'), "should contain check icon");
         assert!(out.contains("updated task"), "should contain action text");
         assert!(out.contains("nf"), "should contain id prefix");
-        assert!(out.contains("done"), "should contain status field");
+        assert!(out.contains('\u{25CF}'), "should contain done icon");
+        assert!(out.contains("done"), "should contain status text");
       }
 
       #[test]
@@ -383,6 +395,7 @@ mod tests {
         let view = TaskUpdateView {
           id: "abcd1234",
           fields: vec![],
+          status: None,
           theme: &t,
         };
         let out = view.to_string();

@@ -11,6 +11,7 @@ pub mod iteration_detail;
 pub mod iteration_graph;
 pub mod iteration_list_row;
 pub mod search_result;
+pub mod status_badge;
 pub mod success_message;
 pub mod task_detail;
 pub mod task_list_row;
