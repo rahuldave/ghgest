@@ -13,7 +13,7 @@ Promote a gest spec artifact to a GitHub Discussion.
 ### 1. Read the Spec
 
 ```sh
-cargo run -- artifact show <id> --json
+GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact show <id> --json
 ```
 
 Extract:
@@ -23,18 +23,16 @@ Extract:
 
 ### 2. Sanitize
 
-**Sanitize the body before promoting.** The discussion body must not contain internal gest
-references. Remove or rewrite any gest short IDs (e.g. `ktxolxqz`), `gest task/artifact <id>`
-references, or sections that only list gest entities as dependencies. Replace gest IDs with the
-entity's title where context is needed. Do not repeat the title as an `# H1` heading in the body —
-GitHub already displays the title prominently.
+**Sanitize the body before promoting.** The discussion body must not contain internal gest references. Remove or rewrite
+any gest short IDs (e.g. `ktxolxqz`), `gest task/artifact <id>` references, or sections that only list gest entities as
+dependencies. Replace gest IDs with the entity's title where context is needed. Do not repeat the title as an `# H1`
+heading in the body — GitHub already displays the title prominently.
 
 ### 3. Confirm and Create
 
 All specs are promoted to the **Ideas** discussion category.
 
-Draft the discussion creation and present it to the user for confirmation. Use the `gh api` to
-create the discussion:
+Draft the discussion creation and present it to the user for confirmation. Use the `gh api` to create the discussion:
 
 ```sh
 # First, get the repository ID and Ideas category ID
@@ -67,11 +65,11 @@ gh api graphql -f query='
 '
 ```
 
-After the user confirms, execute the commands. Extract the discussion URL from the response, then
-store it as artifact metadata:
+After the user confirms, execute the commands. Extract the discussion URL from the response, then store it as artifact
+metadata:
 
 ```sh
-cargo run -- artifact meta set <id> github-discussion <url>
+GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact meta set <id> github-discussion <url>
 ```
 
 ### 4. Report

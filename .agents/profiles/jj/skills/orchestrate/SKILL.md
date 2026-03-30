@@ -6,17 +6,18 @@ args: "<iteration-id>"
 
 # Orchestrate (jj profile)
 
-Execute an iteration by dispatching implementation agents phase by phase, using jj workspaces for
-parallel isolation when needed.
+Execute an iteration by dispatching implementation agents phase by phase, using jj workspaces for parallel isolation
+when needed.
 
 ## Instructions
 
 ### 1. Read the Iteration
 
-Retrieve the iteration via `cargo run -- iteration show --json <id>`. Then read each task in the
-iteration via `cargo run -- task show --json <task-id>`.
+Retrieve the iteration via
+`GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration show --json <id>`. Then read each task
+in the iteration via `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task show --json <task-id>`.
 
-Visualize the execution plan: `cargo run -- iteration graph <id>`.
+Visualize the execution plan: `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration graph <id>`.
 
 Extract:
 
@@ -28,17 +29,15 @@ Extract:
 
 Analyze the iteration structure to choose the right execution mode:
 
-- **Single task:** If there is only **1 task** in the entire iteration, run `/implement <task-id>`
-  directly in the main workspace. No workspace isolation, no phase logic. Skip to step 5 (Clean Up).
-- **Single phase (multiple tasks):** If all tasks belong to a **single phase**, run them
-  **sequentially** in the main workspace. No workspace isolation needed. Execute each task with
-  `/implement <task-id>` one after another.
-- **Multiple phases with parallel work:** If there are **multiple phases** and **any phase contains
-  more than 1 task**, use jj workspaces for parallel execution within those phases. Phases with only
-  1 task run directly in the main workspace.
+- **Single task:** If there is only **1 task** in the entire iteration, run `/implement <task-id>` directly in the main
+  workspace. No workspace isolation, no phase logic. Skip to step 5 (Clean Up).
+- **Single phase (multiple tasks):** If all tasks belong to a **single phase**, run them **sequentially** in the main
+  workspace. No workspace isolation needed. Execute each task with `/implement <task-id>` one after another.
+- **Multiple phases with parallel work:** If there are **multiple phases** and **any phase contains more than 1 task**,
+  use jj workspaces for parallel execution within those phases. Phases with only 1 task run directly in the main
+  workspace.
 
-Present the execution plan (strategy + phase breakdown) to the user for confirmation before
-proceeding.
+Present the execution plan (strategy + phase breakdown) to the user for confirmation before proceeding.
 
 ### 3. Build Phases
 
@@ -53,7 +52,7 @@ Group tasks by their `phase` field:
 For each phase:
 
 1. Set `assigned_to` on each task:
-   `cargo run -- task update <task-id> --assigned-to implement-agent`
+   `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task update <task-id> --assigned-to implement-agent`
 
 2. **If the phase has a single task** (or execution strategy is sequential):
    - Run `/implement <task-id>` directly in the main workspace.
@@ -66,8 +65,8 @@ For each phase:
    jj workspace add ../gest-<task-id> --name <task-id> -r @
    ```
 
-   b. **Dispatch** `/implement <task-id>` for each task. Each implementation agent works in its
-      respective workspace directory (`../gest-<task-id>`).
+b. **Dispatch** `/implement <task-id>` for each task. Each implementation agent works in its respective workspace
+directory (`../gest-<task-id>`).
 
    c. **Wait** for all agents in the phase to complete.
 
@@ -85,11 +84,10 @@ For each phase:
    jj status
    ```
 
-   Note: All jj workspaces share the same commit graph. Changes made in any workspace are
-   immediately visible to all other workspaces. There is no need to merge or cherry-pick -- the
-   commits are already part of the shared history.
+Note: All jj workspaces share the same commit graph. Changes made in any workspace are immediately visible to all other
+workspaces. There is no need to merge or cherry-pick -- the commits are already part of the shared history.
 
-4. Report results to the user (successes, failures, tasks needing attention).
+1. Report results to the user (successes, failures, tasks needing attention).
 
 Only proceed to the next phase after the user confirms the current phase's results.
 
@@ -97,13 +95,13 @@ Only proceed to the next phase after the user confirms the current phase's resul
 
 After all phases complete:
 
-1. Check for failed tasks -- any task still `in-progress` represents a failure. Report these to the
-   user with their IDs and titles.
+1. Check for failed tasks -- any task still `in-progress` represents a failure. Report these to the user with their IDs
+   and titles.
 2. Update the iteration status:
    - If **all tasks** completed successfully (`done`):
-     `cargo run -- iteration update <iteration-id> --status completed`
+    `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration update <iteration-id> --status completed`
    - If **any tasks** remain `in-progress`:
-     `cargo run -- iteration update <iteration-id> --status failed`
+     `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration update <iteration-id> --status failed`
      Flag this to the user and list the incomplete tasks.
 3. Verify no stale workspaces remain:
 

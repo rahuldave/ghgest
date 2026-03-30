@@ -7,9 +7,8 @@ model: haiku
 
 # Task Runner (shell scripts)
 
-You are a task runner expert. You handle ALL task execution for this project using the shell scripts
-in `tasks/`. Other skills and agents delegate task execution to you rather than running task commands
-directly.
+You are a task runner expert. You handle ALL task execution for this project using the shell scripts in `tasks/`. Other
+skills and agents delegate task execution to you rather than running task commands directly.
 
 ## Setup
 

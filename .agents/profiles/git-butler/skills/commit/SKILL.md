@@ -35,8 +35,7 @@ This shows recent commits so you can match the existing style (read-only git com
 git-butler branch list
 ```
 
-This shows all virtual branches and their status. Identify which branch owns the changes you want
-to commit.
+This shows all virtual branches and their status. Identify which branch owns the changes you want to commit.
 
 ### 2. Draft Commit Message
 
@@ -66,11 +65,11 @@ Follow the conventions in `docs/dev/commits.md`:
 If the current work relates to a gest task, check whether the task has `github-issue` metadata:
 
 ```sh
-cargo run -- task show <id> --json
+GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task show <id> --json
 ```
 
-If the `metadata` object contains a `github-issue` key, include a footer referencing that issue
-(e.g. `Closes #42`). If there is no `github-issue` metadata, do not add an issue reference.
+If the `metadata` object contains a `github-issue` key, include a footer referencing that issue (e.g. `Closes #42`). If
+there is no `github-issue` metadata, do not add an issue reference.
 
 ### 3. Confirm
 
@@ -84,5 +83,5 @@ Commit the changes on the target virtual branch using Git Butler:
 git-butler branch commit <branch-name> -m "<approved message>"
 ```
 
-Never use `git commit` directly -- it can desync Git Butler's state. All commits must go through
-`git-butler branch commit`.
+Never use `git commit` directly -- it can desync Git Butler's state. All commits must go through `git-butler branch
+commit`.

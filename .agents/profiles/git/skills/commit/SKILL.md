@@ -65,11 +65,11 @@ Follow the conventions in `docs/dev/commits.md`:
 If the current work relates to a gest task, check whether the task has `github-issue` metadata:
 
 ```sh
-cargo run -- task show <id> --json
+GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task show <id> --json
 ```
 
-If the `metadata` object contains a `github-issue` key, include a footer referencing that issue
-(e.g. `Closes #42`). If there is no `github-issue` metadata, do not add an issue reference.
+If the `metadata` object contains a `github-issue` key, include a footer referencing that issue (e.g. `Closes #42`). If
+there is no `github-issue` metadata, do not add an issue reference.
 
 ### 3. Confirm
 
@@ -77,8 +77,8 @@ Present the draft commit message to the user for approval. Do not commit without
 
 ### 4. Stage Changes
 
-Stage the files to be committed. Prefer adding specific files by name rather than using `git add .`
-or `git add -A`, which can accidentally include sensitive files or large binaries:
+Stage the files to be committed. Prefer adding specific files by name rather than using `git add .` or `git add -A`,
+which can accidentally include sensitive files or large binaries:
 
 ```sh
 git add <file1> <file2> ...

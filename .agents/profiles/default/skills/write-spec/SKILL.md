@@ -44,15 +44,15 @@ How it works from the user's perspective. Focus on behavior, not implementation.
 
 ### 2. Review with User
 
-Present the draft and iterate based on feedback. Keep it concise -- a spec should be short enough to
-read in a couple of minutes.
+Present the draft and iterate based on feedback. Keep it concise -- a spec should be short enough to read in a couple of
+minutes.
 
 ### 3. Save
 
 Create a gest artifact with the spec content inline:
 
 ```sh
-cargo run -- artifact create --title "<title>" --type spec --body "<content>"
+GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create --title "<title>" --type spec --body "<content>"
 ```
 
 Extract the artifact ID from the output.

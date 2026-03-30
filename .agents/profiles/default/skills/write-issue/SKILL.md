@@ -12,8 +12,7 @@ Draft an issue and store it as a gest task.
 
 ### 1. Draft the Issue
 
-Use this structure. Omit any section that is not relevant — only User Story and Acceptance Criteria
-are required.
+Use this structure. Omit any section that is not relevant — only User Story and Acceptance Criteria are required.
 
 ```markdown
 # <Title>
@@ -34,11 +33,11 @@ As a <role>, I want <goal> so that <benefit>.
 
 ### 2. Save
 
-Create a gest task with the issue content. Apply tags for type, area, and priority using the
-vocabulary from `docs/process/labels.md`:
+Create a gest task with the issue content. Apply tags for type, area, and priority using the vocabulary from
+`docs/process/labels.md`:
 
 ```sh
-cargo run -- task create "<title>" --description "<content>" --tags "<type>,<area>,<priority>"
+GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "<title>" --description "<content>" --tags "<type>,<area>,<priority>"
 ```
 
 Extract the task ID from the output.

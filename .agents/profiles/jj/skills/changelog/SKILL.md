@@ -11,24 +11,23 @@ Generate or update the `CHANGELOG.md` Unreleased section from commits since the 
 
 ### 1. Gather Commits
 
-Run the following command to get all commit descriptions between the latest release tag and the
-current working copy:
+Run the following command to get all commit descriptions between the latest release tag and the current working copy:
 
 ```sh
 jj log -r 'tags()..@' --no-graph -T 'description ++ "\n"'
 ```
 
-Ignore commits with type `docs`, `chore`, `style`, `ci`, `build`, or `revert` -- these are
-housekeeping and should not appear in user-facing changelogs. Also ignore merge commits.
+Ignore commits with type `docs`, `chore`, `style`, `ci`, `build`, or `revert` -- these are housekeeping and should not
+appear in user-facing changelogs. Also ignore merge commits.
 
 ### 2. Correlate with GitHub Issues & Identify Authors
 
-For each commit that references an issue (e.g. `Closes #42` in footer, or issue number in the
-branch), look up the issue title to write a user-friendly description.
+For each commit that references an issue (e.g. `Closes #42` in footer, or issue number in the branch), look up the issue
+title to write a user-friendly description.
 
-For commits tied to a GitHub Issue, append the issue as a parenthetical at the end of the entry
-(e.g. `(see [#42])`), where `[#42]` is a reference-style link to the GitHub issue.
-For commits **not** tied to an issue, do not add a reference.
+For commits tied to a GitHub Issue, append the issue as a parenthetical at the end of the entry (e.g. `(see [#42])`),
+where `[#42]` is a reference-style link to the GitHub issue. For commits **not** tied to an issue, do not add a
+reference.
 
 For each commit, look up the author's GitHub username. Use the commit SHA to query:
 
@@ -36,8 +35,8 @@ For each commit, look up the author's GitHub username. Use the commit SHA to que
 gh api repos/{owner}/{repo}/commits/{sha} --jq '.author.login'
 ```
 
-If the author is **not** the repository owner, add `by @username` attribution to the entry (see
-step 4). Commits by the repository owner do not need attribution.
+If the author is **not** the repository owner, add `by @username` attribution to the entry (see step 4). Commits by the
+repository owner do not need attribution.
 
 ### 3. Classify Changes
 
@@ -60,12 +59,12 @@ Each entry should be:
 - **One line** -- a concise, user-facing description of what changed and why it matters.
 - **Written in plain language** -- avoid implementation details, code paths, or internal module names.
   Describe the behavior from the user's perspective.
-- **Grouped logically** -- if multiple commits address the same feature or fix, combine them into a
-  single entry rather than listing each commit separately.
-- **Linked to issues** -- append `(see [#N])` at the end when an issue exists, where `[#N]` is a
-  reference-style link to the GitHub issue.
-- **Attributed to contributors** -- if the commit author is not the repository owner, add
-  `by @username` before any issue reference. Omit attribution for commits by the repository owner.
+- **Grouped logically** -- if multiple commits address the same feature or fix, combine them into a single entry rather
+  than listing each commit separately.
+- **Linked to issues** -- append `(see [#N])` at the end when an issue exists, where `[#N]` is a reference-style link to
+  the GitHub issue.
+- **Attributed to contributors** -- if the commit author is not the repository owner, add `by @username` before any
+  issue reference. Omit attribution for commits by the repository owner.
 
 **Good:**
 
@@ -83,15 +82,14 @@ Each entry should be:
 
 ### 5. Update CHANGELOG.md
 
-Read the current `CHANGELOG.md`. Replace **only** the `## [Unreleased]` section content (between the
-`## [Unreleased]` heading and the next `##` heading). Preserve all other sections and reference links.
+Read the current `CHANGELOG.md`. Replace **only** the `## [Unreleased]` section content (between the `## [Unreleased]`
+heading and the next `##` heading). Preserve all other sections and reference links.
 
-The Unreleased section should contain only the categories that have entries (omit empty categories).
-Order categories: Added, Changed, Deprecated, Removed, Fixed, Security.
+The Unreleased section should contain only the categories that have entries (omit empty categories). Order categories:
+Added, Changed, Deprecated, Removed, Fixed, Security.
 
-Ensure all `[#N]` issue references have corresponding reference-style links at the bottom of the file.
-Reference links are numerically sorted. The `[Unreleased]` comparison link should compare the latest
-tag to `main`.
+Ensure all `[#N]` issue references have corresponding reference-style links at the bottom of the file. Reference links
+are numerically sorted. The `[Unreleased]` comparison link should compare the latest tag to `main`.
 
 ### 6. Present for Review
 

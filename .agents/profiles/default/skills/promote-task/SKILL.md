@@ -13,7 +13,7 @@ Promote a gest task to a GitHub Issue.
 ### 1. Read the Task
 
 ```sh
-cargo run -- task show <id> --json
+GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task show <id> --json
 ```
 
 Extract:
@@ -24,17 +24,17 @@ Extract:
 
 ### 2. Sanitize
 
-**Sanitize the description before promoting.** The issue body must not contain internal gest
-references. Remove or rewrite the following:
+**Sanitize the description before promoting.** The issue body must not contain internal gest references. Remove or
+rewrite the following:
 
-- **Gest IDs** — any gest short ID (e.g. `ktxolxqz`) or references like `gest task <id>` must be
-  stripped. If a dependency or link references a gest entity, replace the ID with the entity's title.
-- **Dependencies section** — if dependencies list only gest entities, remove the section entirely.
-  If it mixes gest and external references, keep only the external ones.
-- **File Structure / implementation details** — remove sections that describe internal file paths or
-  implementation plans. The GitHub issue should describe *what* and *why*, not *how*.
-- **Duplicate title** — do not repeat the title as an `# H1` heading in the body. GitHub already
-  displays the title prominently; an H1 in the body is redundant.
+- **Gest IDs** — any gest short ID (e.g. `ktxolxqz`) or references like `gest task <id>` must be stripped. If a
+  dependency or link references a gest entity, replace the ID with the entity's title.
+- **Dependencies section** — if dependencies list only gest entities, remove the section entirely. If it mixes gest
+  and external references, keep only the external ones.
+- **File Structure / implementation details** — remove sections that describe internal file paths or implementation
+  plans. The GitHub issue should describe *what* and *why*, not *how*.
+- **Duplicate title** — do not repeat the title as an `# H1` heading in the body. GitHub already displays the title
+  prominently; an H1 in the body is redundant.
 
 ### 3. Confirm and Create
 
@@ -47,11 +47,10 @@ gh issue create \
   --body "<description>"
 ```
 
-After the user confirms, execute the command. Extract the issue number from the output, then store
-it as task metadata:
+After the user confirms, execute the command. Extract the issue number from the output, then store it as task metadata:
 
 ```sh
-cargo run -- task meta set <id> github-issue <number>
+GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task meta set <id> github-issue <number>
 ```
 
 ### 4. Report

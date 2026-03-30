@@ -6,9 +6,8 @@ args: "<proposal topic>"
 
 # Write RFC
 
-Draft an RFC and store it as a gest artifact. RFCs gather feedback before committing to an
-approach -- use them for cross-cutting concerns, public API changes, or proposals that benefit from
-discussion.
+Draft an RFC and store it as a gest artifact. RFCs gather feedback before committing to an approach -- use them for
+cross-cutting concerns, public API changes, or proposals that benefit from discussion.
 
 ## Instructions
 
@@ -25,15 +24,15 @@ Use the template from `docs/process/writing-rfcs.md`. Key sections:
 
 ### 2. Review with User
 
-Present the draft and iterate. An RFC should be detailed enough for someone unfamiliar with the
-problem to evaluate the proposal.
+Present the draft and iterate. An RFC should be detailed enough for someone unfamiliar with the problem to evaluate the
+proposal.
 
 ### 3. Save
 
 Create a gest artifact with the RFC content inline:
 
 ```sh
-cargo run -- artifact create --title "<title>" --type rfc --body "<content>"
+GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create --title "<title>" --type rfc --body "<content>"
 ```
 
 Extract the artifact ID from the output.
