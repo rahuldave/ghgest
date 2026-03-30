@@ -38,7 +38,8 @@ yaml_serde = "0.10"
 yansi = { features = ["detect-env", "detect-tty", "hyperlink"], version = "1" }
 
 [dependencies.self_update]
-features = ["archive-tar", "compression-flate2", "rustls"]
+default-features = false
+features = ["archive-tar", "compression-flate2", "reqwest", "rustls"]
 version = "0.43"
 
 [dev-dependencies]
