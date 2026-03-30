@@ -1,3 +1,5 @@
+use std::{collections::HashSet, path::Path};
+
 use clap::Args;
 
 use crate::{
@@ -62,7 +64,7 @@ impl Command {
       .iter()
       .enumerate()
       .map(|(idx, i)| {
-        let phase_count = compute_phase_count(&i.tasks);
+        let phase_count = compute_phase_count(data_dir, &i.tasks);
         IterationListData {
           id: &id_strings[idx],
           title: &i.title,
@@ -79,8 +81,17 @@ impl Command {
 }
 
 /// Compute how many distinct phases the iteration's tasks span.
-fn compute_phase_count(_tasks: &[String]) -> usize {
-  0
+fn compute_phase_count(data_dir: &Path, tasks: &[String]) -> usize {
+  let mut phases = HashSet::new();
+  for task_ref in tasks {
+    let task_id_str = task_ref.strip_prefix("tasks/").unwrap_or(task_ref);
+    if let Ok(id) = task_id_str.parse()
+      && let Ok(task) = store::read_task(data_dir, &id)
+    {
+      phases.insert(task.phase.unwrap_or(0));
+    }
+  }
+  phases.len()
 }
 
 #[cfg(test)]
