@@ -5,6 +5,7 @@
 mod artifact;
 pub mod artifact_meta;
 mod fs;
+mod helpers;
 mod iteration;
 pub mod meta;
 mod search;

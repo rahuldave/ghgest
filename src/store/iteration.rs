@@ -1,10 +1,10 @@
-use std::{fs, path::Path};
+use std::fs;
 
 use chrono::Utc;
 
 use super::{
-  Error,
-  fs::{ensure_dirs, move_entity_file, read_dir_files, resolve_id},
+  fs::{ensure_dirs, move_entity_file, resolve_id},
+  helpers::{load_entities_from_dirs, read_entity_file},
 };
 use crate::{
   config::Settings,
@@ -58,21 +58,15 @@ pub fn is_iteration_resolved(config: &Settings, id: &Id) -> bool {
 
 /// List iterations matching the given filter criteria.
 pub fn list_iterations(config: &Settings, filter: &IterationFilter) -> super::Result<Vec<Iteration>> {
-  let mut iterations = Vec::new();
-
-  for path in read_dir_files(config.iteration_dir(), "toml")? {
-    let content = fs::read_to_string(&path)?;
-    let iteration: Iteration = toml::from_str(&content)?;
-    iterations.push(iteration);
-  }
-
-  if filter.all {
-    for path in read_dir_files(&config.iteration_dir().join("resolved"), "toml")? {
-      let content = fs::read_to_string(&path)?;
-      let iteration: Iteration = toml::from_str(&content)?;
-      iterations.push(iteration);
-    }
-  }
+  let parse = |content: &str| Ok(toml::from_str::<Iteration>(content)?);
+  let mut iterations = load_entities_from_dirs(
+    config.iteration_dir(),
+    &config.iteration_dir().join("resolved"),
+    "toml",
+    false,
+    filter.all,
+    parse,
+  )?;
 
   iterations.retain(|iteration| {
     if let Some(ref status) = filter.status
@@ -96,19 +90,9 @@ pub fn read_iteration(config: &Settings, id: &Id) -> super::Result<Iteration> {
   let active = config.iteration_dir().join(format!("{id}.toml"));
   let resolved = config.iteration_dir().join(format!("resolved/{id}.toml"));
 
-  let path = if active.exists() {
-    active
-  } else if resolved.exists() {
-    log::debug!("reading resolved iteration {id}");
-    resolved
-  } else {
-    return Err(Error::generic(format!("Iteration not found: '{id}'")));
-  };
-
-  log::trace!("reading iteration from {}", path.display());
-  let content = fs::read_to_string(path)?;
-  let iteration: Iteration = toml::from_str(&content)?;
-  Ok(iteration)
+  read_entity_file(&active, &resolved, "resolved", "Iteration", id, |content| {
+    Ok(toml::from_str::<Iteration>(content)?)
+  })
 }
 
 /// Load all tasks referenced by an iteration, silently skipping any that

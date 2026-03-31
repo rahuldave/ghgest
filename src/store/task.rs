@@ -3,8 +3,8 @@ use std::{collections::HashMap, fs, path::Path};
 use chrono::Utc;
 
 use super::{
-  Error,
-  fs::{ensure_dirs, move_entity_file, read_dir_files, resolve_id},
+  fs::{ensure_dirs, move_entity_file, resolve_id},
+  helpers::{load_entities_from_dirs, read_entity_file},
 };
 use crate::{
   config::Settings,
@@ -142,21 +142,15 @@ pub fn is_task_resolved(config: &Settings, id: &Id) -> bool {
 
 /// List tasks matching the given filter criteria.
 pub fn list_tasks(config: &Settings, filter: &TaskFilter) -> super::Result<Vec<Task>> {
-  let mut tasks = Vec::new();
-
-  for path in read_dir_files(config.task_dir(), "toml")? {
-    let content = fs::read_to_string(&path)?;
-    let task: Task = toml::from_str(&content)?;
-    tasks.push(task);
-  }
-
-  if filter.all {
-    for path in read_dir_files(&config.task_dir().join("resolved"), "toml")? {
-      let content = fs::read_to_string(&path)?;
-      let task: Task = toml::from_str(&content)?;
-      tasks.push(task);
-    }
-  }
+  let parse = |content: &str| Ok(toml::from_str::<Task>(content)?);
+  let mut tasks = load_entities_from_dirs(
+    config.task_dir(),
+    &config.task_dir().join("resolved"),
+    "toml",
+    false,
+    filter.all,
+    parse,
+  )?;
 
   tasks.retain(|task| {
     if let Some(ref status) = filter.status
@@ -180,19 +174,9 @@ pub fn read_task(config: &Settings, id: &Id) -> super::Result<Task> {
   let active = config.task_dir().join(format!("{id}.toml"));
   let resolved = config.task_dir().join(format!("resolved/{id}.toml"));
 
-  let path = if active.exists() {
-    active
-  } else if resolved.exists() {
-    log::debug!("reading resolved task {id}");
-    resolved
-  } else {
-    return Err(Error::generic(format!("Task not found: '{id}'")));
-  };
-
-  log::trace!("reading task from {}", path.display());
-  let content = fs::read_to_string(path)?;
-  let task: Task = toml::from_str(&content)?;
-  Ok(task)
+  read_entity_file(&active, &resolved, "resolved", "Task", id, |content| {
+    Ok(toml::from_str::<Task>(content)?)
+  })
 }
 
 /// Move a task to the resolved directory, setting its `resolved_at` timestamp.

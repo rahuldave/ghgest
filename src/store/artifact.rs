@@ -7,7 +7,8 @@ use chrono::Utc;
 
 use super::{
   Error,
-  fs::{ensure_dirs, move_entity_file, read_dir_files, resolve_id},
+  fs::{ensure_dirs, move_entity_file, resolve_id},
+  helpers::{load_entities_from_dirs, read_entity_file},
 };
 use crate::{
   config::Settings,
@@ -64,23 +65,14 @@ pub fn create_artifact(config: &Settings, new: NewArtifact) -> super::Result<Art
 
 /// List artifacts matching the given filter criteria.
 pub fn list_artifacts(config: &Settings, filter: &ArtifactFilter) -> super::Result<Vec<Artifact>> {
-  let mut artifacts = Vec::new();
-
-  if !filter.only_archived {
-    for path in read_dir_files(config.artifact_dir(), "md")? {
-      let content = fs::read_to_string(&path)?;
-      let artifact = parse_artifact_file(&content)?;
-      artifacts.push(artifact);
-    }
-  }
-
-  if filter.show_all || filter.only_archived {
-    for path in read_dir_files(&config.artifact_dir().join("archive"), "md")? {
-      let content = fs::read_to_string(&path)?;
-      let artifact = parse_artifact_file(&content)?;
-      artifacts.push(artifact);
-    }
-  }
+  let mut artifacts = load_entities_from_dirs(
+    config.artifact_dir(),
+    &config.artifact_dir().join("archive"),
+    "md",
+    filter.only_archived,
+    filter.show_all || filter.only_archived,
+    parse_artifact_file,
+  )?;
 
   artifacts.retain(|artifact| {
     if let Some(ref kind) = filter.kind
@@ -104,18 +96,7 @@ pub fn read_artifact(config: &Settings, id: &Id) -> super::Result<Artifact> {
   let active = config.artifact_dir().join(format!("{id}.md"));
   let archived = config.artifact_dir().join(format!("archive/{id}.md"));
 
-  let path = if active.exists() {
-    active
-  } else if archived.exists() {
-    log::debug!("reading archived artifact {id}");
-    archived
-  } else {
-    return Err(Error::generic(format!("Artifact not found: '{id}'")));
-  };
-
-  log::trace!("reading artifact from {}", path.display());
-  let content = fs::read_to_string(path)?;
-  parse_artifact_file(&content)
+  read_entity_file(&active, &archived, "archived", "Artifact", id, parse_artifact_file)
 }
 
 /// Resolve a short ID prefix to a full artifact [`Id`].
