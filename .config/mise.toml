@@ -1,3 +1,9 @@
+[env]
+GEST_DATA_DIR = "${XDG_DATA_HOME:-$HOME/.config}/gest/2f8de7bc06014bd7"
+
+[settings]
+env_shell_expand = true
+
 [task_config]
 includes = ["tasks"]
 
