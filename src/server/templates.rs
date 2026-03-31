@@ -124,6 +124,39 @@ impl IntoResponse for ArtifactDetailTemplate {
   }
 }
 
+#[derive(Template)]
+#[template(path = "artifacts/create.html")]
+pub struct ArtifactCreateTemplate {
+  pub title: String,
+  pub kind: String,
+  pub tags: String,
+  pub body: String,
+  pub error: Option<String>,
+}
+
+impl IntoResponse for ArtifactCreateTemplate {
+  fn into_response(self) -> Response {
+    render(&self)
+  }
+}
+
+#[derive(Template)]
+#[template(path = "artifacts/edit.html")]
+pub struct ArtifactEditTemplate {
+  pub artifact: Artifact,
+  pub title: String,
+  pub kind: String,
+  pub tags: String,
+  pub body: String,
+  pub error: Option<String>,
+}
+
+impl IntoResponse for ArtifactEditTemplate {
+  fn into_response(self) -> Response {
+    render(&self)
+  }
+}
+
 // ── Iterations ───────────────────────────────────────────────────────────────
 
 #[derive(Template)]

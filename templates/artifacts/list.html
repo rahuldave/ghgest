@@ -17,6 +17,8 @@
   {% else %}
     <a href="/artifacts?status=archived">{{ archived_count }} archived</a>
   {% endif %}
+  &middot;
+  <a href="/artifacts/new">+ new</a>
 </div>
 
 {% if artifacts.is_empty() %}

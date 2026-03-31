@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}new artifact — gest{% endblock %}
+{% block nav_artifacts %}class="active"{% endblock %}
+
+{% block content %}
+<div class="summary"><a href="/artifacts">&larr; artifacts</a></div>
+
+<div class="section-heading">New Artifact</div>
+
+<form method="post" action="/artifacts">
+  <div class="form-group">
+    <label for="title">Title</label>
+    <input type="text" id="title" name="title" class="form-input{% match error %}{% when Some with (_) %} input-error{% when None %}{% endmatch %}" value="{{ title }}" />
+    {% match error %}
+    {% when Some with (msg) %}
+    <span class="form-error">{{ msg }}</span>
+    {% when None %}
+    {% endmatch %}
+  </div>
+
+  <div class="form-group">
+    <label for="kind">Type</label>
+    <input type="text" id="kind" name="kind" class="form-input" value="{{ kind }}" />
+  </div>
+
+  <div class="form-group">
+    <label for="tags">Tags <span class="c-pewter">(comma-separated)</span></label>
+    <input type="text" id="tags" name="tags" class="form-input" value="{{ tags }}" />
+  </div>
+
+  <div class="form-group">
+    <label for="body">Body</label>
+    <textarea id="body" name="body" class="form-textarea" rows="12">{{ body }}</textarea>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Create Artifact</button>
+  </div>
+</form>
+{% endblock %}

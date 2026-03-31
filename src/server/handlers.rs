@@ -2,22 +2,25 @@
 
 use axum::{
   Json,
-  extract::{Path, Query, State},
+  extract::{Form, Path, Query, State},
   http::StatusCode,
-  response::{Html, IntoResponse, Response},
+  response::{Html, IntoResponse, Redirect, Response},
 };
 use pulldown_cmark::{Options, Parser, html};
 
 use super::{
   state::ServerState,
   templates::{
-    ArtifactDetailTemplate, ArtifactListTemplate, DashboardTemplate, DisplayLink, IterationBoardTemplate,
-    IterationDetailTemplate, IterationListTemplate, PhaseGroup, SearchTemplate, TaskDetailTemplate, TaskListTemplate,
-    TaskRow,
+    ArtifactCreateTemplate, ArtifactDetailTemplate, ArtifactEditTemplate, ArtifactListTemplate, DashboardTemplate,
+    DisplayLink, IterationBoardTemplate, IterationDetailTemplate, IterationListTemplate, PhaseGroup, SearchTemplate,
+    TaskDetailTemplate, TaskListTemplate, TaskRow,
   },
 };
 use crate::{
-  model::{ArtifactFilter, IterationFilter, TaskFilter, iteration::Status as IterationStatus, task::Status},
+  model::{
+    ArtifactFilter, ArtifactPatch, IterationFilter, NewArtifact, TaskFilter, iteration::Status as IterationStatus,
+    task::Status,
+  },
   store,
 };
 
@@ -262,6 +265,178 @@ pub async fn artifact_detail(State(state): State<ServerState>, Path(id): Path<St
         Html("<p>failed to load artifact</p>"),
       )
         .into_response()
+    }
+  }
+}
+
+/// GET /artifacts/new — render the create artifact form.
+pub async fn artifact_create_form() -> Response {
+  ArtifactCreateTemplate {
+    title: String::new(),
+    kind: String::new(),
+    tags: String::new(),
+    body: String::new(),
+    error: None,
+  }
+  .into_response()
+}
+
+/// Form data for creating/updating an artifact.
+#[derive(serde::Deserialize)]
+pub struct ArtifactFormData {
+  pub title: String,
+  #[serde(default)]
+  pub kind: String,
+  #[serde(default)]
+  pub tags: String,
+  #[serde(default)]
+  pub body: String,
+}
+
+/// POST /artifacts — create a new artifact.
+pub async fn artifact_create(State(state): State<ServerState>, Form(form): Form<ArtifactFormData>) -> Response {
+  let title = form.title.trim().to_string();
+  if title.is_empty() {
+    return ArtifactCreateTemplate {
+      title: form.title,
+      kind: form.kind,
+      tags: form.tags,
+      body: form.body,
+      error: Some("Title is required.".to_string()),
+    }
+    .into_response();
+  }
+
+  let kind = {
+    let k = form.kind.trim().to_string();
+    if k.is_empty() { None } else { Some(k) }
+  };
+
+  let tags: Vec<String> = form
+    .tags
+    .split(',')
+    .map(|t| t.trim().to_string())
+    .filter(|t| !t.is_empty())
+    .collect();
+
+  let new = NewArtifact {
+    body: form.body,
+    kind,
+    metadata: yaml_serde::Mapping::new(),
+    tags,
+    title,
+  };
+
+  match store::create_artifact(&state.settings, new) {
+    Ok(artifact) => Redirect::to(&format!("/artifacts/{}", artifact.id)).into_response(),
+    Err(e) => {
+      log::error!("failed to create artifact: {e}");
+      (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response()
+    }
+  }
+}
+
+/// GET /artifacts/:id/edit — render the edit artifact form.
+pub async fn artifact_edit_form(State(state): State<ServerState>, Path(id_str): Path<String>) -> Response {
+  let resolved = match store::resolve_artifact_id(&state.settings, &id_str, true) {
+    Ok(id) => id,
+    Err(_) => return (StatusCode::NOT_FOUND, Html("<p>artifact not found</p>")).into_response(),
+  };
+
+  let artifact = match store::read_artifact(&state.settings, &resolved) {
+    Ok(a) => a,
+    Err(e) => {
+      log::error!("failed to read artifact {resolved}: {e}");
+      return (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response();
+    }
+  };
+
+  let tags = artifact.tags.join(", ");
+  let kind = artifact.kind.clone().unwrap_or_default();
+  ArtifactEditTemplate {
+    title: artifact.title.clone(),
+    kind,
+    tags,
+    body: artifact.body.clone(),
+    error: None,
+    artifact,
+  }
+  .into_response()
+}
+
+/// POST /artifacts/:id — update an existing artifact.
+pub async fn artifact_update(
+  State(state): State<ServerState>,
+  Path(id_str): Path<String>,
+  Form(form): Form<ArtifactFormData>,
+) -> Response {
+  let resolved = match store::resolve_artifact_id(&state.settings, &id_str, true) {
+    Ok(id) => id,
+    Err(_) => return (StatusCode::NOT_FOUND, Html("<p>artifact not found</p>")).into_response(),
+  };
+
+  let title = form.title.trim().to_string();
+  if title.is_empty() {
+    let artifact = match store::read_artifact(&state.settings, &resolved) {
+      Ok(a) => a,
+      Err(e) => {
+        log::error!("failed to read artifact {resolved}: {e}");
+        return (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response();
+      }
+    };
+
+    return ArtifactEditTemplate {
+      title: form.title,
+      kind: form.kind,
+      tags: form.tags,
+      body: form.body,
+      error: Some("Title is required.".to_string()),
+      artifact,
+    }
+    .into_response();
+  }
+
+  let kind = {
+    let k = form.kind.trim().to_string();
+    if k.is_empty() { None } else { Some(k) }
+  };
+
+  let tags: Vec<String> = form
+    .tags
+    .split(',')
+    .map(|t| t.trim().to_string())
+    .filter(|t| !t.is_empty())
+    .collect();
+
+  let patch = ArtifactPatch {
+    body: Some(form.body),
+    kind,
+    metadata: None,
+    tags: Some(tags),
+    title: Some(title),
+  };
+
+  match store::update_artifact(&state.settings, &resolved, patch) {
+    Ok(_) => Redirect::to(&format!("/artifacts/{}", resolved)).into_response(),
+    Err(e) => {
+      log::error!("failed to update artifact {resolved}: {e}");
+      (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response()
+    }
+  }
+}
+
+/// POST /artifacts/:id/archive — archive an artifact.
+pub async fn artifact_archive(State(state): State<ServerState>, Path(id_str): Path<String>) -> Response {
+  let resolved = match store::resolve_artifact_id(&state.settings, &id_str, true) {
+    Ok(id) => id,
+    Err(_) => return (StatusCode::NOT_FOUND, Html("<p>artifact not found</p>")).into_response(),
+  };
+
+  match store::archive_artifact(&state.settings, &resolved) {
+    Ok(()) => Redirect::to("/artifacts").into_response(),
+    Err(e) => {
+      log::error!("failed to archive artifact {resolved}: {e}");
+      (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response()
     }
   }
 }

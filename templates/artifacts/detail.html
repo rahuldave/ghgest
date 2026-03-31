@@ -4,7 +4,11 @@
 {% block nav_artifacts %}class="active"{% endblock %}
 
 {% block content %}
-<div class="summary"><a href="/artifacts">← artifacts</a></div>
+<div class="summary">
+  <a href="/artifacts">&larr; artifacts</a>
+  &middot;
+  <a href="/artifacts/{{ artifact.id }}/edit">edit</a>
+</div>
 
 <div class="term">
   <div class="term-bar">
@@ -57,6 +61,15 @@
     <div class="md-content">
       {{ body_html|safe }}
     </div>
+
+    {% if artifact.archived_at.is_none() %}
+    <hr class="rule">
+    <div class="form-actions">
+      <form method="post" action="/artifacts/{{ artifact.id }}/archive" onsubmit="return confirm('Are you sure you want to archive this artifact?');">
+        <button type="submit" class="btn btn-danger">Archive</button>
+      </form>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}
