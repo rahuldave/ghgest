@@ -23,6 +23,8 @@ pub struct Iteration {
   pub links: Vec<Link>,
   #[serde(default)]
   pub metadata: toml::Table,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub phase_count: Option<usize>,
   pub status: Status,
   #[serde(default)]
   pub tags: Vec<String>,
@@ -134,6 +136,7 @@ mod tests {
             rel: crate::model::link::RelationshipType::ChildOf,
           }],
           metadata: toml::Table::new(),
+          phase_count: None,
           status: Status::Active,
           tags: vec!["sprint-1".to_string()],
           tasks: vec!["tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk".to_string()],

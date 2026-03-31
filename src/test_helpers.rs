@@ -51,6 +51,7 @@ pub fn make_test_iteration(id: &str) -> Iteration {
     id: id.parse().unwrap(),
     links: vec![],
     metadata: toml::Table::new(),
+    phase_count: None,
     status: iteration::Status::Active,
     tags: vec![],
     tasks: vec![],

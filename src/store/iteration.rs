@@ -1,4 +1,4 @@
-use std::fs;
+use std::{collections::HashSet, fs};
 
 use chrono::Utc;
 
@@ -11,11 +11,26 @@ use crate::{
   model::{Id, Iteration, IterationFilter, IterationPatch, NewIteration, Task},
 };
 
+/// Compute how many distinct phases the iteration's tasks span by reading each task file.
+fn compute_phase_count(config: &Settings, tasks: &[String]) -> usize {
+  let mut phases = HashSet::new();
+  for task_ref in tasks {
+    let task_id_str = task_ref.strip_prefix("tasks/").unwrap_or(task_ref);
+    if let Ok(id) = task_id_str.parse()
+      && let Ok(task) = super::read_task(config, &id)
+    {
+      phases.insert(task.phase.unwrap_or(0));
+    }
+  }
+  phases.len()
+}
+
 /// Append a task reference to an iteration (idempotent).
 pub fn add_task(config: &Settings, iteration_id: &Id, task_id: &str) -> super::Result<Iteration> {
   let mut iteration = read_iteration(config, iteration_id)?;
   if !iteration.tasks.contains(&task_id.to_string()) {
     iteration.tasks.push(task_id.to_string());
+    iteration.phase_count = Some(compute_phase_count(config, &iteration.tasks));
     iteration.updated_at = Utc::now();
     write_iteration(config, &iteration)?;
   }
@@ -32,6 +47,7 @@ pub fn create_iteration(config: &Settings, new: NewIteration) -> super::Result<I
     id: Id::new(),
     links: new.links,
     metadata: new.metadata,
+    phase_count: Some(0),
     status: new.status,
     tags: new.tags,
     tasks: new.tasks,
@@ -114,6 +130,7 @@ pub fn read_iteration_tasks(config: &Settings, iteration: &Iteration) -> Vec<Tas
 pub fn remove_task(config: &Settings, iteration_id: &Id, task_id: &str) -> super::Result<Iteration> {
   let mut iteration = read_iteration(config, iteration_id)?;
   iteration.tasks.retain(|t| t != task_id);
+  iteration.phase_count = Some(compute_phase_count(config, &iteration.tasks));
   iteration.updated_at = Utc::now();
   write_iteration(config, &iteration)?;
   Ok(iteration)

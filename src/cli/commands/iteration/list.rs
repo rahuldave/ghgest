@@ -1,10 +1,7 @@
-use std::collections::HashSet;
-
 use clap::Args;
 
 use crate::{
   cli::{self, AppContext},
-  config::Settings,
   model::{IterationFilter, iteration::Status},
   store,
   ui::{
@@ -59,7 +56,7 @@ impl Command {
     let view_data: Vec<IterationListData> = iterations
       .into_iter()
       .map(|i| {
-        let phase_count = compute_phase_count(config, &i.tasks);
+        let phase_count = i.phase_count.unwrap_or(0);
         let task_count = i.tasks.len();
         IterationListData {
           id: i.id.to_string(),
@@ -74,20 +71,6 @@ impl Command {
 
     Ok(())
   }
-}
-
-/// Compute how many distinct phases the iteration's tasks span.
-fn compute_phase_count(config: &Settings, tasks: &[String]) -> usize {
-  let mut phases = HashSet::new();
-  for task_ref in tasks {
-    let task_id_str = task_ref.strip_prefix("tasks/").unwrap_or(task_ref);
-    if let Ok(id) = task_id_str.parse()
-      && let Ok(task) = store::read_task(config, &id)
-    {
-      phases.insert(task.phase.unwrap_or(0));
-    }
-  }
-  phases.len()
 }
 
 #[cfg(test)]
