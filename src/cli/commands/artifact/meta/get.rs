@@ -25,7 +25,7 @@ impl Command {
     let value = resolve_dot_path(&root, &self.path)
       .ok_or_else(|| cli::Error::generic(format!("Metadata key not found: '{}'", self.path)))?;
 
-    print_yaml_value(&value);
+    print_yaml_value(value);
     Ok(())
   }
 }
@@ -51,22 +51,11 @@ fn print_yaml_value(value: &yaml_serde::Value) {
   }
 }
 
-/// Walk a YAML mapping by splitting `path` on `.` and returning the leaf value.
-fn resolve_dot_path(root: &yaml_serde::Value, path: &str) -> Option<yaml_serde::Value> {
-  let segments: Vec<&str> = path.split('.').collect();
-  let mut current = root.clone();
-
-  for segment in &segments {
-    match current {
-      yaml_serde::Value::Mapping(m) => {
-        let key = yaml_serde::Value::String(segment.to_string());
-        current = m.get(&key)?.clone();
-      }
-      _ => return None,
-    }
-  }
-
-  Some(current)
+/// Walk a YAML mapping by splitting `path` on `.` and returning a reference to the leaf value.
+fn resolve_dot_path<'a>(root: &'a yaml_serde::Value, path: &str) -> Option<&'a yaml_serde::Value> {
+  path
+    .split('.')
+    .try_fold(root, |current, seg| current.as_mapping()?.get(seg))
 }
 
 #[cfg(test)]
@@ -128,8 +117,9 @@ mod tests {
         yaml_serde::Value::String("outer".to_string()),
         yaml_serde::Value::Mapping(inner),
       );
-      let result = resolve_dot_path(&yaml_serde::Value::Mapping(mapping), "outer.nested");
-      assert_eq!(result, Some(yaml_serde::Value::String("deep".to_string())));
+      let root = yaml_serde::Value::Mapping(mapping);
+      let result = resolve_dot_path(&root, "outer.nested");
+      assert_eq!(result.cloned(), Some(yaml_serde::Value::String("deep".to_string())));
     }
 
     #[test]
@@ -139,14 +129,16 @@ mod tests {
         yaml_serde::Value::String("key".to_string()),
         yaml_serde::Value::String("value".to_string()),
       );
-      let result = resolve_dot_path(&yaml_serde::Value::Mapping(mapping), "key");
-      assert_eq!(result, Some(yaml_serde::Value::String("value".to_string())));
+      let root = yaml_serde::Value::Mapping(mapping);
+      let result = resolve_dot_path(&root, "key");
+      assert_eq!(result.cloned(), Some(yaml_serde::Value::String("value".to_string())));
     }
 
     #[test]
     fn it_returns_none_for_missing_key() {
       let mapping = yaml_serde::Mapping::new();
-      let result = resolve_dot_path(&yaml_serde::Value::Mapping(mapping), "missing");
+      let root = yaml_serde::Value::Mapping(mapping);
+      let result = resolve_dot_path(&root, "missing");
       assert_eq!(result, None);
     }
   }

@@ -1,20 +1,10 @@
 //! Shared TOML metadata helpers for reading and writing dot-delimited key paths.
 
-/// Walk a dot-delimited path through nested TOML tables, returning the leaf value.
-pub fn resolve_dot_path(root: &toml::Value, path: &str) -> Option<toml::Value> {
-  let segments: Vec<&str> = path.split('.').collect();
-  let mut current = root.clone();
-
-  for segment in &segments {
-    match current {
-      toml::Value::Table(t) => {
-        current = t.get(*segment)?.clone();
-      }
-      _ => return None,
-    }
-  }
-
-  Some(current)
+/// Walk a dot-delimited path through nested TOML tables, returning a reference to the leaf value.
+pub fn resolve_dot_path<'a>(root: &'a toml::Value, path: &str) -> Option<&'a toml::Value> {
+  path
+    .split('.')
+    .try_fold(root, |current, seg| current.as_table()?.get(seg))
 }
 
 /// Print a TOML value to stdout in a human-friendly format.
@@ -117,22 +107,25 @@ mod tests {
       inner.insert("nested".to_string(), toml::Value::String("deep".to_string()));
       let mut table = toml::Table::new();
       table.insert("outer".to_string(), toml::Value::Table(inner));
-      let result = resolve_dot_path(&toml::Value::Table(table), "outer.nested");
-      assert_eq!(result, Some(toml::Value::String("deep".to_string())));
+      let root = toml::Value::Table(table);
+      let result = resolve_dot_path(&root, "outer.nested");
+      assert_eq!(result.cloned(), Some(toml::Value::String("deep".to_string())));
     }
 
     #[test]
     fn it_resolves_top_level_key() {
       let mut table = toml::Table::new();
       table.insert("key".to_string(), toml::Value::String("value".to_string()));
-      let result = resolve_dot_path(&toml::Value::Table(table), "key");
-      assert_eq!(result, Some(toml::Value::String("value".to_string())));
+      let root = toml::Value::Table(table);
+      let result = resolve_dot_path(&root, "key");
+      assert_eq!(result.cloned(), Some(toml::Value::String("value".to_string())));
     }
 
     #[test]
     fn it_returns_none_for_missing_key() {
       let table = toml::Table::new();
-      let result = resolve_dot_path(&toml::Value::Table(table), "missing");
+      let root = toml::Value::Table(table);
+      let result = resolve_dot_path(&root, "missing");
       assert_eq!(result, None);
     }
   }

@@ -21,10 +21,11 @@ impl Command {
     let id = store::resolve_iteration_id(config, &self.id, false)?;
     let iteration = store::read_iteration(config, &id)?;
 
-    let value = store::meta::resolve_dot_path(&toml::Value::Table(iteration.metadata), &self.path)
+    let root = toml::Value::Table(iteration.metadata);
+    let value = store::meta::resolve_dot_path(&root, &self.path)
       .ok_or_else(|| cli::Error::generic(format!("Metadata key not found: '{}'", self.path)))?;
 
-    store::meta::print_toml_value(&value);
+    store::meta::print_toml_value(value);
     Ok(())
   }
 }
