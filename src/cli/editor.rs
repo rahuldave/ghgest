@@ -32,7 +32,12 @@ pub fn resolve_editor() -> Option<String> {
 }
 
 fn open_editor_with(editor: &str, path: &Path) -> crate::cli::Result<()> {
-  let status = Command::new(editor).arg(path).status()?;
+  let parts = shell_words::split(editor)
+    .map_err(|e| crate::cli::Error::generic(format!("Failed to parse editor command: {e}")))?;
+  let (program, args) = parts
+    .split_first()
+    .ok_or_else(|| crate::cli::Error::generic("Editor command is empty"))?;
+  let status = Command::new(program).args(args).arg(path).status()?;
 
   if !status.success() {
     return Err(crate::cli::Error::generic(format!(
