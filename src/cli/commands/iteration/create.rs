@@ -36,14 +36,7 @@ impl Command {
       None => Status::Active,
     };
 
-    let metadata = {
-      let pairs = crate::cli::helpers::split_key_value_pairs(&self.metadata)?;
-      let mut table = toml::Table::new();
-      for (key, value) in pairs {
-        table.insert(key, toml::Value::String(value));
-      }
-      table
-    };
+    let metadata = crate::cli::helpers::build_toml_metadata(&self.metadata)?;
 
     let tags = self
       .tags

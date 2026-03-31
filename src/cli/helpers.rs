@@ -49,6 +49,38 @@ pub fn split_key_value_pairs(pairs: &[String]) -> crate::cli::Result<Vec<(String
     .collect()
 }
 
+/// Build a `toml::Table` from `"key=value"` CLI strings.
+pub fn build_toml_metadata(pairs: &[String]) -> crate::cli::Result<toml::Table> {
+  let kvs = split_key_value_pairs(pairs)?;
+  let mut table = toml::Table::new();
+  for (key, value) in kvs {
+    table.insert(key, toml::Value::String(value));
+  }
+  Ok(table)
+}
+
+/// Build a `yaml_serde::Mapping` from `"key=value"` CLI strings.
+pub fn build_yaml_metadata(pairs: &[String]) -> crate::cli::Result<yaml_serde::Mapping> {
+  let kvs = split_key_value_pairs(pairs)?;
+  let mut mapping = yaml_serde::Mapping::new();
+  for (key, value) in kvs {
+    mapping.insert(yaml_serde::Value::String(key), yaml_serde::Value::String(value));
+  }
+  Ok(mapping)
+}
+
+/// Merge `"key=value"` CLI strings into an existing `toml::Table`, returning `None` if pairs is empty.
+pub fn merge_toml_metadata(pairs: &[String], mut existing: toml::Table) -> crate::cli::Result<Option<toml::Table>> {
+  if pairs.is_empty() {
+    return Ok(None);
+  }
+  let kvs = split_key_value_pairs(pairs)?;
+  for (key, value) in kvs {
+    existing.insert(key, toml::Value::String(value));
+  }
+  Ok(Some(existing))
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;

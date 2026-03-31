@@ -35,14 +35,7 @@ impl Command {
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
     let config = &ctx.settings;
     let theme = &ctx.theme;
-    let metadata = {
-      let pairs = crate::cli::helpers::split_key_value_pairs(&self.metadata)?;
-      let mut mapping = yaml_serde::Mapping::new();
-      for (key, value) in pairs {
-        mapping.insert(yaml_serde::Value::String(key), yaml_serde::Value::String(value));
-      }
-      mapping
-    };
+    let metadata = crate::cli::helpers::build_yaml_metadata(&self.metadata)?;
 
     let tags = self
       .tags

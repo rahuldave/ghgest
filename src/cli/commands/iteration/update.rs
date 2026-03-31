@@ -42,15 +42,9 @@ impl Command {
       .map(|s| s.parse::<Status>().map_err(cli::Error::generic))
       .transpose()?;
 
-    let metadata = if self.metadata.is_empty() {
-      None
-    } else {
-      let pairs = crate::cli::helpers::split_key_value_pairs(&self.metadata)?;
-      let mut table = store::read_iteration(config, &id)?.metadata;
-      for (key, value) in pairs {
-        table.insert(key, toml::Value::String(value));
-      }
-      Some(table)
+    let metadata = {
+      let existing = store::read_iteration(config, &id)?.metadata;
+      crate::cli::helpers::merge_toml_metadata(&self.metadata, existing)?
     };
 
     let tags = self.tags.as_deref().map(crate::cli::helpers::parse_tags);
