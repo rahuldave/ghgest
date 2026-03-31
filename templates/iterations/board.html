@@ -26,7 +26,7 @@
       </div>
       {% if !task.tags.is_empty() %}
       <div class="kanban-card-meta">
-        {% for t in task.tags %}<span class="tag">#{{ t }}</span>{% if !loop.last %} {% endif %}{% endfor %}
+        {% for t in task.tags %}<a href="/search?q=tag:{{ t }}" class="tag">#{{ t }}</a>{% if !loop.last %} {% endif %}{% endfor %}
       </div>
       {% endif %}
     </div>
@@ -49,7 +49,7 @@
       </div>
       {% if !task.tags.is_empty() %}
       <div class="kanban-card-meta">
-        {% for t in task.tags %}<span class="tag">#{{ t }}</span>{% if !loop.last %} {% endif %}{% endfor %}
+        {% for t in task.tags %}<a href="/search?q=tag:{{ t }}" class="tag">#{{ t }}</a>{% if !loop.last %} {% endif %}{% endfor %}
       </div>
       {% endif %}
     </div>

@@ -1,6 +1,7 @@
 //! Request handlers for each web view.
 
 use axum::{
+  Json,
   extract::{Path, Query, State},
   http::StatusCode,
   response::{Html, IntoResponse, Response},
@@ -10,12 +11,13 @@ use pulldown_cmark::{Options, Parser, html};
 use super::{
   state::ServerState,
   templates::{
-    ArtifactDetailTemplate, ArtifactListTemplate, DashboardTemplate, IterationBoardTemplate, IterationDetailTemplate,
-    IterationListTemplate, PhaseGroup, SearchTemplate, TaskDetailTemplate, TaskListTemplate, TaskRow,
+    ArtifactDetailTemplate, ArtifactListTemplate, DashboardTemplate, DisplayLink, IterationBoardTemplate,
+    IterationDetailTemplate, IterationListTemplate, PhaseGroup, SearchTemplate, TaskDetailTemplate, TaskListTemplate,
+    TaskRow,
   },
 };
 use crate::{
-  model::{ArtifactFilter, IterationFilter, TaskFilter, task::Status},
+  model::{ArtifactFilter, IterationFilter, TaskFilter, iteration::Status as IterationStatus, task::Status},
   store,
 };
 
@@ -67,19 +69,42 @@ pub async fn dashboard(State(state): State<ServerState>) -> Response {
   .into_response()
 }
 
-/// GET /tasks — task list.
-pub async fn task_list(State(state): State<ServerState>) -> Response {
-  let filter = TaskFilter {
-    all: true,
-    ..Default::default()
-  };
-  let tasks = match store::list_tasks(&state.settings, &filter) {
+/// Query parameters for the task list endpoint.
+#[derive(serde::Deserialize)]
+pub struct TaskListParams {
+  #[serde(default)]
+  pub status: Option<String>,
+}
+
+/// GET /tasks — task list filtered by status.
+pub async fn task_list(State(state): State<ServerState>, Query(params): Query<TaskListParams>) -> Response {
+  let all_tasks = match store::list_tasks(
+    &state.settings,
+    &TaskFilter {
+      all: true,
+      ..Default::default()
+    },
+  ) {
     Ok(t) => t,
     Err(e) => {
       log::error!("failed to list tasks: {e}");
       return (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response();
     }
   };
+
+  let open_count = all_tasks.iter().filter(|t| t.status == Status::Open).count();
+  let in_progress_count = all_tasks.iter().filter(|t| t.status == Status::InProgress).count();
+  let done_count = all_tasks.iter().filter(|t| t.status == Status::Done).count();
+  let cancelled_count = all_tasks.iter().filter(|t| t.status == Status::Cancelled).count();
+
+  let current_status = match params.status.as_deref() {
+    Some("in_progress") => Status::InProgress,
+    Some("done") => Status::Done,
+    Some("cancelled") => Status::Cancelled,
+    _ => Status::Open,
+  };
+
+  let tasks: Vec<_> = all_tasks.into_iter().filter(|t| t.status == current_status).collect();
 
   let blockings = store::resolve_blocking_batch(&state.settings, &tasks);
 
@@ -99,6 +124,11 @@ pub async fn task_list(State(state): State<ServerState>) -> Response {
   TaskListTemplate {
     tasks,
     rows,
+    current_status,
+    open_count,
+    in_progress_count,
+    done_count,
+    cancelled_count,
   }
   .into_response()
 }
@@ -107,9 +137,7 @@ pub async fn task_list(State(state): State<ServerState>) -> Response {
 pub async fn task_detail(State(state): State<ServerState>, Path(id_str): Path<String>) -> Response {
   let id = match store::resolve_task_id(&state.settings, &id_str, true) {
     Ok(id) => id,
-    Err(_) => {
-      return (StatusCode::NOT_FOUND, Html("<p>404 — task not found</p>")).into_response();
-    }
+    Err(_) => return (StatusCode::NOT_FOUND, Html("<p>404 — task not found</p>")).into_response(),
   };
 
   let task = match store::read_task(&state.settings, &id) {
@@ -122,48 +150,100 @@ pub async fn task_detail(State(state): State<ServerState>, Path(id_str): Path<St
 
   let blocking = store::resolve_blocking(&state.settings, &task);
   let is_blocked = !blocking.blocked_by_ids.is_empty();
-
   let description_html = render_markdown(&task.description);
+
+  let display_links: Vec<DisplayLink> = task
+    .links
+    .iter()
+    .map(|link| {
+      let ref_ = &link.ref_;
+      let internal_prefixes = ["tasks/", "artifacts/", "iterations/"];
+      if let Some(prefix) = internal_prefixes.iter().find(|p| ref_.starts_with(**p)) {
+        let id_part = &ref_[prefix.len()..];
+        let short = if id_part.len() > 8 { &id_part[..8] } else { id_part };
+        DisplayLink {
+          rel: link.rel.clone(),
+          href: Some(format!("/{ref_}")),
+          display_text: short.to_owned(),
+        }
+      } else if ref_.starts_with("http") {
+        DisplayLink {
+          rel: link.rel.clone(),
+          href: Some(ref_.clone()),
+          display_text: ref_.clone(),
+        }
+      } else {
+        DisplayLink {
+          rel: link.rel.clone(),
+          href: None,
+          display_text: ref_.clone(),
+        }
+      }
+    })
+    .collect();
 
   TaskDetailTemplate {
     task,
     blocking,
     is_blocked,
     description_html,
+    display_links,
   }
   .into_response()
 }
 
-/// GET /artifacts — artifact list.
-pub async fn artifact_list(State(state): State<ServerState>) -> Response {
+/// Query parameters for the artifact list endpoint.
+#[derive(serde::Deserialize)]
+pub struct ArtifactListParams {
+  #[serde(default)]
+  pub status: Option<String>,
+}
+
+/// GET /artifacts — artifact list with status filtering.
+pub async fn artifact_list(State(state): State<ServerState>, Query(params): Query<ArtifactListParams>) -> Response {
   let filter = ArtifactFilter {
     show_all: true,
     ..Default::default()
   };
 
-  match store::list_artifacts(&state.settings, &filter) {
-    Ok(artifacts) => ArtifactListTemplate {
-      artifacts,
-    }
-    .into_response(),
+  let all_artifacts = match store::list_artifacts(&state.settings, &filter) {
+    Ok(a) => a,
     Err(e) => {
       log::error!("failed to list artifacts: {e}");
-      (
+      return (
         StatusCode::INTERNAL_SERVER_ERROR,
         Html("<p>failed to load artifacts</p>"),
       )
-        .into_response()
+        .into_response();
     }
+  };
+
+  let open_count = all_artifacts.iter().filter(|a| a.archived_at.is_none()).count();
+  let archived_count = all_artifacts.iter().filter(|a| a.archived_at.is_some()).count();
+  let current_status = params.status.unwrap_or_else(|| "open".to_string());
+
+  let artifacts: Vec<_> = all_artifacts
+    .into_iter()
+    .filter(|a| match current_status.as_str() {
+      "archived" => a.archived_at.is_some(),
+      _ => a.archived_at.is_none(),
+    })
+    .collect();
+
+  ArtifactListTemplate {
+    artifacts,
+    open_count,
+    archived_count,
+    current_status,
   }
+  .into_response()
 }
 
 /// GET /artifacts/:id — artifact detail with rendered Markdown.
 pub async fn artifact_detail(State(state): State<ServerState>, Path(id): Path<String>) -> Response {
   let resolved = match store::resolve_artifact_id(&state.settings, &id, true) {
     Ok(id) => id,
-    Err(_) => {
-      return (StatusCode::NOT_FOUND, Html("<p>artifact not found</p>")).into_response();
-    }
+    Err(_) => return (StatusCode::NOT_FOUND, Html("<p>artifact not found</p>")).into_response(),
   };
 
   match store::read_artifact(&state.settings, &resolved) {
@@ -186,36 +266,66 @@ pub async fn artifact_detail(State(state): State<ServerState>, Path(id): Path<St
   }
 }
 
-/// GET /iterations — iteration list.
-pub async fn iteration_list(State(state): State<ServerState>) -> Response {
+/// Query parameters for the iteration list endpoint.
+#[derive(serde::Deserialize)]
+pub struct IterationListParams {
+  #[serde(default)]
+  pub status: Option<String>,
+}
+
+/// GET /iterations — iteration list filtered by status.
+pub async fn iteration_list(State(state): State<ServerState>, Query(params): Query<IterationListParams>) -> Response {
   let filter = IterationFilter {
     all: true,
     ..Default::default()
   };
 
-  match store::list_iterations(&state.settings, &filter) {
-    Ok(iterations) => IterationListTemplate {
-      iterations,
-    }
-    .into_response(),
+  let all_iterations = match store::list_iterations(&state.settings, &filter) {
+    Ok(iterations) => iterations,
     Err(e) => {
       log::error!("failed to list iterations: {e}");
-      (
+      return (
         StatusCode::INTERNAL_SERVER_ERROR,
         Html("<p>failed to load iterations</p>"),
       )
-        .into_response()
+        .into_response();
     }
+  };
+
+  let active_count = all_iterations
+    .iter()
+    .filter(|i| i.status == IterationStatus::Active)
+    .count();
+  let completed_count = all_iterations
+    .iter()
+    .filter(|i| i.status == IterationStatus::Completed)
+    .count();
+  let failed_count = all_iterations
+    .iter()
+    .filter(|i| i.status == IterationStatus::Failed)
+    .count();
+  let current_status = params.status.unwrap_or_else(|| "active".to_string());
+
+  let iterations: Vec<_> = all_iterations
+    .into_iter()
+    .filter(|i| i.status.as_str() == current_status)
+    .collect();
+
+  IterationListTemplate {
+    iterations,
+    current_status,
+    active_count,
+    completed_count,
+    failed_count,
   }
+  .into_response()
 }
 
 /// GET /iterations/:id — iteration detail with phase graph.
 pub async fn iteration_detail(State(state): State<ServerState>, Path(id_str): Path<String>) -> Response {
   let id = match store::resolve_iteration_id(&state.settings, &id_str, true) {
     Ok(id) => id,
-    Err(_) => {
-      return (StatusCode::NOT_FOUND, Html("<p>iteration not found</p>")).into_response();
-    }
+    Err(_) => return (StatusCode::NOT_FOUND, Html("<p>iteration not found</p>")).into_response(),
   };
 
   let iteration = match store::read_iteration(&state.settings, &id) {
@@ -228,7 +338,6 @@ pub async fn iteration_detail(State(state): State<ServerState>, Path(id_str): Pa
 
   let tasks = store::read_iteration_tasks(&state.settings, &iteration);
 
-  // Group tasks by phase
   let mut phase_map: std::collections::BTreeMap<u16, Vec<crate::model::Task>> = std::collections::BTreeMap::new();
   for task in &tasks {
     let phase = task.phase.unwrap_or(0);
@@ -254,9 +363,7 @@ pub async fn iteration_detail(State(state): State<ServerState>, Path(id_str): Pa
 pub async fn iteration_board(State(state): State<ServerState>, Path(id_str): Path<String>) -> Response {
   let id = match store::resolve_iteration_id(&state.settings, &id_str, true) {
     Ok(id) => id,
-    Err(_) => {
-      return (StatusCode::NOT_FOUND, Html("<p>iteration not found</p>")).into_response();
-    }
+    Err(_) => return (StatusCode::NOT_FOUND, Html("<p>iteration not found</p>")).into_response(),
   };
 
   let iteration = match store::read_iteration(&state.settings, &id) {
@@ -330,6 +437,69 @@ pub async fn search(State(state): State<ServerState>, Query(params): Query<Searc
     artifact_count,
   }
   .into_response()
+}
+
+// ── API endpoints ─────────────────────────────────────────────────────────────
+
+/// A single search result for the JSON API.
+#[derive(serde::Serialize)]
+pub struct ApiSearchResult {
+  #[serde(rename = "type")]
+  pub kind: String,
+  pub id: String,
+  pub short_id: String,
+  pub title: String,
+}
+
+/// GET /api/search?q=... — JSON search results.
+pub async fn api_search(State(state): State<ServerState>, Query(params): Query<SearchParams>) -> Response {
+  if params.q.is_empty() {
+    return Json(Vec::<ApiSearchResult>::new()).into_response();
+  }
+
+  let results = match store::search(&state.settings, &params.q, true) {
+    Ok(r) => r,
+    Err(e) => {
+      log::error!("api search failed: {e}");
+      return (StatusCode::INTERNAL_SERVER_ERROR, Json(Vec::<ApiSearchResult>::new())).into_response();
+    }
+  };
+
+  let mut items: Vec<ApiSearchResult> = Vec::new();
+  for task in results.tasks {
+    items.push(ApiSearchResult {
+      kind: "task".to_string(),
+      id: task.id.to_string(),
+      short_id: task.id.short(),
+      title: task.title,
+    });
+  }
+  for artifact in results.artifacts {
+    items.push(ApiSearchResult {
+      kind: "artifact".to_string(),
+      id: artifact.id.to_string(),
+      short_id: artifact.id.short(),
+      title: artifact.title,
+    });
+  }
+
+  Json(items).into_response()
+}
+
+/// Request body for the render-markdown endpoint.
+#[derive(serde::Deserialize)]
+pub struct RenderMarkdownBody {
+  pub body: String,
+}
+
+/// POST /api/render-markdown — render Markdown to HTML.
+pub async fn api_render_markdown(Json(payload): Json<RenderMarkdownBody>) -> Response {
+  let html_output = render_markdown(&payload.body);
+  (
+    [(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")],
+    html_output,
+  )
+    .into_response()
 }
 
 /// Fallback handler for unmatched routes.

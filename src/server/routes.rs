@@ -1,6 +1,9 @@
 //! Route definitions and router construction.
 
-use axum::{Router, routing::get};
+use axum::{
+  Router,
+  routing::{get, post},
+};
 
 use super::{assets, handlers, state::ServerState};
 
@@ -16,6 +19,8 @@ pub fn router(state: ServerState) -> Router {
     .route("/iterations/{id}", get(handlers::iteration_detail))
     .route("/iterations/{id}/board", get(handlers::iteration_board))
     .route("/search", get(handlers::search))
+    .route("/api/search", get(handlers::api_search))
+    .route("/api/render-markdown", post(handlers::api_render_markdown))
     .route("/static/{*path}", get(assets::serve))
     .fallback(handlers::not_found)
     .with_state(state)

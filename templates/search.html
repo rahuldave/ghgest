@@ -65,6 +65,7 @@
               </a>
             </td>
             <td>{{ task.title }}</td>
+            <td>{% for t in task.tags %}<a href="/search?q=tag:{{ t }}" class="tag">#{{ t }}</a>{% if !loop.last %} {% endif %}{% endfor %}</td>
             <td>
               {% match task.status %}
                 {% when TaskStatus::Open %}<span class="status-open">open</span>

@@ -5,7 +5,13 @@
 
 {% block content %}
 <div class="section-heading">Iterations</div>
-<div class="summary">{{ iterations.len() }} iteration{% if iterations.len() != 1 %}s{% endif %}</div>
+<div class="summary">
+  {% if current_status == "active" %}<strong>{{ active_count }} active</strong>{% else %}<a href="/iterations">{{ active_count }} active</a>{% endif %}
+  &middot;
+  {% if current_status == "completed" %}<strong>{{ completed_count }} completed</strong>{% else %}<a href="/iterations?status=completed">{{ completed_count }} completed</a>{% endif %}
+  &middot;
+  {% if current_status == "failed" %}<strong>{{ failed_count }} failed</strong>{% else %}<a href="/iterations?status=failed">{{ failed_count }} failed</a>{% endif %}
+</div>
 
 {% if iterations.is_empty() %}
 <p class="empty">No iterations found.</p>

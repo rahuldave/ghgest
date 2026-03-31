@@ -5,7 +5,19 @@
 
 {% block content %}
 <div class="section-heading">Artifacts</div>
-<div class="summary">{{ artifacts.len() }} artifact{% if artifacts.len() != 1 %}s{% endif %}</div>
+<div class="summary">
+  {% if current_status == "open" %}
+    <strong>{{ open_count }} open</strong>
+  {% else %}
+    <a href="/artifacts">{{ open_count }} open</a>
+  {% endif %}
+  ·
+  {% if current_status == "archived" %}
+    <strong>{{ archived_count }} archived</strong>
+  {% else %}
+    <a href="/artifacts?status=archived">{{ archived_count }} archived</a>
+  {% endif %}
+</div>
 
 {% if artifacts.is_empty() %}
 <p class="empty">No artifacts found.</p>

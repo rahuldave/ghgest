@@ -5,14 +5,38 @@
 
 {% block content %}
 <div class="section-heading">Tasks</div>
-<div class="summary">{{ tasks.len() }} task{% if tasks.len() != 1 %}s{% endif %}</div>
+<div class="summary">
+  {% if current_status == Status::Open %}
+    <span class="bold">{{ open_count }} open</span>
+  {% else %}
+    <a href="/tasks">{{ open_count }} open</a>
+  {% endif %}
+  &middot;
+  {% if current_status == Status::InProgress %}
+    <span class="bold">{{ in_progress_count }} in progress</span>
+  {% else %}
+    <a href="/tasks?status=in_progress">{{ in_progress_count }} in progress</a>
+  {% endif %}
+  &middot;
+  {% if current_status == Status::Done %}
+    <span class="bold">{{ done_count }} done</span>
+  {% else %}
+    <a href="/tasks?status=done">{{ done_count }} done</a>
+  {% endif %}
+  &middot;
+  {% if current_status == Status::Cancelled %}
+    <span class="bold">{{ cancelled_count }} cancelled</span>
+  {% else %}
+    <a href="/tasks?status=cancelled">{{ cancelled_count }} cancelled</a>
+  {% endif %}
+</div>
 
 {% if tasks.is_empty() %}
 <p class="empty">No tasks found.</p>
 {% else %}
 <div class="term">
   <div class="term-bar">
-<span class="term-title">gest task list --all</span>
+<span class="term-title">gest task list{% if current_status != Status::Open %} --status {{ current_status }}{% endif %}</span>
   </div>
   <div class="term-body">
     <table>
@@ -85,7 +109,7 @@
           </td>
           <td class="c-dim">
             {% if row.is_blocked %}
-              blocked by {% for bid in row.blocking.blocked_by_ids.iter() %}<a href="/tasks/{{ bid }}"><span class="c-azure">{{ bid[..8] }}</span></a>{% if !loop.last %}, {% endif %}{% endfor %}
+              blocked by {{ row.blocking.blocked_by_ids.join(", ") }}
             {% else if row.blocking.is_blocking %}
               blocking others
             {% endif %}

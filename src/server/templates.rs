@@ -10,12 +10,18 @@ use crate::{
   model::{
     Artifact, Iteration, Task,
     iteration::Status as IterationStatus,
+    link::RelationshipType,
     task::{Status, Status as TaskStatus},
   },
   store::ResolvedBlocking,
 };
 
-/// Render an Askama template into an HTML response, returning 500 on error.
+pub struct DisplayLink {
+  pub rel: RelationshipType,
+  pub href: Option<String>,
+  pub display_text: String,
+}
+
 pub fn render(tmpl: &impl Template) -> Response {
   match tmpl.render() {
     Ok(html) => Html(html).into_response(),
@@ -48,7 +54,6 @@ impl IntoResponse for DashboardTemplate {
 
 // ── Tasks ────────────────────────────────────────────────────────────────────
 
-/// A row in the task list view, pairing a task with its resolved blocking state.
 pub struct TaskRow {
   pub task: Task,
   pub blocking: ResolvedBlocking,
@@ -60,6 +65,11 @@ pub struct TaskRow {
 pub struct TaskListTemplate {
   pub tasks: Vec<Task>,
   pub rows: Vec<TaskRow>,
+  pub current_status: Status,
+  pub open_count: usize,
+  pub in_progress_count: usize,
+  pub done_count: usize,
+  pub cancelled_count: usize,
 }
 
 impl IntoResponse for TaskListTemplate {
@@ -75,6 +85,7 @@ pub struct TaskDetailTemplate {
   pub blocking: ResolvedBlocking,
   pub is_blocked: bool,
   pub description_html: String,
+  pub display_links: Vec<DisplayLink>,
 }
 
 impl IntoResponse for TaskDetailTemplate {
@@ -89,6 +100,9 @@ impl IntoResponse for TaskDetailTemplate {
 #[template(path = "artifacts/list.html")]
 pub struct ArtifactListTemplate {
   pub artifacts: Vec<Artifact>,
+  pub open_count: usize,
+  pub archived_count: usize,
+  pub current_status: String,
 }
 
 impl IntoResponse for ArtifactListTemplate {
@@ -116,6 +130,10 @@ impl IntoResponse for ArtifactDetailTemplate {
 #[template(path = "iterations/list.html")]
 pub struct IterationListTemplate {
   pub iterations: Vec<Iteration>,
+  pub current_status: String,
+  pub active_count: usize,
+  pub completed_count: usize,
+  pub failed_count: usize,
 }
 
 impl IntoResponse for IterationListTemplate {
@@ -124,7 +142,6 @@ impl IntoResponse for IterationListTemplate {
   }
 }
 
-/// A group of tasks in a single phase for the iteration detail view.
 pub struct PhaseGroup {
   pub number: u16,
   pub tasks: Vec<Task>,

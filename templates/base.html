@@ -366,6 +366,118 @@
       font-style: italic;
       padding: 24px 0;
     }
+
+    /* ── forms ────────────────────────────────────────────────────────── */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      color: var(--pewter);
+      margin-bottom: 4px;
+      letter-spacing: .02em;
+    }
+
+    .form-input,
+    .form-textarea,
+    .form-select {
+      background: var(--obsidian);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--silver);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      padding: 8px 12px;
+      width: 100%;
+      outline: none;
+    }
+
+    .form-input:focus,
+    .form-textarea:focus,
+    .form-select:focus {
+      border-color: var(--azure);
+    }
+
+    .form-input::placeholder,
+    .form-textarea::placeholder {
+      color: var(--dim);
+    }
+
+    .form-textarea {
+      resize: vertical;
+      min-height: 120px;
+      line-height: 1.7;
+    }
+
+    .form-select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237C8294' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+
+    .form-error {
+      color: var(--error);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .form-input.input-error,
+    .form-textarea.input-error,
+    .form-select.input-error {
+      border-color: var(--error);
+    }
+
+    .form-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .btn {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--obsidian);
+      color: var(--silver);
+      cursor: pointer;
+      text-decoration: none;
+      letter-spacing: .02em;
+    }
+
+    .btn:hover {
+      border-color: var(--azure-dark);
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: var(--azure-dark);
+      border-color: var(--azure-dark);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--azure);
+      border-color: var(--azure);
+    }
+
+    .btn-danger {
+      color: var(--error);
+      border-color: var(--error);
+    }
+
+    .btn-danger:hover {
+      background: var(--error);
+      color: #fff;
+    }
   </style>
   {% block head %}{% endblock %}
 </head>
@@ -382,5 +494,6 @@
 
     {% block content %}{% endblock %}
   </div>
+  <script src="/static/forms.js"></script>
 </body>
 </html>

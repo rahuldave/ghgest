@@ -60,8 +60,13 @@ fn contains_ignore_case(haystack: &str, needle: &str) -> bool {
 }
 
 /// Perform a case-insensitive full-text search across tasks and artifacts.
+///
+/// Supports the `tag:<name>` prefix to filter by exact tag match.
 pub fn search(config: &Settings, query: &str, show_all: bool) -> super::Result<SearchResults> {
   let query_lower = query.to_lowercase();
+
+  // Check for tag: prefix filter.
+  let tag_filter = query_lower.strip_prefix("tag:").map(|t| t.to_owned());
 
   let task_filter = TaskFilter {
     all: show_all,
@@ -78,6 +83,9 @@ pub fn search(config: &Settings, query: &str, show_all: bool) -> super::Result<S
   let tasks: Vec<Task> = all_tasks
     .into_par_iter()
     .filter(|task| {
+      if let Some(ref tag) = tag_filter {
+        return task.tags.iter().any(|t| t.to_lowercase() == *tag);
+      }
       contains_ignore_case(&task.title, &query_lower)
         || contains_ignore_case(&task.description, &query_lower)
         || task.tags.iter().any(|t| contains_ignore_case(t, &query_lower))
@@ -90,6 +98,9 @@ pub fn search(config: &Settings, query: &str, show_all: bool) -> super::Result<S
   let artifacts: Vec<Artifact> = all_artifacts
     .into_par_iter()
     .filter(|artifact| {
+      if let Some(ref tag) = tag_filter {
+        return artifact.tags.iter().any(|t| t.to_lowercase() == *tag);
+      }
       contains_ignore_case(&artifact.title, &query_lower)
         || contains_ignore_case(&artifact.body, &query_lower)
         || artifact.tags.iter().any(|t| contains_ignore_case(t, &query_lower))

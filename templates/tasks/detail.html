@@ -96,15 +96,22 @@
     </div>
     {% endif %}
 
-    {% if !task.links.is_empty() %}
+    {% if !display_links.is_empty() %}
     <hr class="rule">
     <div class="section-heading">Links</div>
     <table>
       <tbody>
-        {% for link in task.links.iter() %}
+        {% for link in display_links.iter() %}
         <tr>
           <td class="c-pewter" style="width:120px">{{ link.rel }}</td>
-          <td>{{ link.ref_ }}</td>
+          <td>
+            {% match link.href %}
+              {% when Some with (url) %}
+                <a href="{{ url }}"><span class="id-prefix">{{ link.display_text }}</span></a>
+              {% when None %}
+                {{ link.display_text }}
+            {% endmatch %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
