@@ -45,6 +45,10 @@ export default defineConfig({
         ],
       },
       {
+        text: 'Why gest?',
+        link: '/why-gest',
+      },
+      {
         text: 'FAQ',
         link: '/faq',
       },
