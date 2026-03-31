@@ -18,28 +18,36 @@ external data directory.
 ```sh
 gest init                                    # initialize global store
 gest task create "Implement auth middleware"
-gest artifact create --file auth-spec.md
+gest artifact create --source auth-spec.md
 gest search "auth"
 ```
 
 Use `gest init --local` to store data inside the repo (`.gest/`) instead of the global data directory.
 
+## Documentation
+
+Full documentation is available at https://gest.aaronmallen.dev.
+
 ## Commands
 
-| Command          | Description                                                    |
-|------------------|----------------------------------------------------------------|
-| `gest init`      | Initialize gest (`--local` for in-repo `.gest/` directory)     |
-| `gest task`      | Create, list, show, update, tag, link, and manage tasks        |
-| `gest artifact`  | Create, list, show, update, tag, archive, and manage artifacts |
-| `gest search`    | Search across tasks and artifacts                              |
-| `gest config`    | View and modify configuration                                  |
+| Command             | Description                                                    |
+|---------------------|----------------------------------------------------------------|
+| `gest init`         | Initialize gest (`--local` for in-repo `.gest/` directory)     |
+| `gest task`         | Create, list, show, update, tag, link, and manage tasks        |
+| `gest artifact`     | Create, list, show, update, tag, archive, and manage artifacts |
+| `gest iteration`    | Manage iterations (group tasks into phased execution plans)    |
+| `gest search`       | Search across tasks and artifacts                              |
+| `gest config`       | View and modify configuration                                  |
+| `gest generate`     | Generate shell completions and man pages                       |
+| `gest self-update`  | Update gest to the latest GitHub release                       |
+| `gest version`      | Print version and check for updates                            |
 
 Run `gest --help` or `gest <command> --help` for full details.
 
 ## Configuration
 
-Gest loads configuration from global (`~/.config/gest/`) and project-level files, supporting TOML, JSON, and YAML
-formats. Run `gest config show` to see the resolved configuration and its source files.
+Gest loads configuration from global (`~/.config/gest/`) and project-level TOML files. Run `gest config show` to see
+the resolved configuration and its source files.
 
 ## Installation
 
@@ -50,7 +58,7 @@ curl -fsSL https://raw.githubusercontent.com/aaronmallen/gest/main/script/instal
 ```
 
 > [!TIP]
-> This installs `doing` to `~/.local/bin`. Make sure it's in your `PATH`:
+> This installs `gest` to `~/.local/bin`. Make sure it's in your `PATH`:
 >
 >```sh
 >export PATH="$HOME/.local/bin:$PATH"
@@ -89,7 +97,7 @@ Early development. See [docs] for design documents and process guides.
 [cargo-binstall]: https://github.com/cargo-bins/cargo-binstall
 [crates-badge]: https://img.shields.io/crates/v/gest?style=for-the-badge
 [crates-link]: https://crates.io/crates/gest
-[docs]: https://gest.aaronmallen.dev
+[docs]: https://github.com/aaronmallen/gest/tree/main/docs
 [MIT]: https://github.com/aaronmallen/gest/blob/main/LICENSE
 [sponsor-badge]: https://img.shields.io/github/sponsors/aaronmallen?style=for-the-badge
 [sponsor-link]: https://github.com/sponsors/aaronmallen
