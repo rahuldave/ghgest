@@ -11,7 +11,7 @@ use super::{
   state::ServerState,
   templates::{
     ArtifactDetailTemplate, ArtifactListTemplate, DashboardTemplate, IterationBoardTemplate, IterationDetailTemplate,
-    IterationListTemplate, PhaseGroup, TaskDetailTemplate, TaskListTemplate, TaskRow,
+    IterationListTemplate, PhaseGroup, SearchTemplate, TaskDetailTemplate, TaskListTemplate, TaskRow,
   },
 };
 use crate::{
@@ -298,8 +298,36 @@ pub struct SearchParams {
 }
 
 /// GET /search — search across all entity types.
-pub async fn search(State(_state): State<ServerState>, Query(_params): Query<SearchParams>) -> Response {
-  Html("<p>search — coming soon</p>").into_response()
+pub async fn search(State(state): State<ServerState>, Query(params): Query<SearchParams>) -> Response {
+  if params.q.is_empty() {
+    return SearchTemplate {
+      query: String::new(),
+      tasks: Vec::new(),
+      artifacts: Vec::new(),
+      task_count: 0,
+      artifact_count: 0,
+    }
+    .into_response();
+  }
+
+  let results = match store::search(&state.settings, &params.q, true) {
+    Ok(r) => r,
+    Err(e) => {
+      log::error!("search failed: {e}");
+      return (StatusCode::INTERNAL_SERVER_ERROR, Html("<p>search failed</p>")).into_response();
+    }
+  };
+  let task_count = results.tasks.len();
+  let artifact_count = results.artifacts.len();
+
+  SearchTemplate {
+    query: params.q,
+    tasks: results.tasks,
+    artifacts: results.artifacts,
+    task_count,
+    artifact_count,
+  }
+  .into_response()
 }
 
 /// Fallback handler for unmatched routes.

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}search — gest{% endblock %}
+{% block nav_search %}class="active"{% endblock %}
+
+{% block content %}
+<div class="section-heading">Search</div>
+
+<form action="/search" method="get" style="margin-bottom: 20px;">
+  <input type="text" name="q" class="search-input" placeholder="search tasks and artifacts…" value="{{ query }}" autofocus>
+</form>
+
+{% if !query.is_empty() %}
+<div class="summary">{{ task_count + artifact_count }} result{% if task_count + artifact_count != 1 %}s{% endif %} for "{{ query }}"</div>
+
+{% if tasks.is_empty() && artifacts.is_empty() %}
+<p class="empty">No results found.</p>
+{% endif %}
+
+{% if !tasks.is_empty() %}
+<div style="margin-bottom: 24px;">
+  <div class="c-azure bold" style="margin-bottom: 8px;">Tasks ({{ tasks.len() }})</div>
+  <div class="term">
+    <div class="term-body">
+      <table>
+        <tbody>
+          {% for task in tasks %}
+          <tr>
+            <td style="width: 30px;">
+              {% match task.status %}
+                {% when TaskStatus::Open %}<span class="status-open">○</span>
+                {% when TaskStatus::InProgress %}<span class="status-in-progress">◐</span>
+                {% when TaskStatus::Done %}<span class="status-done">●</span>
+                {% when TaskStatus::Cancelled %}<span class="status-cancelled">✗</span>
+              {% endmatch %}
+            </td>
+            <td style="width: 100px;">
+              <a href="/tasks/{{ task.id.short() }}">
+                <span class="id-prefix">{{ task.id.short() }}</span>
+              </a>
+            </td>
+            <td>{{ task.title }}</td>
+            <td>
+              {% match task.status %}
+                {% when TaskStatus::Open %}<span class="status-open">open</span>
+                {% when TaskStatus::InProgress %}<span class="status-in-progress">in-progress</span>
+                {% when TaskStatus::Done %}<span class="status-done">done</span>
+                {% when TaskStatus::Cancelled %}<span class="status-cancelled">cancelled</span>
+              {% endmatch %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if !artifacts.is_empty() %}
+<div>
+  <div class="c-azure bold" style="margin-bottom: 8px;">Artifacts ({{ artifacts.len() }})</div>
+  <div class="term">
+    <div class="term-body">
+      <table>
+        <tbody>
+          {% for a in artifacts %}
+          <tr{% if a.archived_at.is_some() %} class="c-dim"{% endif %}>
+            <td style="width: 100px;">
+              <a href="/artifacts/{{ a.id.short() }}">
+                <span class="id-prefix">{{ a.id.short() }}</span>
+              </a>
+            </td>
+            <td>{{ a.title }}</td>
+            <td>{% for t in a.tags %}<span class="tag">#{{ t }}</span>{% if !loop.last %} {% endif %}{% endfor %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

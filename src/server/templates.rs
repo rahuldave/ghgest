@@ -161,3 +161,21 @@ impl IntoResponse for IterationBoardTemplate {
     render(&self)
   }
 }
+
+// ── Search ───────────────────────────────────────────────────────────────────
+
+#[derive(Template)]
+#[template(path = "search.html")]
+pub struct SearchTemplate {
+  pub query: String,
+  pub tasks: Vec<Task>,
+  pub artifacts: Vec<Artifact>,
+  pub task_count: usize,
+  pub artifact_count: usize,
+}
+
+impl IntoResponse for SearchTemplate {
+  fn into_response(self) -> Response {
+    render(&self)
+  }
+}
