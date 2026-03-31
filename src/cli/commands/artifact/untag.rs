@@ -1,10 +1,8 @@
-use chrono::Utc;
 use clap::Args;
 
 use crate::{
   cli::{self, AppContext},
   store,
-  ui::composites::success_message::SuccessMessage,
 };
 
 /// Remove tags from an artifact.
@@ -19,19 +17,17 @@ pub struct Command {
 impl Command {
   /// Remove the given tags from the artifact's tag list and persist.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    let config = &ctx.settings;
-    let theme = &ctx.theme;
-    let id = store::resolve_artifact_id(config, &self.id, false)?;
-    let mut artifact = store::read_artifact(config, &id)?;
-
-    super::super::tags::remove_tags(&mut artifact.tags, &self.tags);
-
-    artifact.updated_at = Utc::now();
-    store::write_artifact(config, &artifact)?;
-
-    let msg = format!("Untagged artifact {} from {}", id, self.tags.join(", "));
-    println!("{}", SuccessMessage::new(&msg, theme));
-    Ok(())
+    super::super::tags::untag_entity(
+      ctx,
+      &self.id,
+      &self.tags,
+      "artifact",
+      store::resolve_artifact_id,
+      store::read_artifact,
+      |a| &mut a.tags,
+      |a, t| a.updated_at = t,
+      store::write_artifact,
+    )
   }
 }
 

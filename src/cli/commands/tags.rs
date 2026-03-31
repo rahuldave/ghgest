@@ -1,3 +1,65 @@
+use chrono::{DateTime, Utc};
+
+use crate::{
+  cli::{self, AppContext},
+  config::Settings,
+  model::id::Id,
+  store,
+  ui::composites::success_message::SuccessMessage,
+};
+
+/// Generic helper for the tag command flow: resolve ID, read entity, apply tags, write entity.
+pub fn tag_entity<E>(
+  ctx: &AppContext,
+  id_prefix: &str,
+  tags: &[String],
+  noun: &str,
+  resolve: impl FnOnce(&Settings, &str, bool) -> store::Result<Id>,
+  read: impl FnOnce(&Settings, &Id) -> store::Result<E>,
+  get_tags: impl FnOnce(&mut E) -> &mut Vec<String>,
+  set_updated_at: impl FnOnce(&mut E, DateTime<Utc>),
+  write: impl FnOnce(&Settings, &E) -> store::Result<()>,
+) -> cli::Result<()> {
+  let config = &ctx.settings;
+  let id = resolve(config, id_prefix, false)?;
+  let mut entity = read(config, &id)?;
+
+  apply_tags(get_tags(&mut entity), tags);
+
+  set_updated_at(&mut entity, Utc::now());
+  write(config, &entity)?;
+
+  let msg = format!("Tagged {noun} {id} with {}", tags.join(", "));
+  println!("{}", SuccessMessage::new(&msg, &ctx.theme));
+  Ok(())
+}
+
+/// Generic helper for the untag command flow: resolve ID, read entity, remove tags, write entity.
+pub fn untag_entity<E>(
+  ctx: &AppContext,
+  id_prefix: &str,
+  tags: &[String],
+  noun: &str,
+  resolve: impl FnOnce(&Settings, &str, bool) -> store::Result<Id>,
+  read: impl FnOnce(&Settings, &Id) -> store::Result<E>,
+  get_tags: impl FnOnce(&mut E) -> &mut Vec<String>,
+  set_updated_at: impl FnOnce(&mut E, DateTime<Utc>),
+  write: impl FnOnce(&Settings, &E) -> store::Result<()>,
+) -> cli::Result<()> {
+  let config = &ctx.settings;
+  let id = resolve(config, id_prefix, false)?;
+  let mut entity = read(config, &id)?;
+
+  remove_tags(get_tags(&mut entity), tags);
+
+  set_updated_at(&mut entity, Utc::now());
+  write(config, &entity)?;
+
+  let msg = format!("Untagged {noun} {id} from {}", tags.join(", "));
+  println!("{}", SuccessMessage::new(&msg, &ctx.theme));
+  Ok(())
+}
+
 /// Append tags from `to_add` into `tags`, skipping duplicates.
 pub fn apply_tags(tags: &mut Vec<String>, to_add: &[String]) {
   for tag in to_add {

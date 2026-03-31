@@ -1,10 +1,8 @@
-use chrono::Utc;
 use clap::Args;
 
 use crate::{
   cli::{self, AppContext},
   store,
-  ui::composites::success_message::SuccessMessage,
 };
 
 /// Remove tags from a task.
@@ -19,19 +17,17 @@ pub struct Command {
 impl Command {
   /// Remove the specified tags from the task and persist.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    let config = &ctx.settings;
-    let theme = &ctx.theme;
-    let id = store::resolve_task_id(config, &self.id, false)?;
-    let mut task = store::read_task(config, &id)?;
-
-    super::super::tags::remove_tags(&mut task.tags, &self.tags);
-
-    task.updated_at = Utc::now();
-    store::write_task(config, &task)?;
-
-    let msg = format!("Untagged task {} from {}", id, self.tags.join(", "));
-    println!("{}", SuccessMessage::new(&msg, theme));
-    Ok(())
+    super::super::tags::untag_entity(
+      ctx,
+      &self.id,
+      &self.tags,
+      "task",
+      store::resolve_task_id,
+      store::read_task,
+      |t| &mut t.tags,
+      |t, ts| t.updated_at = ts,
+      store::write_task,
+    )
   }
 }
 

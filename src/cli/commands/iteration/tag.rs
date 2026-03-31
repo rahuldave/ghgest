@@ -1,10 +1,8 @@
-use chrono::Utc;
 use clap::Args;
 
 use crate::{
   cli::{self, AppContext},
   store,
-  ui::composites::success_message::SuccessMessage,
 };
 
 /// Add tags to an iteration.
@@ -19,19 +17,17 @@ pub struct Command {
 impl Command {
   /// Merge the provided tags into the iteration's existing tag set, deduplicating.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    let config = &ctx.settings;
-    let theme = &ctx.theme;
-    let id = store::resolve_iteration_id(config, &self.id, false)?;
-    let mut iteration = store::read_iteration(config, &id)?;
-
-    super::super::tags::apply_tags(&mut iteration.tags, &self.tags);
-
-    iteration.updated_at = Utc::now();
-    store::write_iteration(config, &iteration)?;
-
-    let msg = format!("Tagged iteration {} with {}", id, self.tags.join(", "));
-    println!("{}", SuccessMessage::new(&msg, theme));
-    Ok(())
+    super::super::tags::tag_entity(
+      ctx,
+      &self.id,
+      &self.tags,
+      "iteration",
+      store::resolve_iteration_id,
+      store::read_iteration,
+      |i| &mut i.tags,
+      |i, t| i.updated_at = t,
+      store::write_iteration,
+    )
   }
 }
 
