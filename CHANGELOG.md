@@ -7,6 +7,25 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [v0.3.1] - 2026-03-30
+
+### Added
+
+- Per-entity directory overrides via `GEST_ARTIFACT_DIR`, `GEST_TASK_DIR`, `GEST_ITERATION_DIR` environment variables
+  and corresponding `storage.*_dir` config fields
+
+### Changed
+
+- Batched disk reads when resolving blocked-by status for task lists, replacing per-task I/O with a single pass over
+  unique references
+- Faster search filtering by avoiding redundant string allocations during case-insensitive matching
+- Early-exit prefix matching stops scanning after two matches instead of collecting all candidates
+- Skip metadata serialization during search when metadata maps are empty
+- Store functions now receive the full application config, allowing future access to any setting without plumbing
+  changes
+- Consolidated shared helpers for editor invocation, TOML metadata operations, iteration task-loading, and status
+  display across CLI commands
+
 ## [v0.3.0] - 2026-03-30
 
 ### Changed
@@ -76,9 +95,10 @@ Initial release
 [#4]: https://github.com/aaronmallen/gest/issues/4
 [#5]: https://github.com/aaronmallen/gest/issues/5
 
-[Unreleased]: https://github.com/aaronmallen/gest/compare/0.3.0...main
+[Unreleased]: https://github.com/aaronmallen/gest/compare/0.3.1...main
 [v0.2.0]: https://github.com/aaronmallen/gest/compare/0.1.0...0.2.0
 [v0.2.1]: https://github.com/aaronmallen/gest/compare/0.2.0...0.2.1
 [v0.2.2]: https://github.com/aaronmallen/gest/compare/0.2.1...0.2.2
 [v0.2.3]: https://github.com/aaronmallen/gest/compare/0.2.2...0.2.3
 [v0.3.0]: https://github.com/aaronmallen/gest/compare/0.2.3...0.3.0
+[v0.3.1]: https://github.com/aaronmallen/gest/compare/0.3.0...0.3.1
