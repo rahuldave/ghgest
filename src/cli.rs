@@ -49,8 +49,10 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub(crate) struct Cli {
   #[command(subcommand)]
   command: Option<Command>,
+  /// Print version information and exit.
   #[arg(short = 'V', long = "version")]
   print_version: bool,
+  /// Increase logging verbosity (repeat for more detail).
   #[arg(short = 'v', long = "verbose", action = ArgAction::Count, global = true)]
   verbose: u8,
 }

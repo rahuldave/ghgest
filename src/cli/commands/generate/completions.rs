@@ -26,11 +26,16 @@ impl Command {
 /// Supported shell targets for completion generation.
 #[derive(Clone, Debug, ValueEnum)]
 enum ShellArg {
+  /// GNU Bourne-Again SHell.
   Bash,
+  /// Elvish shell.
   Elvish,
+  /// Friendly Interactive SHell.
   Fish,
+  /// Microsoft PowerShell.
   #[value(name = "powershell")]
   PowerShell,
+  /// Z shell.
   Zsh,
 }
 
