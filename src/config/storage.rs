@@ -134,7 +134,7 @@ fn path_hash(path: &Path) -> String {
   let result = hasher.finalize();
   let mut hash = String::with_capacity(16);
   for b in &result[..8] {
-    write!(hash, "{b:02x}").unwrap();
+    write!(hash, "{b:02x}").expect("writing to String is infallible");
   }
   hash
 }
