@@ -26,14 +26,14 @@ pub struct Command {
 impl Command {
   /// Write the link to the source iteration; for iteration targets, also write the reciprocal.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    let layout = &ctx.layout;
+    let config = &ctx.settings;
     let theme = &ctx.theme;
-    let id = store::resolve_iteration_id(layout, &self.id, false)?;
+    let id = store::resolve_iteration_id(config, &self.id, false)?;
 
     let target_id = if self.artifact {
-      store::resolve_artifact_id(layout, &self.target_id, true)?
+      store::resolve_artifact_id(config, &self.target_id, true)?
     } else {
-      store::resolve_iteration_id(layout, &self.target_id, true)?
+      store::resolve_iteration_id(config, &self.target_id, true)?
     };
 
     let ref_path = if self.artifact {
@@ -42,22 +42,22 @@ impl Command {
       format!("iterations/{target_id}")
     };
 
-    let mut iteration = store::read_iteration(layout, &id)?;
+    let mut iteration = store::read_iteration(config, &id)?;
     iteration.links.push(Link {
       ref_: ref_path,
       rel: self.rel.clone(),
     });
     iteration.updated_at = Utc::now();
-    store::write_iteration(layout, &iteration)?;
+    store::write_iteration(config, &iteration)?;
 
     if !self.artifact {
-      let mut target = store::read_iteration(layout, &target_id)?;
+      let mut target = store::read_iteration(config, &target_id)?;
       target.links.push(Link {
         ref_: format!("iterations/{id}"),
         rel: self.rel.inverse(),
       });
       target.updated_at = Utc::now();
-      store::write_iteration(layout, &target)?;
+      store::write_iteration(config, &target)?;
     }
 
     let msg = format!("Linked {} --{}--\u{003e} {}", id, self.rel, target_id);
@@ -82,8 +82,8 @@ mod tests {
       let ctx = make_test_context(dir.path());
       let source = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       let target = make_test_artifact("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
-      store::write_iteration(&ctx.layout, &source).unwrap();
-      store::write_artifact(&ctx.layout, &target).unwrap();
+      store::write_iteration(&ctx.settings, &source).unwrap();
+      store::write_artifact(&ctx.settings, &target).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -93,7 +93,7 @@ mod tests {
       };
       cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_iteration(&ctx.layout, &source.id).unwrap();
+      let loaded = store::read_iteration(&ctx.settings, &source.id).unwrap();
       assert_eq!(loaded.links.len(), 1);
       assert_eq!(loaded.links[0].ref_, "artifacts/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
     }
@@ -104,8 +104,8 @@ mod tests {
       let ctx = make_test_context(dir.path());
       let source = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       let target = make_test_iteration("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
-      store::write_iteration(&ctx.layout, &source).unwrap();
-      store::write_iteration(&ctx.layout, &target).unwrap();
+      store::write_iteration(&ctx.settings, &source).unwrap();
+      store::write_iteration(&ctx.settings, &target).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -115,11 +115,11 @@ mod tests {
       };
       cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_iteration(&ctx.layout, &source.id).unwrap();
+      let loaded = store::read_iteration(&ctx.settings, &source.id).unwrap();
       assert_eq!(loaded.links.len(), 1);
       assert_eq!(loaded.links[0].rel, RelationshipType::RelatesTo);
 
-      let loaded_target = store::read_iteration(&ctx.layout, &target.id).unwrap();
+      let loaded_target = store::read_iteration(&ctx.settings, &target.id).unwrap();
       assert_eq!(loaded_target.links.len(), 1);
       assert_eq!(loaded_target.links[0].rel, RelationshipType::RelatesTo);
     }

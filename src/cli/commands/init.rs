@@ -4,7 +4,6 @@ use clap::Args;
 
 use crate::{
   cli::{self, AppContext},
-  config::storage::DataLayout,
   ui::{theme::Theme, views::system::InitView},
 };
 
@@ -23,27 +22,30 @@ impl Command {
     if self.local {
       let cwd = std::env::current_dir()?;
       let base = cwd.join(".gest");
-      let layout = DataLayout::new(storage, &base);
-      init_at(&base, &layout, Some(".gest/config.toml"), &ctx.theme)
+      init_at(&base, storage, Some(".gest/config.toml"), &ctx.theme)
     } else {
-      let layout = DataLayout::new(storage, &ctx.data_dir);
-      init_at(&ctx.data_dir, &layout, None, &ctx.theme)
+      init_at(ctx.settings.data_dir(), storage, None, &ctx.theme)
     }
   }
 }
 
 /// Create any missing subdirectories and display the result.
 ///
-/// Uses the resolved `DataLayout` to determine which directories to create,
+/// Uses the storage settings to resolve which directories to create,
 /// including per-entity overrides from config or environment variables.
-fn init_at(base: &Path, layout: &DataLayout, config_path: Option<&str>, theme: &Theme) -> cli::Result<()> {
+fn init_at(
+  base: &Path,
+  storage: &crate::config::storage::Settings,
+  config_path: Option<&str>,
+  theme: &Theme,
+) -> cli::Result<()> {
   if !base.exists() {
     std::fs::create_dir_all(base)?;
   }
   for (entity_dir, secondary) in [
-    (layout.artifact_dir(), "archive"),
-    (layout.iteration_dir(), "resolved"),
-    (layout.task_dir(), "resolved"),
+    (storage.resolve_artifact_dir(base), "archive"),
+    (storage.resolve_iteration_dir(base), "resolved"),
+    (storage.resolve_task_dir(base), "resolved"),
   ] {
     std::fs::create_dir_all(entity_dir.join(secondary))?;
   }
@@ -59,8 +61,8 @@ fn init_at(base: &Path, layout: &DataLayout, config_path: Option<&str>, theme: &
 mod tests {
   use super::*;
 
-  fn default_layout(base: &std::path::Path) -> DataLayout {
-    DataLayout::new(&crate::config::storage::Settings::default(), base)
+  fn default_storage() -> crate::config::storage::Settings {
+    crate::config::storage::Settings::default()
   }
 
   mod init_at {
@@ -71,7 +73,7 @@ mod tests {
       let tmp = tempfile::tempdir().unwrap();
       let base = tmp.path().join("data");
 
-      init_at(&base, &default_layout(&base), None, &Theme::default()).unwrap();
+      init_at(&base, &default_storage(), None, &Theme::default()).unwrap();
 
       assert!(base.join("tasks").is_dir());
       assert!(base.join("tasks/resolved").is_dir());
@@ -88,7 +90,7 @@ mod tests {
 
       std::fs::create_dir_all(base.join("tasks")).unwrap();
 
-      init_at(&base, &default_layout(&base), None, &Theme::default()).unwrap();
+      init_at(&base, &default_storage(), None, &Theme::default()).unwrap();
 
       assert!(base.join("artifacts").is_dir());
       assert!(base.join("tasks/resolved").is_dir());
@@ -100,8 +102,8 @@ mod tests {
       let tmp = tempfile::tempdir().unwrap();
       let base = tmp.path().join("data");
 
-      init_at(&base, &default_layout(&base), None, &Theme::default()).unwrap();
-      init_at(&base, &default_layout(&base), None, &Theme::default()).unwrap();
+      init_at(&base, &default_storage(), None, &Theme::default()).unwrap();
+      init_at(&base, &default_storage(), None, &Theme::default()).unwrap();
 
       assert!(base.join("tasks").is_dir());
       assert!(base.join("artifacts").is_dir());
@@ -112,13 +114,7 @@ mod tests {
       let tmp = tempfile::tempdir().unwrap();
       let base = tmp.path().join(".gest");
 
-      init_at(
-        &base,
-        &default_layout(&base),
-        Some(".gest/config.toml"),
-        &Theme::default(),
-      )
-      .unwrap();
+      init_at(&base, &default_storage(), Some(".gest/config.toml"), &Theme::default()).unwrap();
 
       assert!(base.join("tasks").is_dir());
       assert!(base.join("tasks/resolved").is_dir());

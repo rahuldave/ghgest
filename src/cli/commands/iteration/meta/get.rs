@@ -17,9 +17,9 @@ pub struct Command {
 impl Command {
   /// Resolve the iteration, walk the metadata table by dot-path, and print the value.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    let layout = &ctx.layout;
-    let id = store::resolve_iteration_id(layout, &self.id, false)?;
-    let iteration = store::read_iteration(layout, &id)?;
+    let config = &ctx.settings;
+    let id = store::resolve_iteration_id(config, &self.id, false)?;
+    let iteration = store::read_iteration(config, &id)?;
 
     let value = store::meta::resolve_dot_path(&toml::Value::Table(iteration.metadata), &self.path)
       .ok_or_else(|| cli::Error::generic(format!("Metadata key not found: '{}'", self.path)))?;
@@ -42,7 +42,7 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let ctx = make_test_context(dir.path());
       let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_iteration(&ctx.layout, &iteration).unwrap();
+      store::write_iteration(&ctx.settings, &iteration).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -60,7 +60,7 @@ mod tests {
       iteration
         .metadata
         .insert("priority".to_string(), toml::Value::String("high".to_string()));
-      store::write_iteration(&ctx.layout, &iteration).unwrap();
+      store::write_iteration(&ctx.settings, &iteration).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),

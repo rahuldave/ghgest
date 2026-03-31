@@ -19,15 +19,15 @@ pub struct Command {
 impl Command {
   /// Merge the provided tags into the iteration's existing tag set, deduplicating.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    let layout = &ctx.layout;
+    let config = &ctx.settings;
     let theme = &ctx.theme;
-    let id = store::resolve_iteration_id(layout, &self.id, false)?;
-    let mut iteration = store::read_iteration(layout, &id)?;
+    let id = store::resolve_iteration_id(config, &self.id, false)?;
+    let mut iteration = store::read_iteration(config, &id)?;
 
     super::super::tags::apply_tags(&mut iteration.tags, &self.tags);
 
     iteration.updated_at = Utc::now();
-    store::write_iteration(layout, &iteration)?;
+    store::write_iteration(config, &iteration)?;
 
     let msg = format!("Tagged iteration {} with {}", id, self.tags.join(", "));
     println!("{}", SuccessMessage::new(&msg, theme));
@@ -50,7 +50,7 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let ctx = make_test_context(dir.path());
       let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_iteration(&ctx.layout, &iteration).unwrap();
+      store::write_iteration(&ctx.settings, &iteration).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -58,7 +58,7 @@ mod tests {
       };
       cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_iteration(&ctx.layout, &iteration.id).unwrap();
+      let loaded = store::read_iteration(&ctx.settings, &iteration.id).unwrap();
       assert_eq!(loaded.tags, vec!["sprint".to_string(), "q1".to_string()]);
     }
 
@@ -68,7 +68,7 @@ mod tests {
       let ctx = make_test_context(dir.path());
       let mut iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       iteration.tags = vec!["sprint".to_string()];
-      store::write_iteration(&ctx.layout, &iteration).unwrap();
+      store::write_iteration(&ctx.settings, &iteration).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -76,7 +76,7 @@ mod tests {
       };
       cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_iteration(&ctx.layout, &iteration.id).unwrap();
+      let loaded = store::read_iteration(&ctx.settings, &iteration.id).unwrap();
       assert_eq!(loaded.tags, vec!["sprint".to_string(), "q1".to_string()]);
     }
   }

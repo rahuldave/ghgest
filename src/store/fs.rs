@@ -4,16 +4,16 @@ use std::{
 };
 
 use super::Error;
-use crate::{config::storage::DataLayout, model::Id};
+use crate::{config::Settings, model::Id};
 
 /// Create all required store subdirectories under the layout's entity dirs.
-pub fn ensure_dirs(layout: &DataLayout) -> super::Result<()> {
-  fs::create_dir_all(layout.artifact_dir())?;
-  fs::create_dir_all(layout.artifact_dir().join("archive"))?;
-  fs::create_dir_all(layout.iteration_dir())?;
-  fs::create_dir_all(layout.iteration_dir().join("resolved"))?;
-  fs::create_dir_all(layout.task_dir())?;
-  fs::create_dir_all(layout.task_dir().join("resolved"))?;
+pub fn ensure_dirs(config: &Settings) -> super::Result<()> {
+  fs::create_dir_all(config.artifact_dir())?;
+  fs::create_dir_all(config.artifact_dir().join("archive"))?;
+  fs::create_dir_all(config.iteration_dir())?;
+  fs::create_dir_all(config.iteration_dir().join("resolved"))?;
+  fs::create_dir_all(config.task_dir())?;
+  fs::create_dir_all(config.task_dir().join("resolved"))?;
   Ok(())
 }
 
@@ -51,8 +51,8 @@ fn collect_prefix_matches(dir: &Path, extension: &str, prefix: &str) -> super::R
 }
 
 /// Write `content` to `dest` and remove `src` if it exists, ensuring store dirs first.
-pub(crate) fn move_entity_file(layout: &DataLayout, content: &str, dest: &Path, src: &Path) -> super::Result<()> {
-  ensure_dirs(layout)?;
+pub(crate) fn move_entity_file(config: &Settings, content: &str, dest: &Path, src: &Path) -> super::Result<()> {
+  ensure_dirs(config)?;
   fs::write(dest, content)?;
   if src.exists() {
     fs::remove_file(src)?;
@@ -123,17 +123,17 @@ pub(crate) fn resolve_id(
 #[cfg(test)]
 mod tests {
   mod ensure_dirs {
-    use crate::config::storage::{DataLayout, Settings};
+    use crate::config::Settings;
 
-    fn make_layout(base: &std::path::Path) -> DataLayout {
-      DataLayout::new(&Settings::default(), base)
+    fn make_config(base: &std::path::Path) -> Settings {
+      crate::test_helpers::make_test_config(base.to_path_buf())
     }
 
     #[test]
     fn it_creates_all_subdirectories() {
       let dir = tempfile::tempdir().unwrap();
-      let layout = make_layout(dir.path());
-      crate::store::ensure_dirs(&layout).unwrap();
+      let config = make_config(dir.path());
+      crate::store::ensure_dirs(&config).unwrap();
 
       assert!(dir.path().join("artifacts").is_dir());
       assert!(dir.path().join("artifacts/archive").is_dir());
@@ -146,9 +146,9 @@ mod tests {
     #[test]
     fn it_is_idempotent() {
       let dir = tempfile::tempdir().unwrap();
-      let layout = make_layout(dir.path());
-      crate::store::ensure_dirs(&layout).unwrap();
-      crate::store::ensure_dirs(&layout).unwrap();
+      let config = make_config(dir.path());
+      crate::store::ensure_dirs(&config).unwrap();
+      crate::store::ensure_dirs(&config).unwrap();
 
       assert!(dir.path().join("tasks").is_dir());
     }

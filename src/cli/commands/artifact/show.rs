@@ -19,10 +19,10 @@ pub struct Command {
 impl Command {
   /// Resolve the artifact and print its detail view or JSON representation.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    let layout = &ctx.layout;
+    let config = &ctx.settings;
     let theme = &ctx.theme;
-    let id = store::resolve_artifact_id(layout, &self.id, true)?;
-    let artifact = store::read_artifact(layout, &id)?;
+    let id = store::resolve_artifact_id(config, &self.id, true)?;
+    let artifact = store::read_artifact(config, &id)?;
 
     if self.json {
       let json = serde_json::to_string_pretty(&artifact)?;
@@ -64,8 +64,8 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let ctx = make_test_context(dir.path());
       let artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_artifact(&ctx.layout, &artifact).unwrap();
-      store::archive_artifact(&ctx.layout, &artifact.id).unwrap();
+      store::write_artifact(&ctx.settings, &artifact).unwrap();
+      store::archive_artifact(&ctx.settings, &artifact.id).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -80,7 +80,7 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let ctx = make_test_context(dir.path());
       let artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_artifact(&ctx.layout, &artifact).unwrap();
+      store::write_artifact(&ctx.settings, &artifact).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -98,7 +98,7 @@ mod tests {
       artifact.title = "Test Artifact".to_string();
       artifact.body = "# Hello\n\nSome content.".to_string();
       artifact.tags = vec!["spec".to_string()];
-      store::write_artifact(&ctx.layout, &artifact).unwrap();
+      store::write_artifact(&ctx.settings, &artifact).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),

@@ -19,15 +19,15 @@ pub struct Command {
 impl Command {
   /// Merge the given tags into the task and persist.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    let layout = &ctx.layout;
+    let config = &ctx.settings;
     let theme = &ctx.theme;
-    let id = store::resolve_task_id(layout, &self.id, false)?;
-    let mut task = store::read_task(layout, &id)?;
+    let id = store::resolve_task_id(config, &self.id, false)?;
+    let mut task = store::read_task(config, &id)?;
 
     super::super::tags::apply_tags(&mut task.tags, &self.tags);
 
     task.updated_at = Utc::now();
-    store::write_task(layout, &task)?;
+    store::write_task(config, &task)?;
 
     let msg = format!("Tagged task {} with {}", id, self.tags.join(", "));
     println!("{}", SuccessMessage::new(&msg, theme));
@@ -50,7 +50,7 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let ctx = make_test_context(dir.path());
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_task(&ctx.layout, &task).unwrap();
+      store::write_task(&ctx.settings, &task).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -58,7 +58,7 @@ mod tests {
       };
       cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_task(&ctx.layout, &task.id).unwrap();
+      let loaded = store::read_task(&ctx.settings, &task.id).unwrap();
       assert_eq!(loaded.tags, vec!["rust".to_string(), "cli".to_string()]);
     }
 
@@ -68,7 +68,7 @@ mod tests {
       let ctx = make_test_context(dir.path());
       let mut task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
       task.tags = vec!["rust".to_string()];
-      store::write_task(&ctx.layout, &task).unwrap();
+      store::write_task(&ctx.settings, &task).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -76,7 +76,7 @@ mod tests {
       };
       cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_task(&ctx.layout, &task.id).unwrap();
+      let loaded = store::read_task(&ctx.settings, &task.id).unwrap();
       assert_eq!(loaded.tags, vec!["rust".to_string(), "cli".to_string()]);
     }
   }

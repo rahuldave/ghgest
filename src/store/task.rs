@@ -7,7 +7,7 @@ use super::{
   fs::{ensure_dirs, move_entity_file, read_dir_files, resolve_id},
 };
 use crate::{
-  config::storage::DataLayout,
+  config::Settings,
   model::{Id, NewTask, Task, TaskFilter, TaskPatch, link::RelationshipType},
 };
 
@@ -24,7 +24,7 @@ pub struct ResolvedBlocking {
 ///
 /// A `blocked-by` link is only active if the referenced task exists and is non-terminal.
 /// A `blocks` link is only active if the current task itself is non-terminal.
-pub fn resolve_blocking(layout: &DataLayout, task: &Task) -> ResolvedBlocking {
+pub fn resolve_blocking(config: &Settings, task: &Task) -> ResolvedBlocking {
   let blocked_by_ids: Vec<String> = task
     .links
     .iter()
@@ -32,7 +32,7 @@ pub fn resolve_blocking(layout: &DataLayout, task: &Task) -> ResolvedBlocking {
     .filter_map(|link| {
       let id_str = link.ref_.strip_prefix("tasks/")?;
       let id: Id = id_str.parse().ok()?;
-      let referenced = read_task(layout, &id).ok()?;
+      let referenced = read_task(config, &id).ok()?;
       if referenced.status.is_terminal() {
         None
       } else {
@@ -54,7 +54,7 @@ pub fn resolve_blocking(layout: &DataLayout, task: &Task) -> ResolvedBlocking {
 /// Instead of N individual disk reads (one per `blocked-by` link), this collects all referenced
 /// task IDs, reads each unique one once, and resolves blocking status from the in-memory set.
 /// The returned vec is in the same order as `tasks`.
-pub fn resolve_blocking_batch(layout: &DataLayout, tasks: &[Task]) -> Vec<ResolvedBlocking> {
+pub fn resolve_blocking_batch(config: &Settings, tasks: &[Task]) -> Vec<ResolvedBlocking> {
   // Collect all unique blocked-by task IDs across every task.
   let mut needed_ids: HashMap<String, Option<Task>> = HashMap::new();
   for task in tasks {
@@ -70,7 +70,7 @@ pub fn resolve_blocking_batch(layout: &DataLayout, tasks: &[Task]) -> Vec<Resolv
   // Read each unique referenced task exactly once.
   for (id_str, slot) in &mut needed_ids {
     if let Ok(id) = id_str.parse::<Id>()
-      && let Ok(referenced) = read_task(layout, &id)
+      && let Ok(referenced) = read_task(config, &id)
     {
       *slot = Some(referenced);
     }
@@ -105,7 +105,7 @@ pub fn resolve_blocking_batch(layout: &DataLayout, tasks: &[Task]) -> Vec<Resolv
 }
 
 /// Persist a new task, resolving it immediately if the status is terminal.
-pub fn create_task(layout: &DataLayout, new: NewTask) -> super::Result<Task> {
+pub fn create_task(config: &Settings, new: NewTask) -> super::Result<Task> {
   let now = Utc::now();
   let task = Task {
     assigned_to: new.assigned_to,
@@ -123,35 +123,35 @@ pub fn create_task(layout: &DataLayout, new: NewTask) -> super::Result<Task> {
     updated_at: now,
   };
 
-  write_task(layout, &task)?;
+  write_task(config, &task)?;
 
   if task.status.is_terminal() {
-    resolve_task(layout, &task.id)?;
-    return read_task(layout, &task.id);
+    resolve_task(config, &task.id)?;
+    return read_task(config, &task.id);
   }
 
   Ok(task)
 }
 
 /// Check whether a task has been moved to the resolved directory.
-pub fn is_task_resolved(layout: &DataLayout, id: &Id) -> bool {
-  let resolved_path = layout.task_dir().join(format!("resolved/{id}.toml"));
-  let active_path = layout.task_dir().join(format!("{id}.toml"));
+pub fn is_task_resolved(config: &Settings, id: &Id) -> bool {
+  let resolved_path = config.task_dir().join(format!("resolved/{id}.toml"));
+  let active_path = config.task_dir().join(format!("{id}.toml"));
   resolved_path.exists() && !active_path.exists()
 }
 
 /// List tasks matching the given filter criteria.
-pub fn list_tasks(layout: &DataLayout, filter: &TaskFilter) -> super::Result<Vec<Task>> {
+pub fn list_tasks(config: &Settings, filter: &TaskFilter) -> super::Result<Vec<Task>> {
   let mut tasks = Vec::new();
 
-  for path in read_dir_files(layout.task_dir(), "toml")? {
+  for path in read_dir_files(config.task_dir(), "toml")? {
     let content = fs::read_to_string(&path)?;
     let task: Task = toml::from_str(&content)?;
     tasks.push(task);
   }
 
   if filter.all {
-    for path in read_dir_files(&layout.task_dir().join("resolved"), "toml")? {
+    for path in read_dir_files(&config.task_dir().join("resolved"), "toml")? {
       let content = fs::read_to_string(&path)?;
       let task: Task = toml::from_str(&content)?;
       tasks.push(task);
@@ -176,9 +176,9 @@ pub fn list_tasks(layout: &DataLayout, filter: &TaskFilter) -> super::Result<Vec
 }
 
 /// Load a single task by exact ID, checking both active and resolved directories.
-pub fn read_task(layout: &DataLayout, id: &Id) -> super::Result<Task> {
-  let active = layout.task_dir().join(format!("{id}.toml"));
-  let resolved = layout.task_dir().join(format!("resolved/{id}.toml"));
+pub fn read_task(config: &Settings, id: &Id) -> super::Result<Task> {
+  let active = config.task_dir().join(format!("{id}.toml"));
+  let resolved = config.task_dir().join(format!("resolved/{id}.toml"));
 
   let path = if active.exists() {
     active
@@ -196,29 +196,29 @@ pub fn read_task(layout: &DataLayout, id: &Id) -> super::Result<Task> {
 }
 
 /// Move a task to the resolved directory, setting its `resolved_at` timestamp.
-pub fn resolve_task(layout: &DataLayout, id: &Id) -> super::Result<()> {
-  let mut task = read_task(layout, id)?;
+pub fn resolve_task(config: &Settings, id: &Id) -> super::Result<()> {
+  let mut task = read_task(config, id)?;
   let now = Utc::now();
   task.resolved_at = Some(now);
   task.updated_at = now;
 
   let content = toml::to_string(&task)?;
   move_entity_file(
-    layout,
+    config,
     &content,
-    &layout.task_dir().join(format!("resolved/{id}.toml")),
-    &layout.task_dir().join(format!("{id}.toml")),
+    &config.task_dir().join(format!("resolved/{id}.toml")),
+    &config.task_dir().join(format!("{id}.toml")),
   )?;
 
   Ok(())
 }
 
 /// Resolve a short ID prefix to a full task [`Id`].
-pub fn resolve_task_id(layout: &DataLayout, prefix: &str, include_resolved: bool) -> super::Result<Id> {
+pub fn resolve_task_id(config: &Settings, prefix: &str, include_resolved: bool) -> super::Result<Id> {
   log::debug!("resolving task ID prefix '{prefix}'");
   resolve_id(
-    layout.task_dir(),
-    Some(&layout.task_dir().join("resolved")),
+    config.task_dir(),
+    Some(&config.task_dir().join("resolved")),
     "toml",
     prefix,
     include_resolved,
@@ -227,9 +227,9 @@ pub fn resolve_task_id(layout: &DataLayout, prefix: &str, include_resolved: bool
 }
 
 /// Apply a partial update to an existing task, moving it between active/resolved as needed.
-pub fn update_task(layout: &DataLayout, id: &Id, patch: TaskPatch) -> super::Result<Task> {
-  let mut task = read_task(layout, id)?;
-  let was_resolved = is_task_resolved(layout, id);
+pub fn update_task(config: &Settings, id: &Id, patch: TaskPatch) -> super::Result<Task> {
+  let mut task = read_task(config, id)?;
+  let was_resolved = is_task_resolved(config, id);
 
   if let Some(assigned_to) = patch.assigned_to {
     task.assigned_to = assigned_to;
@@ -262,36 +262,36 @@ pub fn update_task(layout: &DataLayout, id: &Id, patch: TaskPatch) -> super::Res
     task.resolved_at = Some(task.updated_at);
     let content = toml::to_string(&task)?;
     move_entity_file(
-      layout,
+      config,
       &content,
-      &layout.task_dir().join(format!("resolved/{id}.toml")),
-      &layout.task_dir().join(format!("{id}.toml")),
+      &config.task_dir().join(format!("resolved/{id}.toml")),
+      &config.task_dir().join(format!("{id}.toml")),
     )?;
   } else if !task.status.is_terminal() && was_resolved {
     task.resolved_at = None;
     let content = toml::to_string(&task)?;
     move_entity_file(
-      layout,
+      config,
       &content,
-      &layout.task_dir().join(format!("{id}.toml")),
-      &layout.task_dir().join(format!("resolved/{id}.toml")),
+      &config.task_dir().join(format!("{id}.toml")),
+      &config.task_dir().join(format!("resolved/{id}.toml")),
     )?;
   } else {
-    write_task(layout, &task)?;
+    write_task(config, &task)?;
   }
 
   Ok(task)
 }
 
 /// Serialize and write a task to the active tasks directory.
-pub fn write_task(layout: &DataLayout, task: &Task) -> super::Result<()> {
-  let path = layout.task_dir().join(format!("{}.toml", task.id));
-  write_task_to_path(layout, task, &path)
+pub fn write_task(config: &Settings, task: &Task) -> super::Result<()> {
+  let path = config.task_dir().join(format!("{}.toml", task.id));
+  write_task_to_path(config, task, &path)
 }
 
 /// Inner helper that writes a task to an explicit path.
-fn write_task_to_path(layout: &DataLayout, task: &Task, path: &Path) -> super::Result<()> {
-  ensure_dirs(layout)?;
+fn write_task_to_path(config: &Settings, task: &Task, path: &Path) -> super::Result<()> {
+  ensure_dirs(config)?;
   let content = toml::to_string(task)?;
   log::trace!("writing task {} to {}", task.id, path.display());
   fs::write(path, content)?;
@@ -301,12 +301,12 @@ fn write_task_to_path(layout: &DataLayout, task: &Task, path: &Path) -> super::R
 #[cfg(test)]
 mod tests {
   use crate::{
-    config::storage::DataLayout,
+    config::Settings,
     model::{Task, TaskFilter, link::Link, task::Status},
   };
 
-  fn make_layout(base: &std::path::Path) -> DataLayout {
-    DataLayout::new(&crate::config::storage::Settings::default(), base)
+  fn make_config(base: &std::path::Path) -> Settings {
+    crate::test_helpers::make_test_config(base.to_path_buf())
   }
 
   fn make_test_task(id: &str, title: &str) -> Task {
@@ -323,19 +323,19 @@ mod tests {
     fn it_returns_false_for_active_task() {
       let dir = tempfile::tempdir().unwrap();
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Active");
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
 
-      assert!(!crate::store::is_task_resolved(&make_layout(dir.path()), &task.id));
+      assert!(!crate::store::is_task_resolved(&make_config(dir.path()), &task.id));
     }
 
     #[test]
     fn it_returns_true_for_resolved_task() {
       let dir = tempfile::tempdir().unwrap();
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Resolved");
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
-      crate::store::resolve_task(&make_layout(dir.path()), &task.id).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
+      crate::store::resolve_task(&make_config(dir.path()), &task.id).unwrap();
 
-      assert!(crate::store::is_task_resolved(&make_layout(dir.path()), &task.id));
+      assert!(crate::store::is_task_resolved(&make_config(dir.path()), &task.id));
     }
   }
 
@@ -348,11 +348,11 @@ mod tests {
     fn it_excludes_resolved_by_default() {
       let dir = tempfile::tempdir().unwrap();
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Active Task");
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
-      crate::store::resolve_task(&make_layout(dir.path()), &task.id).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
+      crate::store::resolve_task(&make_config(dir.path()), &task.id).unwrap();
 
       let filter = TaskFilter::default();
-      let tasks = crate::store::list_tasks(&make_layout(dir.path()), &filter).unwrap();
+      let tasks = crate::store::list_tasks(&make_config(dir.path()), &filter).unwrap();
       assert_eq!(tasks.len(), 0);
     }
 
@@ -363,14 +363,14 @@ mod tests {
       task1.status = Status::Open;
       let mut task2 = make_test_task("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Done Task");
       task2.status = Status::Done;
-      crate::store::write_task(&make_layout(dir.path()), &task1).unwrap();
-      crate::store::write_task(&make_layout(dir.path()), &task2).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task1).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task2).unwrap();
 
       let filter = TaskFilter {
         status: Some(Status::Done),
         ..Default::default()
       };
-      let tasks = crate::store::list_tasks(&make_layout(dir.path()), &filter).unwrap();
+      let tasks = crate::store::list_tasks(&make_config(dir.path()), &filter).unwrap();
       assert_eq!(tasks.len(), 1);
       assert_eq!(tasks[0].title, "Done Task");
     }
@@ -381,14 +381,14 @@ mod tests {
       let mut task1 = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Tagged");
       task1.tags = vec!["rust".to_string()];
       let task2 = make_test_task("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Untagged");
-      crate::store::write_task(&make_layout(dir.path()), &task1).unwrap();
-      crate::store::write_task(&make_layout(dir.path()), &task2).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task1).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task2).unwrap();
 
       let filter = TaskFilter {
         tag: Some("rust".to_string()),
         ..Default::default()
       };
-      let tasks = crate::store::list_tasks(&make_layout(dir.path()), &filter).unwrap();
+      let tasks = crate::store::list_tasks(&make_config(dir.path()), &filter).unwrap();
       assert_eq!(tasks.len(), 1);
       assert_eq!(tasks[0].title, "Tagged");
     }
@@ -397,14 +397,14 @@ mod tests {
     fn it_includes_resolved_when_all() {
       let dir = tempfile::tempdir().unwrap();
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Active Task");
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
-      crate::store::resolve_task(&make_layout(dir.path()), &task.id).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
+      crate::store::resolve_task(&make_config(dir.path()), &task.id).unwrap();
 
       let filter = TaskFilter {
         all: true,
         ..Default::default()
       };
-      let tasks = crate::store::list_tasks(&make_layout(dir.path()), &filter).unwrap();
+      let tasks = crate::store::list_tasks(&make_config(dir.path()), &filter).unwrap();
       assert_eq!(tasks.len(), 1);
     }
 
@@ -413,11 +413,11 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let task1 = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Task One");
       let task2 = make_test_task("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Task Two");
-      crate::store::write_task(&make_layout(dir.path()), &task1).unwrap();
-      crate::store::write_task(&make_layout(dir.path()), &task2).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task1).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task2).unwrap();
 
       let filter = TaskFilter::default();
-      let tasks = crate::store::list_tasks(&make_layout(dir.path()), &filter).unwrap();
+      let tasks = crate::store::list_tasks(&make_config(dir.path()), &filter).unwrap();
       assert_eq!(tasks.len(), 2);
     }
   }
@@ -429,10 +429,10 @@ mod tests {
     fn it_moves_file_to_resolved() {
       let dir = tempfile::tempdir().unwrap();
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "To Resolve");
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
 
       assert!(dir.path().join("tasks/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml").exists());
-      crate::store::resolve_task(&make_layout(dir.path()), &task.id).unwrap();
+      crate::store::resolve_task(&make_config(dir.path()), &task.id).unwrap();
 
       assert!(!dir.path().join("tasks/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml").exists());
       assert!(
@@ -447,11 +447,11 @@ mod tests {
     fn it_sets_resolved_at() {
       let dir = tempfile::tempdir().unwrap();
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "To Resolve");
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
 
-      crate::store::resolve_task(&make_layout(dir.path()), &task.id).unwrap();
+      crate::store::resolve_task(&make_config(dir.path()), &task.id).unwrap();
 
-      let loaded = crate::store::read_task(&make_layout(dir.path()), &task.id).unwrap();
+      let loaded = crate::store::read_task(&make_config(dir.path()), &task.id).unwrap();
       assert!(loaded.resolved_at.is_some());
     }
   }
@@ -467,12 +467,12 @@ mod tests {
       let task1 = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Active 1");
       let task2 = make_test_task("zyxwkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Active 2");
       let task3 = make_test_task("zyxwmmmmmmmmmmmmmmmmmmmmmmmmmmmm", "Resolved");
-      crate::store::write_task(&make_layout(dir.path()), &task1).unwrap();
-      crate::store::write_task(&make_layout(dir.path()), &task2).unwrap();
-      crate::store::write_task(&make_layout(dir.path()), &task3).unwrap();
-      crate::store::resolve_task(&make_layout(dir.path()), &task3.id).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task1).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task2).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task3).unwrap();
+      crate::store::resolve_task(&make_config(dir.path()), &task3.id).unwrap();
 
-      let result = crate::store::resolve_task_id(&make_layout(dir.path()), "zyxw", true);
+      let result = crate::store::resolve_task_id(&make_config(dir.path()), "zyxw", true);
       assert!(result.is_err());
       let err = result.unwrap_err().to_string();
       assert!(err.contains("Ambiguous"), "Expected ambiguous error, got: {err}");
@@ -487,12 +487,12 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let task1 = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Resolved 1");
       let task2 = make_test_task("zyxwkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Resolved 2");
-      crate::store::write_task(&make_layout(dir.path()), &task1).unwrap();
-      crate::store::write_task(&make_layout(dir.path()), &task2).unwrap();
-      crate::store::resolve_task(&make_layout(dir.path()), &task1.id).unwrap();
-      crate::store::resolve_task(&make_layout(dir.path()), &task2.id).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task1).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task2).unwrap();
+      crate::store::resolve_task(&make_config(dir.path()), &task1.id).unwrap();
+      crate::store::resolve_task(&make_config(dir.path()), &task2.id).unwrap();
 
-      let result = crate::store::resolve_task_id(&make_layout(dir.path()), "zyxw", true);
+      let result = crate::store::resolve_task_id(&make_config(dir.path()), "zyxw", true);
       assert!(result.is_err());
       let err = result.unwrap_err().to_string();
       assert!(err.contains("Ambiguous"), "Expected ambiguous error, got: {err}");
@@ -502,10 +502,10 @@ mod tests {
     fn it_errors_not_found_for_resolved_when_not_included() {
       let dir = tempfile::tempdir().unwrap();
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Resolved");
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
-      crate::store::resolve_task(&make_layout(dir.path()), &task.id).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
+      crate::store::resolve_task(&make_config(dir.path()), &task.id).unwrap();
 
-      let result = crate::store::resolve_task_id(&make_layout(dir.path()), "zyxw", false);
+      let result = crate::store::resolve_task_id(&make_config(dir.path()), "zyxw", false);
       assert!(result.is_err());
       let err = result.unwrap_err().to_string();
       assert!(err.contains("not found"), "Expected not found error, got: {err}");
@@ -517,10 +517,10 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let task1 = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Task 1");
       let task2 = make_test_task("zyxwkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Task 2");
-      crate::store::write_task(&make_layout(dir.path()), &task1).unwrap();
-      crate::store::write_task(&make_layout(dir.path()), &task2).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task1).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task2).unwrap();
 
-      let result = crate::store::resolve_task_id(&make_layout(dir.path()), "zyxw", false);
+      let result = crate::store::resolve_task_id(&make_config(dir.path()), "zyxw", false);
       assert!(result.is_err());
       let err = result.unwrap_err().to_string();
       assert!(err.contains("Ambiguous"), "Expected ambiguous error, got: {err}");
@@ -529,9 +529,9 @@ mod tests {
     #[test]
     fn it_errors_on_not_found() {
       let dir = tempfile::tempdir().unwrap();
-      crate::store::ensure_dirs(&make_layout(dir.path())).unwrap();
+      crate::store::ensure_dirs(&make_config(dir.path())).unwrap();
 
-      let result = crate::store::resolve_task_id(&make_layout(dir.path()), "nnnn", false);
+      let result = crate::store::resolve_task_id(&make_config(dir.path()), "nnnn", false);
       assert!(result.is_err());
       let err = result.unwrap_err().to_string();
       assert!(err.contains("not found"), "Expected not found error, got: {err}");
@@ -542,10 +542,10 @@ mod tests {
     fn it_falls_back_to_resolved_when_no_active_match() {
       let dir = tempfile::tempdir().unwrap();
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Resolved");
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
-      crate::store::resolve_task(&make_layout(dir.path()), &task.id).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
+      crate::store::resolve_task(&make_config(dir.path()), &task.id).unwrap();
 
-      let resolved = crate::store::resolve_task_id(&make_layout(dir.path()), "zyxw", true).unwrap();
+      let resolved = crate::store::resolve_task_id(&make_config(dir.path()), "zyxw", true).unwrap();
       assert_eq!(resolved.to_string(), "zyxwvutsrqponmlkzyxwvutsrqponmlk");
     }
 
@@ -554,11 +554,11 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let active = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Active");
       let to_resolve = make_test_task("zyxwkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Resolved");
-      crate::store::write_task(&make_layout(dir.path()), &active).unwrap();
-      crate::store::write_task(&make_layout(dir.path()), &to_resolve).unwrap();
-      crate::store::resolve_task(&make_layout(dir.path()), &to_resolve.id).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &active).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &to_resolve).unwrap();
+      crate::store::resolve_task(&make_config(dir.path()), &to_resolve.id).unwrap();
 
-      let resolved = crate::store::resolve_task_id(&make_layout(dir.path()), "zyxw", true).unwrap();
+      let resolved = crate::store::resolve_task_id(&make_config(dir.path()), "zyxw", true).unwrap();
       assert_eq!(resolved.to_string(), "zyxwvutsrqponmlkzyxwvutsrqponmlk");
     }
 
@@ -566,9 +566,9 @@ mod tests {
     fn it_resolves_unique_prefix() {
       let dir = tempfile::tempdir().unwrap();
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test");
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
 
-      let resolved = crate::store::resolve_task_id(&make_layout(dir.path()), "zyxw", false).unwrap();
+      let resolved = crate::store::resolve_task_id(&make_config(dir.path()), "zyxw", false).unwrap();
       assert_eq!(resolved.to_string(), "zyxwvutsrqponmlkzyxwvutsrqponmlk");
     }
   }
@@ -583,16 +583,16 @@ mod tests {
     fn it_returns_active_blocker() {
       let dir = tempfile::tempdir().unwrap();
       let blocker = make_test_task("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Blocker");
-      crate::store::write_task(&make_layout(dir.path()), &blocker).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &blocker).unwrap();
 
       let mut task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Blocked");
       task.links = vec![Link {
         ref_: "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk".to_string(),
         rel: RelationshipType::BlockedBy,
       }];
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
 
-      let result = crate::store::resolve_blocking(&make_layout(dir.path()), &task);
+      let result = crate::store::resolve_blocking(&make_config(dir.path()), &task);
       assert_eq!(result.blocked_by_ids, vec!["kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"]);
       assert!(!result.is_blocking);
     }
@@ -602,16 +602,16 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let mut blocker = make_test_task("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Done Blocker");
       blocker.status = Status::Done;
-      crate::store::write_task(&make_layout(dir.path()), &blocker).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &blocker).unwrap();
 
       let mut task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Blocked");
       task.links = vec![Link {
         ref_: "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk".to_string(),
         rel: RelationshipType::BlockedBy,
       }];
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
 
-      let result = crate::store::resolve_blocking(&make_layout(dir.path()), &task);
+      let result = crate::store::resolve_blocking(&make_config(dir.path()), &task);
       assert!(result.blocked_by_ids.is_empty());
     }
 
@@ -620,32 +620,32 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let mut blocker = make_test_task("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Cancelled Blocker");
       blocker.status = Status::Cancelled;
-      crate::store::write_task(&make_layout(dir.path()), &blocker).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &blocker).unwrap();
 
       let mut task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Blocked");
       task.links = vec![Link {
         ref_: "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk".to_string(),
         rel: RelationshipType::BlockedBy,
       }];
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
 
-      let result = crate::store::resolve_blocking(&make_layout(dir.path()), &task);
+      let result = crate::store::resolve_blocking(&make_config(dir.path()), &task);
       assert!(result.blocked_by_ids.is_empty());
     }
 
     #[test]
     fn it_excludes_missing_blocker() {
       let dir = tempfile::tempdir().unwrap();
-      crate::store::ensure_dirs(&make_layout(dir.path())).unwrap();
+      crate::store::ensure_dirs(&make_config(dir.path())).unwrap();
 
       let mut task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Blocked");
       task.links = vec![Link {
         ref_: "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk".to_string(),
         rel: RelationshipType::BlockedBy,
       }];
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
 
-      let result = crate::store::resolve_blocking(&make_layout(dir.path()), &task);
+      let result = crate::store::resolve_blocking(&make_config(dir.path()), &task);
       assert!(result.blocked_by_ids.is_empty());
     }
 
@@ -657,9 +657,9 @@ mod tests {
         ref_: "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk".to_string(),
         rel: RelationshipType::Blocks,
       }];
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
 
-      let result = crate::store::resolve_blocking(&make_layout(dir.path()), &task);
+      let result = crate::store::resolve_blocking(&make_config(dir.path()), &task);
       assert!(result.is_blocking);
     }
 
@@ -672,9 +672,9 @@ mod tests {
         ref_: "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk".to_string(),
         rel: RelationshipType::Blocks,
       }];
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
 
-      let result = crate::store::resolve_blocking(&make_layout(dir.path()), &task);
+      let result = crate::store::resolve_blocking(&make_config(dir.path()), &task);
       assert!(!result.is_blocking);
     }
 
@@ -687,9 +687,9 @@ mod tests {
         ref_: "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk".to_string(),
         rel: RelationshipType::Blocks,
       }];
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
 
-      let result = crate::store::resolve_blocking(&make_layout(dir.path()), &task);
+      let result = crate::store::resolve_blocking(&make_config(dir.path()), &task);
       assert!(!result.is_blocking);
     }
 
@@ -698,17 +698,17 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let mut blocker = make_test_task("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Resolved Blocker");
       blocker.status = Status::Done;
-      crate::store::write_task(&make_layout(dir.path()), &blocker).unwrap();
-      crate::store::resolve_task(&make_layout(dir.path()), &blocker.id).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &blocker).unwrap();
+      crate::store::resolve_task(&make_config(dir.path()), &blocker.id).unwrap();
 
       let mut task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Blocked");
       task.links = vec![Link {
         ref_: "tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk".to_string(),
         rel: RelationshipType::BlockedBy,
       }];
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
 
-      let result = crate::store::resolve_blocking(&make_layout(dir.path()), &task);
+      let result = crate::store::resolve_blocking(&make_config(dir.path()), &task);
       assert!(result.blocked_by_ids.is_empty());
     }
   }
@@ -734,8 +734,8 @@ mod tests {
       };
       task.tags = vec!["rust".to_string(), "test".to_string()];
 
-      crate::store::write_task(&make_layout(dir.path()), &task).unwrap();
-      let loaded = crate::store::read_task(&make_layout(dir.path()), &task.id).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
+      let loaded = crate::store::read_task(&make_config(dir.path()), &task.id).unwrap();
 
       assert_eq!(task, loaded);
     }

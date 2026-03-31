@@ -180,7 +180,10 @@ mod tests {
 
       with_var_unset("GEST_CONFIG", || {
         let settings = load(tmp.path()).unwrap();
-        assert_eq!(settings.storage().data_dir(tmp.path().into()).unwrap(), data_dir);
+        assert_eq!(
+          settings.storage().resolve_data_dir(tmp.path().into()).unwrap(),
+          data_dir
+        );
       })
     }
 
@@ -198,7 +201,10 @@ mod tests {
 
       with_var_unset("GEST_CONFIG", || {
         let settings = load(tmp.path()).unwrap();
-        assert_eq!(settings.storage().data_dir(tmp.path().into()).unwrap(), data_dir);
+        assert_eq!(
+          settings.storage().resolve_data_dir(tmp.path().into()).unwrap(),
+          data_dir
+        );
       })
     }
 
@@ -215,7 +221,10 @@ mod tests {
 
       with_var_unset("GEST_CONFIG", || {
         let settings = load(tmp.path()).unwrap();
-        assert_eq!(settings.storage().data_dir(tmp.path().into()).unwrap(), data_dir);
+        assert_eq!(
+          settings.storage().resolve_data_dir(tmp.path().into()).unwrap(),
+          data_dir
+        );
       })
     }
 
@@ -252,7 +261,7 @@ mod tests {
 
       with_var_unset("GEST_CONFIG", || {
         let settings = load(&child).unwrap();
-        assert_eq!(settings.storage().data_dir(child.clone()).unwrap(), child_dir);
+        assert_eq!(settings.storage().resolve_data_dir(child.clone()).unwrap(), child_dir);
       })
     }
   }

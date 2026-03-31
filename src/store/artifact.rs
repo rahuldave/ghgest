@@ -10,32 +10,32 @@ use super::{
   fs::{ensure_dirs, move_entity_file, read_dir_files, resolve_id},
 };
 use crate::{
-  config::storage::DataLayout,
+  config::Settings,
   model::{Artifact, ArtifactFilter, ArtifactPatch, Id, NewArtifact},
 };
 
 /// Move an artifact to the archive, setting its `archived_at` timestamp.
-pub fn archive_artifact(layout: &DataLayout, id: &Id) -> super::Result<()> {
-  let mut artifact = read_artifact(layout, id)?;
+pub fn archive_artifact(config: &Settings, id: &Id) -> super::Result<()> {
+  let mut artifact = read_artifact(config, id)?;
   let now = Utc::now();
   artifact.archived_at = Some(now);
   artifact.updated_at = now;
 
   let content = serialize_artifact(&artifact)?;
   move_entity_file(
-    layout,
+    config,
     &content,
-    &layout.artifact_dir().join(format!("archive/{id}.md")),
-    &layout.artifact_dir().join(format!("{id}.md")),
+    &config.artifact_dir().join(format!("archive/{id}.md")),
+    &config.artifact_dir().join(format!("{id}.md")),
   )?;
 
   Ok(())
 }
 
 /// Return the on-disk path for an artifact, preferring the archive if no active file exists.
-pub fn artifact_path(layout: &DataLayout, id: &Id) -> PathBuf {
-  let active = layout.artifact_dir().join(format!("{id}.md"));
-  let archived = layout.artifact_dir().join(format!("archive/{id}.md"));
+pub fn artifact_path(config: &Settings, id: &Id) -> PathBuf {
+  let active = config.artifact_dir().join(format!("{id}.md"));
+  let archived = config.artifact_dir().join(format!("archive/{id}.md"));
   if archived.exists() && !active.exists() {
     archived
   } else {
@@ -44,7 +44,7 @@ pub fn artifact_path(layout: &DataLayout, id: &Id) -> PathBuf {
 }
 
 /// Persist a new artifact and return the fully-populated record.
-pub fn create_artifact(layout: &DataLayout, new: NewArtifact) -> super::Result<Artifact> {
+pub fn create_artifact(config: &Settings, new: NewArtifact) -> super::Result<Artifact> {
   let now = Utc::now();
   let artifact = Artifact {
     archived_at: None,
@@ -58,16 +58,16 @@ pub fn create_artifact(layout: &DataLayout, new: NewArtifact) -> super::Result<A
     updated_at: now,
   };
 
-  write_artifact(layout, &artifact)?;
+  write_artifact(config, &artifact)?;
   Ok(artifact)
 }
 
 /// List artifacts matching the given filter criteria.
-pub fn list_artifacts(layout: &DataLayout, filter: &ArtifactFilter) -> super::Result<Vec<Artifact>> {
+pub fn list_artifacts(config: &Settings, filter: &ArtifactFilter) -> super::Result<Vec<Artifact>> {
   let mut artifacts = Vec::new();
 
   if !filter.only_archived {
-    for path in read_dir_files(layout.artifact_dir(), "md")? {
+    for path in read_dir_files(config.artifact_dir(), "md")? {
       let content = fs::read_to_string(&path)?;
       let artifact = parse_artifact_file(&content)?;
       artifacts.push(artifact);
@@ -75,7 +75,7 @@ pub fn list_artifacts(layout: &DataLayout, filter: &ArtifactFilter) -> super::Re
   }
 
   if filter.show_all || filter.only_archived {
-    for path in read_dir_files(&layout.artifact_dir().join("archive"), "md")? {
+    for path in read_dir_files(&config.artifact_dir().join("archive"), "md")? {
       let content = fs::read_to_string(&path)?;
       let artifact = parse_artifact_file(&content)?;
       artifacts.push(artifact);
@@ -100,9 +100,9 @@ pub fn list_artifacts(layout: &DataLayout, filter: &ArtifactFilter) -> super::Re
 }
 
 /// Load a single artifact by exact ID, checking both active and archived directories.
-pub fn read_artifact(layout: &DataLayout, id: &Id) -> super::Result<Artifact> {
-  let active = layout.artifact_dir().join(format!("{id}.md"));
-  let archived = layout.artifact_dir().join(format!("archive/{id}.md"));
+pub fn read_artifact(config: &Settings, id: &Id) -> super::Result<Artifact> {
+  let active = config.artifact_dir().join(format!("{id}.md"));
+  let archived = config.artifact_dir().join(format!("archive/{id}.md"));
 
   let path = if active.exists() {
     active
@@ -119,11 +119,11 @@ pub fn read_artifact(layout: &DataLayout, id: &Id) -> super::Result<Artifact> {
 }
 
 /// Resolve a short ID prefix to a full artifact [`Id`].
-pub fn resolve_artifact_id(layout: &DataLayout, prefix: &str, show_all: bool) -> super::Result<Id> {
+pub fn resolve_artifact_id(config: &Settings, prefix: &str, show_all: bool) -> super::Result<Id> {
   log::debug!("resolving artifact ID prefix '{prefix}'");
   resolve_id(
-    layout.artifact_dir(),
-    Some(&layout.artifact_dir().join("archive")),
+    config.artifact_dir(),
+    Some(&config.artifact_dir().join("archive")),
     "md",
     prefix,
     show_all,
@@ -132,8 +132,8 @@ pub fn resolve_artifact_id(layout: &DataLayout, prefix: &str, show_all: bool) ->
 }
 
 /// Apply a partial update to an existing artifact.
-pub fn update_artifact(layout: &DataLayout, id: &Id, patch: ArtifactPatch) -> super::Result<Artifact> {
-  let mut artifact = read_artifact(layout, id)?;
+pub fn update_artifact(config: &Settings, id: &Id, patch: ArtifactPatch) -> super::Result<Artifact> {
+  let mut artifact = read_artifact(config, id)?;
 
   if let Some(body) = patch.body {
     artifact.body = body;
@@ -152,15 +152,15 @@ pub fn update_artifact(layout: &DataLayout, id: &Id, patch: ArtifactPatch) -> su
   }
 
   artifact.updated_at = Utc::now();
-  write_artifact(layout, &artifact)?;
+  write_artifact(config, &artifact)?;
   Ok(artifact)
 }
 
 /// Serialize and write an artifact to the active artifacts directory.
-pub fn write_artifact(layout: &DataLayout, artifact: &Artifact) -> super::Result<()> {
-  ensure_dirs(layout)?;
+pub fn write_artifact(config: &Settings, artifact: &Artifact) -> super::Result<()> {
+  ensure_dirs(config)?;
   let content = serialize_artifact(artifact)?;
-  let path = layout.artifact_dir().join(format!("{}.md", artifact.id));
+  let path = config.artifact_dir().join(format!("{}.md", artifact.id));
   log::trace!("writing artifact {} to {}", artifact.id, path.display());
   fs::write(path, content)?;
   Ok(())
@@ -203,12 +203,12 @@ fn serialize_artifact(artifact: &Artifact) -> super::Result<String> {
 #[cfg(test)]
 mod tests {
   use crate::{
-    config::storage::DataLayout,
+    config::Settings,
     model::{Artifact, ArtifactFilter},
   };
 
-  fn make_layout(base: &std::path::Path) -> DataLayout {
-    DataLayout::new(&crate::config::storage::Settings::default(), base)
+  fn make_config(base: &std::path::Path) -> Settings {
+    crate::test_helpers::make_test_config(base.to_path_buf())
   }
 
   fn make_test_artifact(id: &str, title: &str, body: &str) -> Artifact {
@@ -229,8 +229,8 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let artifact = make_test_artifact("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Empty Body", "");
 
-      crate::store::write_artifact(&make_layout(dir.path()), &artifact).unwrap();
-      let loaded = crate::store::read_artifact(&make_layout(dir.path()), &artifact.id).unwrap();
+      crate::store::write_artifact(&make_config(dir.path()), &artifact).unwrap();
+      let loaded = crate::store::read_artifact(&make_config(dir.path()), &artifact.id).unwrap();
 
       assert_eq!(loaded.body, "");
       assert_eq!(loaded.title, "Empty Body");
@@ -245,8 +245,8 @@ mod tests {
         "# Hello\n\nSome content here.",
       );
 
-      crate::store::write_artifact(&make_layout(dir.path()), &artifact).unwrap();
-      let loaded = crate::store::read_artifact(&make_layout(dir.path()), &artifact.id).unwrap();
+      crate::store::write_artifact(&make_config(dir.path()), &artifact).unwrap();
+      let loaded = crate::store::read_artifact(&make_config(dir.path()), &artifact.id).unwrap();
 
       assert_eq!(artifact.title, loaded.title);
       assert_eq!(artifact.body, loaded.body);
@@ -263,11 +263,11 @@ mod tests {
     fn it_excludes_archived_by_default() {
       let dir = tempfile::tempdir().unwrap();
       let a = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "To Archive", "");
-      crate::store::write_artifact(&make_layout(dir.path()), &a).unwrap();
-      crate::store::archive_artifact(&make_layout(dir.path()), &a.id).unwrap();
+      crate::store::write_artifact(&make_config(dir.path()), &a).unwrap();
+      crate::store::archive_artifact(&make_config(dir.path()), &a.id).unwrap();
 
       let filter = ArtifactFilter::default();
-      let artifacts = crate::store::list_artifacts(&make_layout(dir.path()), &filter).unwrap();
+      let artifacts = crate::store::list_artifacts(&make_config(dir.path()), &filter).unwrap();
       assert_eq!(artifacts.len(), 0);
     }
 
@@ -276,15 +276,15 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let active = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Active", "");
       let to_archive = make_test_artifact("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Archived", "");
-      crate::store::write_artifact(&make_layout(dir.path()), &active).unwrap();
-      crate::store::write_artifact(&make_layout(dir.path()), &to_archive).unwrap();
-      crate::store::archive_artifact(&make_layout(dir.path()), &to_archive.id).unwrap();
+      crate::store::write_artifact(&make_config(dir.path()), &active).unwrap();
+      crate::store::write_artifact(&make_config(dir.path()), &to_archive).unwrap();
+      crate::store::archive_artifact(&make_config(dir.path()), &to_archive.id).unwrap();
 
       let filter = ArtifactFilter {
         show_all: true,
         ..Default::default()
       };
-      let artifacts = crate::store::list_artifacts(&make_layout(dir.path()), &filter).unwrap();
+      let artifacts = crate::store::list_artifacts(&make_config(dir.path()), &filter).unwrap();
       assert_eq!(artifacts.len(), 2);
     }
 
@@ -293,11 +293,11 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let a1 = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Active One", "");
       let a2 = make_test_artifact("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Active Two", "");
-      crate::store::write_artifact(&make_layout(dir.path()), &a1).unwrap();
-      crate::store::write_artifact(&make_layout(dir.path()), &a2).unwrap();
+      crate::store::write_artifact(&make_config(dir.path()), &a1).unwrap();
+      crate::store::write_artifact(&make_config(dir.path()), &a2).unwrap();
 
       let filter = ArtifactFilter::default();
-      let artifacts = crate::store::list_artifacts(&make_layout(dir.path()), &filter).unwrap();
+      let artifacts = crate::store::list_artifacts(&make_config(dir.path()), &filter).unwrap();
       assert_eq!(artifacts.len(), 2);
     }
 
@@ -306,15 +306,15 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let active = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Active", "");
       let to_archive = make_test_artifact("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Archived", "");
-      crate::store::write_artifact(&make_layout(dir.path()), &active).unwrap();
-      crate::store::write_artifact(&make_layout(dir.path()), &to_archive).unwrap();
-      crate::store::archive_artifact(&make_layout(dir.path()), &to_archive.id).unwrap();
+      crate::store::write_artifact(&make_config(dir.path()), &active).unwrap();
+      crate::store::write_artifact(&make_config(dir.path()), &to_archive).unwrap();
+      crate::store::archive_artifact(&make_config(dir.path()), &to_archive.id).unwrap();
 
       let filter = ArtifactFilter {
         only_archived: true,
         ..Default::default()
       };
-      let artifacts = crate::store::list_artifacts(&make_layout(dir.path()), &filter).unwrap();
+      let artifacts = crate::store::list_artifacts(&make_config(dir.path()), &filter).unwrap();
       assert_eq!(artifacts.len(), 1);
       assert_eq!(artifacts[0].title, "Archived");
     }
@@ -330,7 +330,7 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test Artifact", "Body text here");
 
-      crate::store::write_artifact(&make_layout(dir.path()), &artifact).unwrap();
+      crate::store::write_artifact(&make_config(dir.path()), &artifact).unwrap();
 
       let content = std::fs::read_to_string(dir.path().join("artifacts/zyxwvutsrqponmlkzyxwvutsrqponmlk.md")).unwrap();
       let parsed = super::super::parse_artifact_file(&content).unwrap();
@@ -349,10 +349,10 @@ mod tests {
     fn it_errors_not_found_for_archived_when_not_included() {
       let dir = tempfile::tempdir().unwrap();
       let artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Archived", "");
-      crate::store::write_artifact(&make_layout(dir.path()), &artifact).unwrap();
-      crate::store::archive_artifact(&make_layout(dir.path()), &artifact.id).unwrap();
+      crate::store::write_artifact(&make_config(dir.path()), &artifact).unwrap();
+      crate::store::archive_artifact(&make_config(dir.path()), &artifact.id).unwrap();
 
-      let result = crate::store::resolve_artifact_id(&make_layout(dir.path()), "zyxw", false);
+      let result = crate::store::resolve_artifact_id(&make_config(dir.path()), "zyxw", false);
       assert!(result.is_err());
       let err = result.unwrap_err().to_string();
       assert!(err.contains("not found"), "Expected not found error, got: {err}");
@@ -363,10 +363,10 @@ mod tests {
     fn it_falls_back_to_archived_when_no_active_match() {
       let dir = tempfile::tempdir().unwrap();
       let artifact = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Archived", "");
-      crate::store::write_artifact(&make_layout(dir.path()), &artifact).unwrap();
-      crate::store::archive_artifact(&make_layout(dir.path()), &artifact.id).unwrap();
+      crate::store::write_artifact(&make_config(dir.path()), &artifact).unwrap();
+      crate::store::archive_artifact(&make_config(dir.path()), &artifact.id).unwrap();
 
-      let resolved = crate::store::resolve_artifact_id(&make_layout(dir.path()), "zyxw", true).unwrap();
+      let resolved = crate::store::resolve_artifact_id(&make_config(dir.path()), "zyxw", true).unwrap();
       assert_eq!(resolved.to_string(), "zyxwvutsrqponmlkzyxwvutsrqponmlk");
     }
 
@@ -375,11 +375,11 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let active = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Active", "");
       let to_archive = make_test_artifact("zyxwkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Archived", "");
-      crate::store::write_artifact(&make_layout(dir.path()), &active).unwrap();
-      crate::store::write_artifact(&make_layout(dir.path()), &to_archive).unwrap();
-      crate::store::archive_artifact(&make_layout(dir.path()), &to_archive.id).unwrap();
+      crate::store::write_artifact(&make_config(dir.path()), &active).unwrap();
+      crate::store::write_artifact(&make_config(dir.path()), &to_archive).unwrap();
+      crate::store::archive_artifact(&make_config(dir.path()), &to_archive.id).unwrap();
 
-      let resolved = crate::store::resolve_artifact_id(&make_layout(dir.path()), "zyxw", true).unwrap();
+      let resolved = crate::store::resolve_artifact_id(&make_config(dir.path()), "zyxw", true).unwrap();
       assert_eq!(resolved.to_string(), "zyxwvutsrqponmlkzyxwvutsrqponmlk");
     }
   }

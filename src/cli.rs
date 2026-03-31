@@ -3,19 +3,12 @@ pub mod helpers;
 
 mod commands;
 
-use std::path::PathBuf;
-
 use clap::{ArgAction, Parser, Subcommand};
 
-use crate::{
-  config::{Settings, storage::DataLayout},
-  ui::theme::Theme,
-};
+use crate::{config::Settings, ui::theme::Theme};
 
-/// Bundles all runtime context that commands need: resolved settings, theme, and data directory.
+/// Bundles all runtime context that commands need: resolved settings and theme.
 pub(crate) struct AppContext {
-  pub(crate) data_dir: PathBuf,
-  pub(crate) layout: DataLayout,
   pub(crate) settings: Settings,
   pub(crate) theme: Theme,
 }
@@ -63,13 +56,10 @@ pub(crate) struct Cli {
 }
 
 impl Cli {
-  fn call(&self, settings: Settings) -> Result<()> {
+  fn call(&self, mut settings: Settings) -> Result<()> {
     if self.print_version {
       let theme = Theme::from_config(&settings);
-      let layout = DataLayout::new(settings.storage(), &PathBuf::new());
       let ctx = AppContext {
-        data_dir: PathBuf::new(),
-        layout,
         settings,
         theme,
       };
@@ -88,15 +78,12 @@ impl Cli {
     crate::logger::init(level, &theme);
 
     let cwd = std::env::current_dir()?;
-    let data_dir = settings.storage().data_dir(cwd)?;
+    settings.resolve_storage(cwd)?;
 
     log::debug!("log level set to {level}");
-    log::debug!("data directory: {}", data_dir.display());
+    log::debug!("data directory: {}", settings.data_dir().display());
 
-    let layout = DataLayout::new(settings.storage(), &data_dir);
     let ctx = AppContext {
-      data_dir,
-      layout,
       settings,
       theme,
     };

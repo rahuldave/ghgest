@@ -33,7 +33,7 @@ pub struct Command {
 impl Command {
   /// Build a `NewArtifact`, persist it, and print the creation summary.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    let layout = &ctx.layout;
+    let config = &ctx.settings;
     let theme = &ctx.theme;
     let metadata = {
       let pairs = crate::cli::helpers::split_key_value_pairs(&self.metadata)?;
@@ -71,7 +71,7 @@ impl Command {
       title,
     };
 
-    let artifact = store::create_artifact(layout, new)?;
+    let artifact = store::create_artifact(config, new)?;
 
     let id_str = artifact.id.to_string();
     let mut view = ArtifactCreateView::new(&id_str, &artifact.title, theme);
@@ -125,7 +125,7 @@ mod tests {
       cmd.call(&ctx).unwrap();
 
       let filter = crate::model::ArtifactFilter::default();
-      let artifacts = store::list_artifacts(&ctx.layout, &filter).unwrap();
+      let artifacts = store::list_artifacts(&ctx.settings, &filter).unwrap();
       assert_eq!(artifacts.len(), 1);
       assert_eq!(artifacts[0].body, "# From File\n\nFile content.");
     }
@@ -147,7 +147,7 @@ mod tests {
       cmd.call(&ctx).unwrap();
 
       let filter = crate::model::ArtifactFilter::default();
-      let artifacts = store::list_artifacts(&ctx.layout, &filter).unwrap();
+      let artifacts = store::list_artifacts(&ctx.settings, &filter).unwrap();
       assert_eq!(artifacts.len(), 1);
 
       let artifact = &artifacts[0];
@@ -174,7 +174,7 @@ mod tests {
       cmd.call(&ctx).unwrap();
 
       let filter = crate::model::ArtifactFilter::default();
-      let artifacts = store::list_artifacts(&ctx.layout, &filter).unwrap();
+      let artifacts = store::list_artifacts(&ctx.settings, &filter).unwrap();
       assert_eq!(artifacts.len(), 1);
       assert_eq!(artifacts[0].title, "My Artifact");
     }
@@ -196,7 +196,7 @@ mod tests {
       cmd.call(&ctx).unwrap();
 
       let filter = crate::model::ArtifactFilter::default();
-      let artifacts = store::list_artifacts(&ctx.layout, &filter).unwrap();
+      let artifacts = store::list_artifacts(&ctx.settings, &filter).unwrap();
       assert_eq!(artifacts.len(), 1);
       assert_eq!(artifacts[0].title, "Auto Title");
     }

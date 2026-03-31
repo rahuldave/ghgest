@@ -1,7 +1,7 @@
 use rayon::prelude::*;
 
 use crate::{
-  config::storage::DataLayout,
+  config::Settings,
   model::{Artifact, ArtifactFilter, Task, TaskFilter},
 };
 
@@ -60,20 +60,20 @@ fn contains_ignore_case(haystack: &str, needle: &str) -> bool {
 }
 
 /// Perform a case-insensitive full-text search across tasks and artifacts.
-pub fn search(layout: &DataLayout, query: &str, show_all: bool) -> super::Result<SearchResults> {
+pub fn search(config: &Settings, query: &str, show_all: bool) -> super::Result<SearchResults> {
   let query_lower = query.to_lowercase();
 
   let task_filter = TaskFilter {
     all: show_all,
     ..Default::default()
   };
-  let all_tasks = super::list_tasks(layout, &task_filter)?;
+  let all_tasks = super::list_tasks(config, &task_filter)?;
 
   let artifact_filter = ArtifactFilter {
     show_all,
     ..Default::default()
   };
-  let all_artifacts = super::list_artifacts(layout, &artifact_filter)?;
+  let all_artifacts = super::list_artifacts(config, &artifact_filter)?;
 
   let tasks: Vec<Task> = all_tasks
     .into_par_iter()
@@ -141,13 +141,13 @@ mod tests {
         "This contains a secret keyword",
       );
       crate::store::write_artifact(
-        &crate::config::storage::DataLayout::new(&crate::config::storage::Settings::default(), dir.path()),
+        &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
         &artifact,
       )
       .unwrap();
 
       let results = super::super::search(
-        &crate::config::storage::DataLayout::new(&crate::config::storage::Settings::default(), dir.path()),
+        &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
         "secret",
         false,
       )
@@ -160,14 +160,10 @@ mod tests {
     fn it_finds_tasks_by_title() {
       let dir = tempfile::tempdir().unwrap();
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Important Feature");
-      crate::store::write_task(
-        &crate::config::storage::DataLayout::new(&crate::config::storage::Settings::default(), dir.path()),
-        &task,
-      )
-      .unwrap();
+      crate::store::write_task(&crate::test_helpers::make_test_config(dir.path().to_path_buf()), &task).unwrap();
 
       let results = super::super::search(
-        &crate::config::storage::DataLayout::new(&crate::config::storage::Settings::default(), dir.path()),
+        &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
         "important",
         false,
       )
@@ -180,14 +176,10 @@ mod tests {
     fn it_is_case_insensitive() {
       let dir = tempfile::tempdir().unwrap();
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "UPPERCASE Title");
-      crate::store::write_task(
-        &crate::config::storage::DataLayout::new(&crate::config::storage::Settings::default(), dir.path()),
-        &task,
-      )
-      .unwrap();
+      crate::store::write_task(&crate::test_helpers::make_test_config(dir.path().to_path_buf()), &task).unwrap();
 
       let results = super::super::search(
-        &crate::config::storage::DataLayout::new(&crate::config::storage::Settings::default(), dir.path()),
+        &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
         "uppercase",
         false,
       )
@@ -199,14 +191,10 @@ mod tests {
     fn it_returns_empty_when_no_match() {
       let dir = tempfile::tempdir().unwrap();
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Some Task");
-      crate::store::write_task(
-        &crate::config::storage::DataLayout::new(&crate::config::storage::Settings::default(), dir.path()),
-        &task,
-      )
-      .unwrap();
+      crate::store::write_task(&crate::test_helpers::make_test_config(dir.path().to_path_buf()), &task).unwrap();
 
       let results = super::super::search(
-        &crate::config::storage::DataLayout::new(&crate::config::storage::Settings::default(), dir.path()),
+        &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
         "nonexistent",
         false,
       )

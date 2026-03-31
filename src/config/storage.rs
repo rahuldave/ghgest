@@ -13,61 +13,6 @@ use sha2::{Digest, Sha256};
 
 use super::Error;
 
-/// Resolved paths for each entity type's storage directory.
-///
-/// Built once during app init from settings + env vars. Each entity dir is resolved
-/// independently: entity-specific env var > entity-specific config > `<data_dir>/<entity>/`.
-#[derive(Clone, Debug, PartialEq)]
-pub struct DataLayout {
-  artifact_dir: PathBuf,
-  iteration_dir: PathBuf,
-  task_dir: PathBuf,
-}
-
-impl DataLayout {
-  /// Build a `DataLayout` from settings and a resolved base data directory.
-  ///
-  /// For each entity type, checks the entity-specific env var first, then
-  /// the entity-specific config field, and falls back to `<data_dir>/<entity>/`.
-  pub fn new(settings: &Settings, data_dir: &Path) -> Self {
-    Self {
-      artifact_dir: resolve_entity_dir(
-        &super::env::GEST_ARTIFACT_DIR,
-        settings.artifact_dir.as_deref(),
-        data_dir,
-        "artifacts",
-      ),
-      iteration_dir: resolve_entity_dir(
-        &super::env::GEST_ITERATION_DIR,
-        settings.iteration_dir.as_deref(),
-        data_dir,
-        "iterations",
-      ),
-      task_dir: resolve_entity_dir(
-        &super::env::GEST_TASK_DIR,
-        settings.task_dir.as_deref(),
-        data_dir,
-        "tasks",
-      ),
-    }
-  }
-
-  /// The resolved artifact storage directory.
-  pub fn artifact_dir(&self) -> &Path {
-    &self.artifact_dir
-  }
-
-  /// The resolved iteration storage directory.
-  pub fn iteration_dir(&self) -> &Path {
-    &self.iteration_dir
-  }
-
-  /// The resolved task storage directory.
-  pub fn task_dir(&self) -> &Path {
-    &self.task_dir
-  }
-}
-
 /// Configuration for the `[storage]` section.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(default)]
@@ -79,12 +24,37 @@ pub struct Settings {
 }
 
 impl Settings {
+  /// Resolve the artifact directory for a given base data directory.
+  pub(crate) fn resolve_artifact_dir(&self, data_dir: &Path) -> PathBuf {
+    resolve_entity_dir(
+      &super::env::GEST_ARTIFACT_DIR,
+      self.artifact_dir.as_deref(),
+      data_dir,
+      "artifacts",
+    )
+  }
+
+  /// Resolve the iteration directory for a given base data directory.
+  pub(crate) fn resolve_iteration_dir(&self, data_dir: &Path) -> PathBuf {
+    resolve_entity_dir(
+      &super::env::GEST_ITERATION_DIR,
+      self.iteration_dir.as_deref(),
+      data_dir,
+      "iterations",
+    )
+  }
+
+  /// Resolve the task directory for a given base data directory.
+  pub(crate) fn resolve_task_dir(&self, data_dir: &Path) -> PathBuf {
+    resolve_entity_dir(&super::env::GEST_TASK_DIR, self.task_dir.as_deref(), data_dir, "tasks")
+  }
+
   /// Resolves the absolute path to the data directory for the given working directory.
   ///
   /// Checks `$GEST_DATA_DIR`, then the configured `data_dir`, then walks up from
   /// `cwd` looking for a `.gest` or `gest` directory, and finally falls back to
   /// the platform's global data home with a path-derived hash.
-  pub fn data_dir(&self, cwd: PathBuf) -> Result<PathBuf, Error> {
+  pub fn resolve_data_dir(&self, cwd: PathBuf) -> Result<PathBuf, Error> {
     if let Ok(path) = super::env::GEST_DATA_DIR.value() {
       if path.is_absolute() && path.is_dir() {
         log::debug!("$GEST_DATA_DIR is set");
@@ -189,7 +159,7 @@ fn walk_up_dir(start: &Path, names: &[&str]) -> Option<PathBuf> {
 mod tests {
   use super::*;
 
-  mod data_layout {
+  mod resolve_entity_dirs {
     use pretty_assertions::assert_eq;
     use temp_env::with_vars;
     use tempfile::TempDir;
@@ -206,11 +176,16 @@ mod tests {
       with_vars(unset, || {
         let data_dir = PathBuf::from("/tmp/gest-data");
         let settings = Settings::default();
-        let layout = DataLayout::new(&settings, &data_dir);
 
-        assert_eq!(layout.artifact_dir(), Path::new("/tmp/gest-data/artifacts"));
-        assert_eq!(layout.task_dir(), Path::new("/tmp/gest-data/tasks"));
-        assert_eq!(layout.iteration_dir(), Path::new("/tmp/gest-data/iterations"));
+        assert_eq!(
+          settings.resolve_artifact_dir(&data_dir),
+          Path::new("/tmp/gest-data/artifacts")
+        );
+        assert_eq!(settings.resolve_task_dir(&data_dir), Path::new("/tmp/gest-data/tasks"));
+        assert_eq!(
+          settings.resolve_iteration_dir(&data_dir),
+          Path::new("/tmp/gest-data/iterations")
+        );
       });
     }
 
@@ -231,11 +206,13 @@ mod tests {
             task_dir: Some(PathBuf::from("/config/tasks")),
             ..Default::default()
           };
-          let layout = DataLayout::new(&settings, &data_dir);
 
-          assert_eq!(layout.artifact_dir(), env_artifact);
-          assert_eq!(layout.task_dir(), Path::new("/config/tasks"));
-          assert_eq!(layout.iteration_dir(), Path::new("/tmp/gest-data/iterations"));
+          assert_eq!(settings.resolve_artifact_dir(&data_dir), env_artifact);
+          assert_eq!(settings.resolve_task_dir(&data_dir), Path::new("/config/tasks"));
+          assert_eq!(
+            settings.resolve_iteration_dir(&data_dir),
+            Path::new("/tmp/gest-data/iterations")
+          );
         },
       );
     }
@@ -255,11 +232,13 @@ mod tests {
           iteration_dir: Some(PathBuf::from("/custom/iterations")),
           ..Default::default()
         };
-        let layout = DataLayout::new(&settings, &data_dir);
 
-        assert_eq!(layout.artifact_dir(), Path::new("/custom/docs"));
-        assert_eq!(layout.task_dir(), Path::new("/custom/tasks"));
-        assert_eq!(layout.iteration_dir(), Path::new("/custom/iterations"));
+        assert_eq!(settings.resolve_artifact_dir(&data_dir), Path::new("/custom/docs"));
+        assert_eq!(settings.resolve_task_dir(&data_dir), Path::new("/custom/tasks"));
+        assert_eq!(
+          settings.resolve_iteration_dir(&data_dir),
+          Path::new("/custom/iterations")
+        );
       });
     }
 
@@ -284,11 +263,10 @@ mod tests {
             iteration_dir: Some(PathBuf::from("/config/iterations")),
             ..Default::default()
           };
-          let layout = DataLayout::new(&settings, &data_dir);
 
-          assert_eq!(layout.artifact_dir(), env_artifact);
-          assert_eq!(layout.task_dir(), env_task);
-          assert_eq!(layout.iteration_dir(), env_iter);
+          assert_eq!(settings.resolve_artifact_dir(&data_dir), env_artifact);
+          assert_eq!(settings.resolve_task_dir(&data_dir), env_task);
+          assert_eq!(settings.resolve_iteration_dir(&data_dir), env_iter);
         },
       );
     }
@@ -317,7 +295,7 @@ mod tests {
           };
 
           assert_eq!(
-            settings.data_dir(std::env::current_dir().unwrap()).unwrap(),
+            settings.resolve_data_dir(std::env::current_dir().unwrap()).unwrap(),
             tmp_from_config.path().to_path_buf()
           );
         })
@@ -329,7 +307,7 @@ mod tests {
 
         with_var_unset("GEST_DATA_DIR", || {
           let settings = Settings::default();
-          let result = settings.data_dir(tmp.path().to_path_buf()).unwrap();
+          let result = settings.resolve_data_dir(tmp.path().to_path_buf()).unwrap();
           let expected = dir_spec::data_home()
             .map(|p| p.join("gest").join(super::path_hash(tmp.path())))
             .unwrap();
@@ -352,7 +330,7 @@ mod tests {
           };
 
           assert_eq!(
-            settings.data_dir(tmp.path().to_path_buf()).unwrap(),
+            settings.resolve_data_dir(tmp.path().to_path_buf()).unwrap(),
             gest_path.to_path_buf()
           );
         })
@@ -370,7 +348,7 @@ mod tests {
             ..Default::default()
           };
 
-          assert!(settings.data_dir(std::env::current_dir().unwrap()).is_err());
+          assert!(settings.resolve_data_dir(std::env::current_dir().unwrap()).is_err());
         })
       }
 
@@ -383,7 +361,7 @@ mod tests {
         with_var("GEST_DATA_DIR", Some(filepath.to_str().unwrap()), || {
           let settings = Settings::default();
 
-          assert!(settings.data_dir(std::env::current_dir().unwrap()).is_err());
+          assert!(settings.resolve_data_dir(std::env::current_dir().unwrap()).is_err());
         })
       }
 
@@ -394,7 +372,7 @@ mod tests {
           let settings = Settings::default();
 
           assert_eq!(
-            settings.data_dir(std::env::current_dir().unwrap()).unwrap(),
+            settings.resolve_data_dir(std::env::current_dir().unwrap()).unwrap(),
             tmp.path().to_path_buf()
           );
         })

@@ -17,9 +17,9 @@ pub struct Command {
 impl Command {
   /// Resolve the task, look up the metadata key, and print the value.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    let layout = &ctx.layout;
-    let id = store::resolve_task_id(layout, &self.id, false)?;
-    let task = store::read_task(layout, &id)?;
+    let config = &ctx.settings;
+    let id = store::resolve_task_id(config, &self.id, false)?;
+    let task = store::read_task(config, &id)?;
 
     let value = store::meta::resolve_dot_path(&toml::Value::Table(task.metadata), &self.path)
       .ok_or_else(|| cli::Error::generic(format!("Metadata key not found: '{}'", self.path)))?;
@@ -42,7 +42,7 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let ctx = make_test_context(dir.path());
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_task(&ctx.layout, &task).unwrap();
+      store::write_task(&ctx.settings, &task).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -60,7 +60,7 @@ mod tests {
       task
         .metadata
         .insert("priority".to_string(), toml::Value::String("high".to_string()));
-      store::write_task(&ctx.layout, &task).unwrap();
+      store::write_task(&ctx.settings, &task).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),

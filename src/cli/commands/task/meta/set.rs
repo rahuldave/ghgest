@@ -21,15 +21,15 @@ pub struct Command {
 impl Command {
   /// Write the value into the task's metadata table and persist.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    let layout = &ctx.layout;
+    let config = &ctx.settings;
     let theme = &ctx.theme;
-    let id = store::resolve_task_id(layout, &self.id, false)?;
-    let mut task = store::read_task(layout, &id)?;
+    let id = store::resolve_task_id(config, &self.id, false)?;
+    let mut task = store::read_task(config, &id)?;
 
     store::meta::set_dot_path(&mut task.metadata, &self.path, &self.value);
 
     task.updated_at = Utc::now();
-    store::write_task(layout, &task)?;
+    store::write_task(config, &task)?;
 
     let msg = format!("Set {}.{} = {}", id, self.path, self.value);
     println!("{}", SuccessMessage::new(&msg, theme));
@@ -52,7 +52,7 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let ctx = make_test_context(dir.path());
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_task(&ctx.layout, &task).unwrap();
+      store::write_task(&ctx.settings, &task).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -61,7 +61,7 @@ mod tests {
       };
       cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_task(&ctx.layout, &task.id).unwrap();
+      let loaded = store::read_task(&ctx.settings, &task.id).unwrap();
       assert_eq!(
         loaded.metadata.get("priority"),
         Some(&toml::Value::String("high".to_string()))
@@ -73,7 +73,7 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let ctx = make_test_context(dir.path());
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_task(&ctx.layout, &task).unwrap();
+      store::write_task(&ctx.settings, &task).unwrap();
 
       let cmd = Command {
         id: "zyxw".to_string(),
@@ -82,7 +82,7 @@ mod tests {
       };
       cmd.call(&ctx).unwrap();
 
-      let loaded = store::read_task(&ctx.layout, &task.id).unwrap();
+      let loaded = store::read_task(&ctx.settings, &task.id).unwrap();
       let config = loaded.metadata.get("config").unwrap().as_table().unwrap();
       assert_eq!(config.get("timeout"), Some(&toml::Value::Integer(30)));
     }

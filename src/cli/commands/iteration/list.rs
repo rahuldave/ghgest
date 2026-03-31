@@ -4,7 +4,7 @@ use clap::Args;
 
 use crate::{
   cli::{self, AppContext},
-  config::storage::DataLayout,
+  config::Settings,
   model::{IterationFilter, iteration::Status},
   store,
   ui::{
@@ -33,7 +33,7 @@ pub struct Command {
 impl Command {
   /// Query iterations from the store and render as a table or JSON.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    let layout = &ctx.layout;
+    let config = &ctx.settings;
     let theme = &ctx.theme;
     let status = match &self.status {
       Some(s) => Some(s.parse::<Status>().map_err(cli::Error::generic)?),
@@ -46,7 +46,7 @@ impl Command {
       tag: self.tag.clone(),
     };
 
-    let iterations = store::list_iterations(layout, &filter)?;
+    let iterations = store::list_iterations(config, &filter)?;
 
     if self.json {
       let json = serde_json::to_string_pretty(&iterations)?;
@@ -62,7 +62,7 @@ impl Command {
     let view_data: Vec<IterationListData> = iterations
       .into_iter()
       .map(|i| {
-        let phase_count = compute_phase_count(layout, &i.tasks);
+        let phase_count = compute_phase_count(config, &i.tasks);
         let task_count = i.tasks.len();
         IterationListData {
           id: i.id.to_string(),
@@ -80,12 +80,12 @@ impl Command {
 }
 
 /// Compute how many distinct phases the iteration's tasks span.
-fn compute_phase_count(layout: &DataLayout, tasks: &[String]) -> usize {
+fn compute_phase_count(config: &Settings, tasks: &[String]) -> usize {
   let mut phases = HashSet::new();
   for task_ref in tasks {
     let task_id_str = task_ref.strip_prefix("tasks/").unwrap_or(task_ref);
     if let Ok(id) = task_id_str.parse()
-      && let Ok(task) = store::read_task(layout, &id)
+      && let Ok(task) = store::read_task(config, &id)
     {
       phases.insert(task.phase.unwrap_or(0));
     }
@@ -111,8 +111,8 @@ mod tests {
       let mut i2 = make_test_iteration("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
       i2.title = "Failed one".to_string();
       i2.status = crate::model::iteration::Status::Failed;
-      store::write_iteration(&ctx.layout, &i1).unwrap();
-      store::write_iteration(&ctx.layout, &i2).unwrap();
+      store::write_iteration(&ctx.settings, &i1).unwrap();
+      store::write_iteration(&ctx.settings, &i2).unwrap();
 
       let cmd = Command {
         show_all: false,
@@ -127,7 +127,7 @@ mod tests {
         status: Some(Status::Failed),
         ..Default::default()
       };
-      let iterations = store::list_iterations(&ctx.layout, &filter).unwrap();
+      let iterations = store::list_iterations(&ctx.settings, &filter).unwrap();
       assert_eq!(iterations.len(), 1);
       assert_eq!(iterations[0].title, "Failed one");
     }
@@ -152,7 +152,7 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let ctx = make_test_context(dir.path());
       let i1 = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_iteration(&ctx.layout, &i1).unwrap();
+      store::write_iteration(&ctx.settings, &i1).unwrap();
 
       let cmd = Command {
         show_all: false,
@@ -169,7 +169,7 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let ctx = make_test_context(dir.path());
       let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
-      store::write_iteration(&ctx.layout, &iteration).unwrap();
+      store::write_iteration(&ctx.settings, &iteration).unwrap();
 
       let cmd = Command {
         show_all: false,

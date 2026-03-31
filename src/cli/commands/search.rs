@@ -2,7 +2,7 @@ use clap::Args;
 
 use crate::{
   cli::{self, AppContext},
-  config::storage::DataLayout,
+  config::Settings,
   store,
   ui::{
     composites::{artifact_list_row::ArtifactListRow, task_list_row::TaskListRow},
@@ -30,7 +30,7 @@ pub struct Command {
 impl Command {
   /// Execute the search and render results to stdout.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    let results = store::search(&ctx.layout, &self.query, self.show_all)?;
+    let results = store::search(&ctx.settings, &self.query, self.show_all)?;
 
     if self.json {
       let json_value = serde_json::json!({
@@ -43,7 +43,7 @@ impl Command {
       return Ok(());
     }
 
-    let items = build_search_items(&ctx.layout, &results, &ctx.theme);
+    let items = build_search_items(&ctx.settings, &results, &ctx.theme);
 
     if self.expand {
       println!("{}", SearchExpandedView::new(&self.query, &items, &ctx.theme));
@@ -56,14 +56,14 @@ impl Command {
 }
 
 /// Convert raw search results into view-layer items with pre-rendered row content.
-fn build_search_items(layout: &DataLayout, results: &store::SearchResults, theme: &Theme) -> Vec<SearchResultItem> {
+fn build_search_items(config: &Settings, results: &store::SearchResults, theme: &Theme) -> Vec<SearchResultItem> {
   let mut items = Vec::with_capacity(results.tasks.len() + results.artifacts.len());
 
   for task in &results.tasks {
     let id_str = task.id.to_string();
     let status_str = task.status.as_str();
 
-    let resolved = store::resolve_blocking(layout, task);
+    let resolved = store::resolve_blocking(config, task);
     let blocked_by = resolved.blocked_by_ids.first().map(String::as_str);
 
     let row_content = TaskListRow::new(status_str, &id_str, &task.title, theme)
@@ -138,7 +138,6 @@ fn truncate_snippet(text: &str, max_chars: usize) -> String {
 mod tests {
   use super::*;
   use crate::{
-    config::storage::DataLayout,
     model::{Artifact, Task, task::Status},
     store,
     test_helpers::{make_test_artifact, make_test_context, make_test_task},
@@ -172,7 +171,7 @@ mod tests {
         status: Status::Done,
         ..make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk")
       };
-      store::write_task(&ctx.layout, &task).unwrap();
+      store::write_task(&ctx.settings, &task).unwrap();
 
       let cmd = Command {
         query: "done".to_string(),
@@ -194,7 +193,7 @@ mod tests {
         status: Status::Open,
         ..make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk")
       };
-      store::write_task(&ctx.layout, &task).unwrap();
+      store::write_task(&ctx.settings, &task).unwrap();
 
       let cmd = Command {
         query: "json".to_string(),
@@ -217,7 +216,7 @@ mod tests {
         status: Status::InProgress,
         ..make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk")
       };
-      store::write_task(&ctx.layout, &task).unwrap();
+      store::write_task(&ctx.settings, &task).unwrap();
 
       let cmd = Command {
         query: "expanded".to_string(),
@@ -239,7 +238,7 @@ mod tests {
         body: "Defines the canonical probe schema".to_string(),
         ..make_test_artifact("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk")
       };
-      store::write_artifact(&ctx.layout, &artifact).unwrap();
+      store::write_artifact(&ctx.settings, &artifact).unwrap();
 
       let cmd = Command {
         query: "schema".to_string(),
@@ -261,7 +260,7 @@ mod tests {
         status: Status::Open,
         ..make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk")
       };
-      store::write_task(&ctx.layout, &task).unwrap();
+      store::write_task(&ctx.settings, &task).unwrap();
 
       let cmd = Command {
         query: "streaming".to_string(),
