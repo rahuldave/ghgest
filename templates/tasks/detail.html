@@ -4,7 +4,11 @@
 {% block nav_tasks %}class="active"{% endblock %}
 
 {% block content %}
-<div class="summary"><a href="/tasks">← tasks</a></div>
+<div class="summary">
+  <a href="/tasks">&larr; tasks</a>
+  &middot;
+  <a href="/tasks/{{ task.id }}/edit">edit</a>
+</div>
 
 <div class="term">
   <div class="term-bar">

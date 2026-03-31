@@ -29,6 +29,8 @@
   {% else %}
     <a href="/tasks?status=cancelled">{{ cancelled_count }} cancelled</a>
   {% endif %}
+  &middot;
+  <a href="/tasks/new">+ new</a>
 </div>
 
 {% if tasks.is_empty() %}
