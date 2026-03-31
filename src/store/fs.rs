@@ -91,6 +91,8 @@ pub(crate) fn resolve_id(
   include_secondary: bool,
   hint: &str,
 ) -> super::Result<Id> {
+  Id::validate_prefix(prefix).map_err(Error::generic)?;
+
   match collect_prefix_matches(primary_dir, extension, prefix)? {
     PrefixMatch::Unique(id) => return id.parse().map_err(|e: String| Error::generic(e)),
     PrefixMatch::Ambiguous(a, b) => {

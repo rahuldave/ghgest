@@ -28,6 +28,24 @@ impl Id {
   pub fn short(&self) -> String {
     encode_prefix(&self.0)
   }
+
+  /// Validate that `s` is a valid ID prefix: 1–32 characters, all in `[k-z]`.
+  ///
+  /// Returns `Ok(s)` on success so callers can chain the result. Rejects empty
+  /// strings, strings longer than 32 characters, and any character outside the
+  /// ID alphabet — which includes path separators, `.`, and `..` sequences.
+  pub fn validate_prefix(s: &str) -> Result<&str, String> {
+    if s.is_empty() {
+      return Err("Id prefix must not be empty".to_string());
+    }
+    if s.len() > 32 {
+      return Err(format!("Id prefix must be at most 32 characters, got {}", s.len()));
+    }
+    if let Some(c) = s.chars().find(|c| !('k'..='z').contains(c)) {
+      return Err(format!("Id prefix must contain only characters k-z, found '{c}'"));
+    }
+    Ok(s)
+  }
 }
 
 impl Default for Id {
@@ -206,6 +224,61 @@ mod tests {
     fn it_returns_first_eight_characters() {
       let id: Id = "zyxwvutsrqponmlkzyxwvutsrqponmlk".parse().unwrap();
       assert_eq!(id.short(), "zyxwvuts");
+    }
+  }
+
+  mod validate_prefix {
+    use super::*;
+
+    #[test]
+    fn it_accepts_full_id() {
+      assert!(Id::validate_prefix("zyxwvutsrqponmlkzyxwvutsrqponmlk").is_ok());
+    }
+
+    #[test]
+    fn it_accepts_short_prefix() {
+      assert_eq!(Id::validate_prefix("zyxw").unwrap(), "zyxw");
+    }
+
+    #[test]
+    fn it_accepts_single_char() {
+      assert!(Id::validate_prefix("k").is_ok());
+    }
+
+    #[test]
+    fn it_rejects_empty() {
+      assert!(Id::validate_prefix("").is_err());
+    }
+
+    #[test]
+    fn it_rejects_too_long() {
+      let long = "k".repeat(33);
+      assert!(Id::validate_prefix(&long).is_err());
+    }
+
+    #[test]
+    fn it_rejects_path_separator() {
+      assert!(Id::validate_prefix("../etc").is_err());
+    }
+
+    #[test]
+    fn it_rejects_dots() {
+      assert!(Id::validate_prefix("..").is_err());
+    }
+
+    #[test]
+    fn it_rejects_digits() {
+      assert!(Id::validate_prefix("kkkk1").is_err());
+    }
+
+    #[test]
+    fn it_rejects_uppercase() {
+      assert!(Id::validate_prefix("kkkK").is_err());
+    }
+
+    #[test]
+    fn it_rejects_chars_below_range() {
+      assert!(Id::validate_prefix("kkkj").is_err());
     }
   }
 
