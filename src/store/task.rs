@@ -267,9 +267,17 @@ pub fn update_task(config: &Settings, id: &Id, patch: TaskPatch) -> super::Resul
   Ok(task)
 }
 
-/// Serialize and write a task to the active tasks directory.
+/// Serialize and write a task, respecting its current location on disk.
+///
+/// If the task already exists in the resolved directory, it is written there
+/// to avoid creating a duplicate in the active directory.
 pub fn write_task(config: &Settings, task: &Task) -> super::Result<()> {
-  let path = config.task_dir().join(format!("{}.toml", task.id));
+  let resolved_path = config.task_dir().join(format!("resolved/{}.toml", task.id));
+  let path = if resolved_path.exists() {
+    resolved_path
+  } else {
+    config.task_dir().join(format!("{}.toml", task.id))
+  };
   write_task_to_path(config, task, &path)
 }
 
@@ -701,6 +709,60 @@ mod tests {
 
       let resolved = crate::store::resolve_task_id(&make_config(dir.path()), "zyxw", false).unwrap();
       assert_eq!(resolved.to_string(), "zyxwvutsrqponmlkzyxwvutsrqponmlk");
+    }
+  }
+
+  mod update_task {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+    use crate::model::TaskPatch;
+
+    #[test]
+    fn it_keeps_active_task_in_active_dir() {
+      let dir = tempfile::tempdir().unwrap();
+      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Original");
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
+
+      let patch = TaskPatch {
+        title: Some("Updated".to_string()),
+        ..Default::default()
+      };
+      crate::store::update_task(&make_config(dir.path()), &task.id, patch).unwrap();
+
+      assert!(dir.path().join("tasks/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml").exists());
+      assert!(
+        !dir
+          .path()
+          .join("tasks/resolved/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml")
+          .exists()
+      );
+    }
+
+    #[test]
+    fn it_writes_to_resolved_not_active() {
+      let dir = tempfile::tempdir().unwrap();
+      let mut task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Original");
+      task.status = Status::Done;
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
+      crate::store::resolve_task(&make_config(dir.path()), &task.id).unwrap();
+
+      let patch = TaskPatch {
+        title: Some("Updated".to_string()),
+        ..Default::default()
+      };
+      crate::store::update_task(&make_config(dir.path()), &task.id, patch).unwrap();
+
+      assert!(!dir.path().join("tasks/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml").exists());
+      assert!(
+        dir
+          .path()
+          .join("tasks/resolved/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml")
+          .exists()
+      );
+
+      let loaded = crate::store::read_task(&make_config(dir.path()), &task.id).unwrap();
+      assert_eq!(loaded.title, "Updated");
     }
   }
 

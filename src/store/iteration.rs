@@ -8,7 +8,7 @@ use super::{
 };
 use crate::{
   config::Settings,
-  model::{Id, Iteration, IterationFilter, IterationPatch, NewIteration, Task},
+  model::{Id, Iteration, IterationFilter, IterationPatch, NewIteration, Task, iteration::Status},
 };
 
 /// Compute how many distinct phases the iteration's tasks span by reading each task file.
@@ -140,6 +140,7 @@ pub fn remove_task(config: &Settings, iteration_id: &Id, task_id: &str) -> super
 pub fn resolve_iteration(config: &Settings, id: &Id) -> super::Result<()> {
   let mut iteration = read_iteration(config, id)?;
   let now = Utc::now();
+  iteration.status = Status::Completed;
   iteration.completed_at = Some(now);
   iteration.updated_at = now;
 
@@ -215,10 +216,18 @@ pub fn update_iteration(config: &Settings, id: &Id, patch: IterationPatch) -> su
   Ok(iteration)
 }
 
-/// Serialize and write an iteration to the active iterations directory.
+/// Serialize and write an iteration, respecting its current location on disk.
+///
+/// If the iteration already exists in the resolved directory, it is written there
+/// to avoid creating a duplicate in the active directory.
 pub fn write_iteration(config: &Settings, iteration: &Iteration) -> super::Result<()> {
   ensure_dirs(config)?;
-  let path = config.iteration_dir().join(format!("{}.toml", iteration.id));
+  let resolved_path = config.iteration_dir().join(format!("resolved/{}.toml", iteration.id));
+  let path = if resolved_path.exists() {
+    resolved_path
+  } else {
+    config.iteration_dir().join(format!("{}.toml", iteration.id))
+  };
   let content = toml::to_string(iteration)?;
   log::trace!("writing iteration {} to {}", iteration.id, path.display());
   fs::write(path, content)?;
@@ -505,6 +514,70 @@ mod tests {
       let updated = crate::store::update_iteration(&make_config(dir.path()), &iteration.id, patch).unwrap();
 
       assert_eq!(updated.title, "New Title");
+    }
+  }
+
+  mod update_resolved_iteration {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+    use crate::model::IterationPatch;
+
+    #[test]
+    fn it_writes_to_resolved_not_active() {
+      let dir = tempfile::tempdir().unwrap();
+      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Original");
+      crate::store::write_iteration(&make_config(dir.path()), &iteration).unwrap();
+      crate::store::resolve_iteration(&make_config(dir.path()), &iteration.id).unwrap();
+
+      let patch = IterationPatch {
+        title: Some("Updated".to_string()),
+        ..Default::default()
+      };
+      crate::store::update_iteration(&make_config(dir.path()), &iteration.id, patch).unwrap();
+
+      // File should only exist in resolved, not active
+      assert!(
+        !dir
+          .path()
+          .join("iterations/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml")
+          .exists()
+      );
+      assert!(
+        dir
+          .path()
+          .join("iterations/resolved/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml")
+          .exists()
+      );
+
+      let loaded = crate::store::read_iteration(&make_config(dir.path()), &iteration.id).unwrap();
+      assert_eq!(loaded.title, "Updated");
+    }
+
+    #[test]
+    fn it_keeps_active_iteration_in_active_dir() {
+      let dir = tempfile::tempdir().unwrap();
+      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Original");
+      crate::store::write_iteration(&make_config(dir.path()), &iteration).unwrap();
+
+      let patch = IterationPatch {
+        title: Some("Updated".to_string()),
+        ..Default::default()
+      };
+      crate::store::update_iteration(&make_config(dir.path()), &iteration.id, patch).unwrap();
+
+      assert!(
+        dir
+          .path()
+          .join("iterations/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml")
+          .exists()
+      );
+      assert!(
+        !dir
+          .path()
+          .join("iterations/resolved/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml")
+          .exists()
+      );
     }
   }
 }

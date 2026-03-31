@@ -123,11 +123,19 @@ pub fn update_artifact(config: &Settings, id: &Id, patch: ArtifactPatch) -> supe
   Ok(artifact)
 }
 
-/// Serialize and write an artifact to the active artifacts directory.
+/// Serialize and write an artifact, respecting its current location on disk.
+///
+/// If the artifact already exists in the archive directory, it is written there
+/// to avoid creating a duplicate in the active directory.
 pub fn write_artifact(config: &Settings, artifact: &Artifact) -> super::Result<()> {
   ensure_dirs(config)?;
   let content = serialize_artifact(artifact)?;
-  let path = config.artifact_dir().join(format!("{}.md", artifact.id));
+  let archived_path = config.artifact_dir().join(format!("archive/{}.md", artifact.id));
+  let path = if archived_path.exists() {
+    archived_path
+  } else {
+    config.artifact_dir().join(format!("{}.md", artifact.id))
+  };
   log::trace!("writing artifact {} to {}", artifact.id, path.display());
   fs::write(path, content)?;
   Ok(())
@@ -287,6 +295,69 @@ mod tests {
 
       assert_eq!(artifacts.len(), 1);
       assert_eq!(artifacts[0].title, "Archived");
+    }
+  }
+
+  mod update_artifact {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+    use crate::model::ArtifactPatch;
+
+    #[test]
+    fn it_keeps_active_artifact_in_active_dir() {
+      let dir = tempfile::tempdir().unwrap();
+      let a = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Original", "body");
+      crate::store::write_artifact(&make_config(dir.path()), &a).unwrap();
+
+      let patch = ArtifactPatch {
+        title: Some("Updated".to_string()),
+        ..Default::default()
+      };
+      crate::store::update_artifact(&make_config(dir.path()), &a.id, patch).unwrap();
+
+      assert!(
+        dir
+          .path()
+          .join("artifacts/zyxwvutsrqponmlkzyxwvutsrqponmlk.md")
+          .exists()
+      );
+      assert!(
+        !dir
+          .path()
+          .join("artifacts/archive/zyxwvutsrqponmlkzyxwvutsrqponmlk.md")
+          .exists()
+      );
+    }
+
+    #[test]
+    fn it_writes_to_archive_not_active() {
+      let dir = tempfile::tempdir().unwrap();
+      let a = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Original", "body");
+      crate::store::write_artifact(&make_config(dir.path()), &a).unwrap();
+      crate::store::archive_artifact(&make_config(dir.path()), &a.id).unwrap();
+
+      let patch = ArtifactPatch {
+        title: Some("Updated".to_string()),
+        ..Default::default()
+      };
+      crate::store::update_artifact(&make_config(dir.path()), &a.id, patch).unwrap();
+
+      assert!(
+        !dir
+          .path()
+          .join("artifacts/zyxwvutsrqponmlkzyxwvutsrqponmlk.md")
+          .exists()
+      );
+      assert!(
+        dir
+          .path()
+          .join("artifacts/archive/zyxwvutsrqponmlkzyxwvutsrqponmlk.md")
+          .exists()
+      );
+
+      let loaded = crate::store::read_artifact(&make_config(dir.path()), &a.id).unwrap();
+      assert_eq!(loaded.title, "Updated");
     }
   }
 
