@@ -10,7 +10,8 @@ use pulldown_cmark::{Options, Parser, html};
 use super::{
   state::ServerState,
   templates::{
-    ArtifactDetailTemplate, ArtifactListTemplate, DashboardTemplate, TaskDetailTemplate, TaskListTemplate, TaskRow,
+    ArtifactDetailTemplate, ArtifactListTemplate, DashboardTemplate, IterationBoardTemplate, IterationDetailTemplate,
+    IterationListTemplate, PhaseGroup, TaskDetailTemplate, TaskListTemplate, TaskRow,
   },
 };
 use crate::{
@@ -185,18 +186,108 @@ pub async fn artifact_detail(State(state): State<ServerState>, Path(id): Path<St
 }
 
 /// GET /iterations — iteration list.
-pub async fn iteration_list(State(_state): State<ServerState>) -> Response {
-  Html("<p>iteration list — coming soon</p>").into_response()
+pub async fn iteration_list(State(state): State<ServerState>) -> Response {
+  let filter = IterationFilter {
+    all: true,
+    ..Default::default()
+  };
+
+  match store::list_iterations(&state.settings, &filter) {
+    Ok(iterations) => IterationListTemplate {
+      iterations,
+    }
+    .into_response(),
+    Err(e) => {
+      log::error!("failed to list iterations: {e}");
+      (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Html("<p>failed to load iterations</p>"),
+      )
+        .into_response()
+    }
+  }
 }
 
 /// GET /iterations/:id — iteration detail with phase graph.
-pub async fn iteration_detail(State(_state): State<ServerState>, Path(_id): Path<String>) -> Response {
-  Html("<p>iteration detail — coming soon</p>").into_response()
+pub async fn iteration_detail(State(state): State<ServerState>, Path(id_str): Path<String>) -> Response {
+  let id = match store::resolve_iteration_id(&state.settings, &id_str, true) {
+    Ok(id) => id,
+    Err(_) => return (StatusCode::NOT_FOUND, Html("<p>iteration not found</p>")).into_response(),
+  };
+
+  let iteration = match store::read_iteration(&state.settings, &id) {
+    Ok(it) => it,
+    Err(e) => {
+      log::error!("failed to read iteration {id}: {e}");
+      return (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response();
+    }
+  };
+
+  let tasks = store::read_iteration_tasks(&state.settings, &iteration);
+  let full_id = iteration.id.to_string();
+  let id_rest = full_id[iteration.id.short().len()..].to_owned();
+
+  // Group tasks by phase
+  let mut phase_map: std::collections::BTreeMap<u16, Vec<crate::model::Task>> = std::collections::BTreeMap::new();
+  for task in &tasks {
+    let phase = task.phase.unwrap_or(0);
+    phase_map.entry(phase).or_default().push(task.clone());
+  }
+  let phases: Vec<PhaseGroup> = phase_map
+    .into_iter()
+    .map(|(number, tasks)| PhaseGroup {
+      number,
+      tasks,
+    })
+    .collect();
+
+  IterationDetailTemplate {
+    iteration,
+    id_rest,
+    tasks,
+    phases,
+  }
+  .into_response()
 }
 
 /// GET /iterations/:id/board — iteration kanban board.
-pub async fn iteration_board(State(_state): State<ServerState>, Path(_id): Path<String>) -> Response {
-  Html("<p>iteration board — coming soon</p>").into_response()
+pub async fn iteration_board(State(state): State<ServerState>, Path(id_str): Path<String>) -> Response {
+  let id = match store::resolve_iteration_id(&state.settings, &id_str, true) {
+    Ok(id) => id,
+    Err(_) => return (StatusCode::NOT_FOUND, Html("<p>iteration not found</p>")).into_response(),
+  };
+
+  let iteration = match store::read_iteration(&state.settings, &id) {
+    Ok(it) => it,
+    Err(e) => {
+      log::error!("failed to read iteration {id}: {e}");
+      return (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response();
+    }
+  };
+
+  let tasks = store::read_iteration_tasks(&state.settings, &iteration);
+
+  let open_tasks: Vec<_> = tasks.iter().filter(|t| t.status == Status::Open).cloned().collect();
+  let in_progress_tasks: Vec<_> = tasks
+    .iter()
+    .filter(|t| t.status == Status::InProgress)
+    .cloned()
+    .collect();
+  let done_tasks: Vec<_> = tasks.iter().filter(|t| t.status == Status::Done).cloned().collect();
+  let cancelled_tasks: Vec<_> = tasks
+    .iter()
+    .filter(|t| t.status == Status::Cancelled)
+    .cloned()
+    .collect();
+
+  IterationBoardTemplate {
+    iteration,
+    open_tasks,
+    in_progress_tasks,
+    done_tasks,
+    cancelled_tasks,
+  }
+  .into_response()
 }
 
 /// Query parameters for the search endpoint.

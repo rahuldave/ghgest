@@ -7,7 +7,11 @@ use axum::{
 };
 
 use crate::{
-  model::{Artifact, Task, task::Status},
+  model::{
+    Artifact, Iteration, Task,
+    iteration::Status as IterationStatus,
+    task::{Status, Status as TaskStatus},
+  },
   store::ResolvedBlocking,
 };
 
@@ -102,6 +106,57 @@ pub struct ArtifactDetailTemplate {
 }
 
 impl IntoResponse for ArtifactDetailTemplate {
+  fn into_response(self) -> Response {
+    render(&self)
+  }
+}
+
+// ── Iterations ───────────────────────────────────────────────────────────────
+
+#[derive(Template)]
+#[template(path = "iterations/list.html")]
+pub struct IterationListTemplate {
+  pub iterations: Vec<Iteration>,
+}
+
+impl IntoResponse for IterationListTemplate {
+  fn into_response(self) -> Response {
+    render(&self)
+  }
+}
+
+/// A group of tasks in a single phase for the iteration detail view.
+pub struct PhaseGroup {
+  pub number: u16,
+  pub tasks: Vec<Task>,
+}
+
+#[derive(Template)]
+#[template(path = "iterations/detail.html")]
+pub struct IterationDetailTemplate {
+  pub iteration: Iteration,
+  pub id_rest: String,
+  pub tasks: Vec<Task>,
+  pub phases: Vec<PhaseGroup>,
+}
+
+impl IntoResponse for IterationDetailTemplate {
+  fn into_response(self) -> Response {
+    render(&self)
+  }
+}
+
+#[derive(Template)]
+#[template(path = "iterations/board.html")]
+pub struct IterationBoardTemplate {
+  pub iteration: Iteration,
+  pub open_tasks: Vec<Task>,
+  pub in_progress_tasks: Vec<Task>,
+  pub done_tasks: Vec<Task>,
+  pub cancelled_tasks: Vec<Task>,
+}
+
+impl IntoResponse for IterationBoardTemplate {
   fn into_response(self) -> Response {
     render(&self)
   }
