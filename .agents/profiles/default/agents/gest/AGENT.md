@@ -26,13 +26,16 @@ unambiguous.
 ### Create
 
 ```sh
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create --title "<title>" --type <kind> --file <path>
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create --title "<title>" --type <kind> --body "<inline body>"
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create --title "<title>" --type <kind> --tags "<area>,<type>" --file <path>
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create --title "<title>" --type <kind> --tags "<area>,<type>" --body "<inline body>"
 ```
 
 Types: `spec`, `adr`, `rfc` (freeform string -- use these conventions).
 
 Options: `--tags <comma-separated>`, `--metadata <key=value>`.
+
+Tags use bare format (no namespace prefixes). Include area tags (`cli`, `config`, `docs`, `model`, `server`, `storage`,
+`ui`) and the artifact type tag (`spec`, `adr`, `rfc`).
 
 Output: `Created artifact <id>` -- extract the ID from this line.
 
@@ -86,13 +89,15 @@ GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact meta
 ### Create
 
 ```sh
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "<title>" --description "<desc>"
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "<title>" --status <status> --tags <tags>
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "<title>" --description "<desc>" --tags "enhancement,cli,p2"
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "<title>" --status <status> --tags "<type>,<area>,<priority>"
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "<title>" --priority 1 --phase 2 --assigned-to agent-1
 ```
 
 Options: `--description`, `--status`, `--tags <comma-separated>`, `--metadata <key=value>`, `--priority <0-4>`, `--phase
 <number>`, `--assigned-to <actor>`.
+
+Tags use bare format (no namespace prefixes). See `docs/process/labels.md` for the tag vocabulary.
 
 Output: `Created task <id>` -- extract the ID from this line.
 
@@ -373,10 +378,10 @@ Extract the last word from the output line to get the ID. This ID is used to ref
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration create "Sprint: Feature X"
 # Link it to the source spec
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration link <iteration-id> child-of <spec-id> --artifact
-# Create tasks with phase and priority
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "Add parser types" --phase 1 --priority 1
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "Add CLI flag" --phase 1 --priority 2
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "Integrate parser" --phase 2 --priority 0
+# Create tasks with phase, priority, and tags
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "Add parser types" --phase 1 --priority 1 --tags "enhancement,model,p1"
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "Add CLI flag" --phase 1 --priority 2 --tags "enhancement,cli,p2"
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "Integrate parser" --phase 2 --priority 0 --tags "enhancement,cli,p0"
 # Link tasks to spec and add to iteration
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task link <task-id> child-of <spec-id> --artifact
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration add <iteration-id> <task-id>

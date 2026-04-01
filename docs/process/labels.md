@@ -118,3 +118,23 @@ most **one** resolution label. Issues closed as completed do not need a resoluti
 | `invalid`   | This issue is not valid    |
 | `on hold`   | Postponed indefinitely     |
 | `wontfix`   | This will not be worked on |
+
+## Gest Tag Convention
+
+Gest tasks, artifacts, and iterations use **bare tags** — the same vocabulary as GitHub labels but without namespace
+prefixes. Do not use `area:cli` or `type:bug`; use `cli` and `bug` directly.
+
+### Known Area Tags
+
+| Tag       | Component                          |
+|-----------|------------------------------------|
+| `cli`     | CLI commands and argument parsing  |
+| `config`  | Configuration loading and settings |
+| `docs`    | Documentation and process guides   |
+| `model`   | Domain model types and IDs         |
+| `server`  | Web dashboard and API handlers     |
+| `storage` | Store layer and file persistence   |
+| `ui`      | Terminal UI composites and theming |
+
+Area tags may be combined with type tags (`enhancement`, `bug`, `chore`) and priority tags (`p0`–`p4`) in a single
+comma-separated `--tags` value.

@@ -52,8 +52,11 @@ minutes.
 Create a gest artifact with the spec content inline:
 
 ```sh
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create --title "<title>" --type spec --body "<content>"
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create --title "<title>" --type spec --tags "<area>,spec" --body "<content>"
 ```
+
+Use bare tags (no `area:` or `type:` prefixes). Include the relevant area tag(s) from `docs/process/labels.md` and the
+`spec` type tag.
 
 Extract the artifact ID from the output.
 
