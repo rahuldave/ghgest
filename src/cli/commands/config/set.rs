@@ -4,6 +4,7 @@ use clap::Args;
 
 use crate::{
   cli::{self, AppContext},
+  store,
   ui::composites::success_message::SuccessMessage,
 };
 
@@ -42,7 +43,10 @@ impl Command {
       toml::Value::Table(toml::Table::new())
     };
 
-    set_dot_path(&mut toml_value, &self.key, &self.value)?;
+    let table = toml_value
+      .as_table_mut()
+      .ok_or_else(|| cli::Error::generic("Config root is not a TOML table"))?;
+    store::meta::set_dot_path(table, &self.key, &self.value)?;
 
     if let Some(parent) = config_path.parent() {
       std::fs::create_dir_all(parent)?;
@@ -109,66 +113,6 @@ fn resolve_config_path(scope: &Scope) -> cli::Result<PathBuf> {
       }
 
       Ok(cwd.join(".gest.toml"))
-    }
-  }
-}
-
-/// Insert a value into a TOML table at a dot-delimited path, creating intermediate tables as needed.
-fn set_dot_path(toml_val: &mut toml::Value, key: &str, value: &str) -> cli::Result<()> {
-  let segments: Vec<&str> = key.split('.').collect();
-
-  let mut current = toml_val;
-  for segment in &segments[..segments.len() - 1] {
-    if !current.is_table() {
-      *current = toml::Value::Table(toml::Table::new());
-    }
-    current = current
-      .as_table_mut()
-      .unwrap()
-      .entry(*segment)
-      .or_insert_with(|| toml::Value::Table(toml::Table::new()));
-  }
-
-  let last = segments.last().unwrap();
-  if let Some(table) = current.as_table_mut() {
-    table.insert((*last).to_string(), toml::Value::String(value.to_string()));
-  }
-
-  Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  mod set_dot_path {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn it_preserves_sibling_keys() {
-      let mut val: toml::Value = toml::from_str("[log]\nlevel = \"warn\"\nother = \"val\"").unwrap();
-      set_dot_path(&mut val, "log.level", "debug").unwrap();
-
-      assert_eq!(val["log"]["level"].as_str().unwrap(), "debug");
-      assert_eq!(val["log"]["other"].as_str().unwrap(), "val");
-    }
-
-    #[test]
-    fn it_sets_a_nested_key() {
-      let mut val = toml::Value::Table(toml::Table::new());
-      set_dot_path(&mut val, "log.level", "debug").unwrap();
-
-      assert_eq!(val["log"]["level"].as_str().unwrap(), "debug");
-    }
-
-    #[test]
-    fn it_sets_a_top_level_key() {
-      let mut val = toml::Value::Table(toml::Table::new());
-      set_dot_path(&mut val, "key", "value").unwrap();
-
-      assert_eq!(val["key"].as_str().unwrap(), "value");
     }
   }
 }
