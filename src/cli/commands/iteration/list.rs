@@ -25,6 +25,9 @@ pub struct Command {
   /// Filter by tag.
   #[arg(long)]
   pub tag: Option<String>,
+  /// Only show iterations that have at least one claimable task.
+  #[arg(long)]
+  pub has_available: bool,
 }
 
 impl Command {
@@ -41,6 +44,15 @@ impl Command {
     };
 
     let iterations = store::list_iterations(config, &filter)?;
+
+    let iterations = if self.has_available {
+      iterations
+        .into_iter()
+        .filter(|i| store::next_available_task(config, &i.id).ok().flatten().is_some())
+        .collect()
+    } else {
+      iterations
+    };
 
     if self.json {
       let json = serde_json::to_string_pretty(&iterations)?;
@@ -99,6 +111,7 @@ mod tests {
         json: false,
         status: Some("failed".to_string()),
         tag: None,
+        has_available: false,
       };
 
       cmd.call(&ctx).unwrap();
@@ -122,6 +135,7 @@ mod tests {
         json: false,
         status: None,
         tag: None,
+        has_available: false,
       };
 
       cmd.call(&ctx).unwrap();
@@ -139,6 +153,7 @@ mod tests {
         json: false,
         status: None,
         tag: None,
+        has_available: false,
       };
 
       cmd.call(&ctx).unwrap();
@@ -156,6 +171,7 @@ mod tests {
         json: true,
         status: None,
         tag: None,
+        has_available: false,
       };
 
       cmd.call(&ctx).unwrap();
