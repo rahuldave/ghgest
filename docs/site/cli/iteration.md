@@ -24,6 +24,9 @@ gest iteration <COMMAND> [OPTIONS]
 | [`untag`](#iteration-untag) | Remove tags from an iteration |
 | [`link`](#iteration-link) | Create a relationship between entities |
 | [`meta`](#iteration-meta) | Read or write metadata fields |
+| [`next`](#iteration-next) | Find or claim the next available task |
+| [`status`](#iteration-status) | Display aggregated iteration progress |
+| [`advance`](#iteration-advance) | Advance to the next phase |
 
 ---
 
@@ -75,6 +78,7 @@ gest iteration list [OPTIONS]
 | Flag | Description |
 | --- | --- |
 | `-a, --all` | Include resolved (completed/failed) iterations |
+| `--has-available` | Only show iterations with at least one claimable task |
 | `-j, --json` | Output iteration list as JSON |
 | `-s, --status <STATUS>` | Filter by status: `active`, `completed`, or `failed` |
 | `--tag <TAG>` | Filter by tag |
@@ -337,4 +341,114 @@ gest iteration meta set <ID> <PATH> <VALUE>
 ```sh
 gest iteration meta set abc123 goal "Ship auth module"
 gest iteration meta get abc123 goal
+```
+
+---
+
+## iteration next
+
+Find (or claim) the next available task in an iteration. The task is selected from the
+active phase -- the lowest phase with incomplete tasks -- sorted by priority then creation
+date.
+
+```text
+gest iteration next [OPTIONS] <ID>
+```
+
+### Arguments
+
+| Argument | Description |
+| --- | --- |
+| `<ID>` | Iteration ID or unique prefix |
+
+### Options
+
+| Flag | Description |
+| --- | --- |
+| `--claim` | Set the task to in-progress and assign it |
+| `--agent <AGENT>` | Agent name for assignment (required with `--claim`) |
+| `-j, --json` | Output as JSON |
+
+### Exit Codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Task found (and claimed if `--claim` was used) |
+| 1 | Error (invalid ID, missing `--agent`, etc.) |
+| 2 | No available tasks in the active phase |
+
+### Examples
+
+```sh
+# Peek at the next task without claiming
+gest iteration next abc123
+
+# Claim the next task for an agent
+gest iteration next abc123 --claim --agent worker-1
+
+# Machine-readable output
+gest iteration next abc123 --claim --agent worker-1 --json
+```
+
+---
+
+## iteration status
+
+Display aggregated progress for an iteration, including active phase, task counts,
+blockers, and assignees.
+
+```text
+gest iteration status [OPTIONS] <ID>
+```
+
+### Arguments
+
+| Argument | Description |
+| --- | --- |
+| `<ID>` | Iteration ID or unique prefix |
+
+### Options
+
+| Flag | Description |
+| --- | --- |
+| `-j, --json` | Output iteration status as JSON |
+
+### Examples
+
+```sh
+gest iteration status abc123
+gest iteration status abc123 --json
+```
+
+---
+
+## iteration advance
+
+Validate that the active phase is complete and advance to the next phase. All tasks in the
+current phase must be in a terminal state (done or cancelled) unless `--force` is used.
+
+```text
+gest iteration advance [OPTIONS] <ID>
+```
+
+### Arguments
+
+| Argument | Description |
+| --- | --- |
+| `<ID>` | Iteration ID or unique prefix |
+
+### Options
+
+| Flag | Description |
+| --- | --- |
+| `--force` | Advance even if the current phase has non-terminal tasks |
+
+### Examples
+
+```sh
+# Advance after all phase tasks are done
+gest iteration advance abc123
+
+# Force-advance past incomplete tasks
+gest iteration advance abc123 --force
 ```

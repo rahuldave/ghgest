@@ -53,6 +53,19 @@ gest iteration graph <iteration-id>
 The iteration graph shows exactly which tasks can run now and which are waiting. Agents read the graph, pick up
 unblocked tasks, and mark them done — the remaining work automatically unblocks.
 
+### Agent Orchestration
+
+Built-in orchestration commands let multiple agents claim and execute tasks concurrently without conflicts:
+
+```sh
+gest iteration list --has-available            # find iterations with claimable work
+gest iteration next <id> --claim --agent bot1  # atomically claim the next task
+gest iteration status <id> --json              # check progress across all phases
+gest iteration advance <id>                    # move to the next phase
+```
+
+`iteration next` exits with code 2 when no tasks remain, so scripts can distinguish "idle" from "error".
+
 ## Web Dashboard
 
 Gest includes a built-in web dashboard for browsing and managing your project's tasks, artifacts, and iterations

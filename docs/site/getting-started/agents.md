@@ -83,6 +83,38 @@ gest iteration add <iteration-id> <task-id>
 gest iteration graph <iteration-id>
 ```
 
+## Orchestrate Multiple Agents
+
+When running multiple agents concurrently, use the orchestration commands to coordinate work
+without conflicts:
+
+```sh
+# Find iterations with available work
+gest iteration list --has-available
+
+# Claim the next task (atomic -- safe for concurrent agents)
+gest iteration next <iteration-id> --claim --agent my-agent --json
+
+# Check overall progress
+gest iteration status <iteration-id> --json
+
+# Advance to the next phase when the current one is done
+gest iteration advance <iteration-id>
+```
+
+`iteration next` exits with code **2** when no tasks are available, letting scripts
+distinguish "idle" from "error":
+
+```sh
+task=$(gest iteration next "$ITER" --claim --agent worker-1 --json 2>/dev/null)
+if [ $? -eq 2 ]; then
+  echo "Nothing to do"
+fi
+```
+
+See the [Agent Orchestration guide](./agent-orchestration.md) for a complete
+walkthrough.
+
 ## Use JSON Output
 
 Most listing and show commands support `--json` for structured output. This is useful for
