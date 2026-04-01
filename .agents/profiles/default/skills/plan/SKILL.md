@@ -12,7 +12,7 @@ Assess a spec and produce an implementation plan.
 
 ### 1. Read and Understand the Spec
 
-Read the spec via `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact show <id>`. Identify:
+Read the spec via `GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact show <id>`. Identify:
 
 - Acceptance criteria (these become the basis for tasks)
 - Components or subsystems affected
@@ -45,26 +45,27 @@ For **multi-issue**:
 2. Determine dependencies between tasks (what must be done first)
 3. Invoke `/write-issue` for each task, including dependency references
 4. Link each task to the source spec:
-   `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task link <task-id> child-of <spec-id> --artifact`
+   `GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task link <task-id> child-of <spec-id>
+   --artifact`
 5. For issues that affect CLI behavior (commands, flags, output format), include integration test acceptance criteria in
    the task description. Example: "Integration test verifies `gest task create --description` outputs the created task
    ID."
 6. Set execution fields on each task:
-   - `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task update <task-id> --phase <n>`
+   - `GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task update <task-id> --phase <n>`
      -- phase number for parallel grouping
-   - `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task update <task-id> --priority <0-4>`
+   - `GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task update <task-id> --priority <0-4>`
      -- priority within the phase
 7. Set blocking dependencies:
-   `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task link <task-id> blocked-by <other-task-id>`
+   `GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task link <task-id> blocked-by <other-task-id>`
 8. Create an iteration and add all tasks:
-   - `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration create "<plan title>"`
+   - `GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration create "<plan title>"`
    - Link iteration to spec:
 
      ```sh
-     GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration link <iteration-id> child-of <spec-id> --artifact
+     GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration link <iteration-id> child-of <spec-id> --artifact
      ```
 
-   - `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration add <iteration-id> <task-id>`
+   - `GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration add <iteration-id> <task-id>`
      for each task
 
 ### 5. Output

@@ -22,7 +22,7 @@ structured context report covering existing patterns, constraints, complexity, a
 report to ground the conversation.
 
 For existing specs, retrieve the spec via
-`GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact show <id>` and identify natural
+`GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact show <id>` and identify natural
 decomposition boundaries.
 
 ### 2. Clarify Requirements

@@ -16,9 +16,9 @@ when needed.
 Retrieve the iteration and visualize the execution plan:
 
 ```sh
-GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration show --json <id>
-GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration status <id> --json
-GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration graph <id>
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration show --json <id>
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration status <id> --json
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration graph <id>
 ```
 
 Extract:
@@ -57,11 +57,12 @@ For each phase:
 
    ```sh
    # For each task in the phase:
-   GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration next <iteration-id> --claim --agent implement-agent
+   GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration next <iteration-id> --claim --agent implement-agent
    ```
 
    Or set `assigned_to` directly if you need specific task ordering:
-   `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task update <task-id> --assigned-to implement-agent`
+   `GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task update <task-id>
+   --assigned-to implement-agent`
 
 2. **If the phase has a single task** (or execution strategy is sequential):
    - Run `/implement <task-id>` directly in the main workspace.
@@ -99,13 +100,13 @@ workspaces. There is no need to merge or cherry-pick -- the commits are already 
 1. **Check phase progress:**
 
    ```sh
-   GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration status <iteration-id> --json
+   GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration status <iteration-id> --json
    ```
 
 2. **Advance to the next phase** once the current phase is complete:
 
    ```sh
-   GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration advance <iteration-id>
+   GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration advance <iteration-id>
    ```
 
    Use `--force` to advance past stuck tasks if needed.
@@ -122,9 +123,11 @@ After all phases complete:
    and titles.
 2. Update the iteration status:
    - If **all tasks** completed successfully (`done`):
-    `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration update <iteration-id> --status completed`
+    `GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration update <iteration-id>
+    --status completed`
    - If **any tasks** remain `in-progress`:
-     `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration update <iteration-id> --status failed`
+     `GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration update <iteration-id>
+     --status failed`
      Flag this to the user and list the incomplete tasks.
 3. Verify no stale workspaces remain:
 

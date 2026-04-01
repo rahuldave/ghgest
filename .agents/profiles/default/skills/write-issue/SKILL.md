@@ -37,7 +37,7 @@ Create a gest task with the issue content. Apply tags for type, area, and priori
 `docs/process/labels.md`:
 
 ```sh
-GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "<title>" --description "<content>" --tags "<type>,<area>,<priority>"
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "<title>" --description "<content>" --tags "<type>,<area>,<priority>"
 ```
 
 Extract the task ID from the output.

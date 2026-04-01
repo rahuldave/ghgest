@@ -13,7 +13,7 @@ Promote a gest task to a GitHub Issue.
 ### 1. Read the Task
 
 ```sh
-GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task show <id> --json
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task show <id> --json
 ```
 
 Extract:
@@ -50,7 +50,7 @@ gh issue create \
 After the user confirms, execute the command. Extract the issue number from the output, then store it as task metadata:
 
 ```sh
-GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task meta set <id> github-issue <number>
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task meta set <id> github-issue <number>
 ```
 
 ### 4. Report
