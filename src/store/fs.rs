@@ -6,6 +6,19 @@ use std::{
 use super::Error;
 use crate::{config::Settings, model::Id};
 
+/// Result of scanning a directory for file stems matching a given prefix.
+///
+/// Only the first two matches are retained—enough to distinguish between
+/// "not found", "unique", and "ambiguous".
+enum PrefixMatch {
+  /// Two or more files matched (carries the first two for diagnostics).
+  Ambiguous(String, String),
+  /// No files matched the prefix.
+  None,
+  /// Exactly one file matched.
+  Unique(String),
+}
+
 /// Create all required store subdirectories under the layout's entity dirs.
 pub fn ensure_dirs(config: &Settings) -> super::Result<()> {
   let storage = config.storage();
@@ -17,39 +30,6 @@ pub fn ensure_dirs(config: &Settings) -> super::Result<()> {
   fs::create_dir_all(storage.task_dir())?;
   fs::create_dir_all(storage.task_dir().join("resolved"))?;
   Ok(())
-}
-
-/// Result of scanning a directory for file stems matching a given prefix.
-///
-/// Only the first two matches are retained—enough to distinguish between
-/// "not found", "unique", and "ambiguous".
-enum PrefixMatch {
-  /// No files matched the prefix.
-  None,
-  /// Exactly one file matched.
-  Unique(String),
-  /// Two or more files matched (carries the first two for diagnostics).
-  Ambiguous(String, String),
-}
-
-/// Scan `dir` for file stems starting with `prefix` (with the given extension),
-/// returning as soon as two matches are found.
-fn collect_prefix_matches(dir: &Path, extension: &str, prefix: &str) -> super::Result<PrefixMatch> {
-  let mut first: Option<String> = None;
-  for path in read_dir_files(dir, extension)? {
-    if let Some(stem) = path.file_stem().and_then(|s| s.to_str())
-      && stem.starts_with(prefix)
-    {
-      match first {
-        None => first = Some(stem.to_string()),
-        Some(ref f) => return Ok(PrefixMatch::Ambiguous(f.clone(), stem.to_string())),
-      }
-    }
-  }
-  Ok(match first {
-    Some(s) => PrefixMatch::Unique(s),
-    None => PrefixMatch::None,
-  })
 }
 
 /// Write `content` to `dest` and remove `src` if it exists, ensuring store dirs first.
@@ -122,6 +102,26 @@ pub(crate) fn resolve_id(
     msg.push_str(" (try --all)");
   }
   Err(Error::generic(msg))
+}
+
+/// Scan `dir` for file stems starting with `prefix` (with the given extension),
+/// returning as soon as two matches are found.
+fn collect_prefix_matches(dir: &Path, extension: &str, prefix: &str) -> super::Result<PrefixMatch> {
+  let mut first: Option<String> = None;
+  for path in read_dir_files(dir, extension)? {
+    if let Some(stem) = path.file_stem().and_then(|s| s.to_str())
+      && stem.starts_with(prefix)
+    {
+      match first {
+        None => first = Some(stem.to_string()),
+        Some(ref f) => return Ok(PrefixMatch::Ambiguous(f.clone(), stem.to_string())),
+      }
+    }
+  }
+  Ok(match first {
+    Some(s) => PrefixMatch::Unique(s),
+    None => PrefixMatch::None,
+  })
 }
 
 #[cfg(test)]

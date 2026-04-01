@@ -1,5 +1,7 @@
 //! Request handlers for each web view.
 
+use std::collections::BTreeMap;
+
 use axum::{
   Json,
   body::Bytes,
@@ -22,10 +24,131 @@ use crate::{
     ArtifactFilter, ArtifactPatch, IterationFilter, NewArtifact, NewTask, TaskFilter, TaskPatch,
     iteration::Status as IterationStatus,
     link::{Link, RelationshipType},
+    note::AuthorType,
     task::Status,
   },
   store,
 };
+
+// ── Type declarations ────────────────────────────────────────────────────────────────────────────
+
+/// A single search result for the JSON API.
+#[derive(serde::Serialize)]
+pub struct ApiSearchResult {
+  pub id: String,
+  #[serde(rename = "type")]
+  pub kind: String,
+  pub short_id: String,
+  pub title: String,
+}
+
+/// Form data for creating/updating an artifact.
+#[derive(serde::Deserialize)]
+pub struct ArtifactFormData {
+  #[serde(default)]
+  pub body: String,
+  #[serde(default)]
+  pub kind: String,
+  #[serde(default)]
+  pub tags: String,
+  pub title: String,
+}
+
+/// Query parameters for the artifact list endpoint.
+#[derive(serde::Deserialize)]
+pub struct ArtifactListParams {
+  #[serde(default)]
+  pub status: Option<String>,
+}
+
+/// Query parameters for the iteration list endpoint.
+#[derive(serde::Deserialize)]
+pub struct IterationListParams {
+  #[serde(default)]
+  pub status: Option<String>,
+}
+
+/// Form data for adding a note to a task.
+#[derive(serde::Deserialize)]
+pub struct NoteFormData {
+  #[serde(default)]
+  pub body: String,
+}
+
+/// Request body for the render-markdown endpoint.
+#[derive(serde::Deserialize)]
+pub struct RenderMarkdownBody {
+  pub body: String,
+}
+
+/// Query parameters for the search endpoint.
+#[derive(serde::Deserialize)]
+pub struct SearchParams {
+  #[serde(default)]
+  pub q: String,
+}
+
+/// Form data for task creation.
+pub struct TaskFormData {
+  pub description: String,
+  pub link_refs: Vec<String>,
+  pub link_rels: Vec<String>,
+  pub priority: String,
+  pub tags: String,
+  pub title: String,
+}
+
+impl TaskFormData {
+  /// Parse from raw URL-encoded form bytes, correctly handling repeated keys.
+  fn from_bytes(bytes: &[u8]) -> Self {
+    let mut title = String::new();
+    let mut description = String::new();
+    let mut tags = String::new();
+    let mut priority = String::new();
+    let mut link_rels = Vec::new();
+    let mut link_refs = Vec::new();
+
+    for (key, value) in form_urlencoded::parse(bytes) {
+      match key.as_ref() {
+        "title" => title = value.into_owned(),
+        "description" => description = value.into_owned(),
+        "tags" => tags = value.into_owned(),
+        "priority" => priority = value.into_owned(),
+        "link_rel[]" => link_rels.push(value.into_owned()),
+        "link_ref[]" => link_refs.push(value.into_owned()),
+        _ => {}
+      }
+    }
+
+    Self {
+      description,
+      link_refs,
+      link_rels,
+      priority,
+      tags,
+      title,
+    }
+  }
+}
+
+/// Query parameters for the task list endpoint.
+#[derive(serde::Deserialize)]
+pub struct TaskListParams {
+  #[serde(default)]
+  pub status: Option<String>,
+}
+
+// ── Free functions ────────────────────────────────────────────────────────────
+
+/// Generate a Gravatar URL from an email address using SHA-256.
+fn gravatar_url(email: Option<&str>) -> String {
+  use sha2::{Digest, Sha256};
+  let email = email.unwrap_or("");
+  let trimmed = email.trim().to_lowercase();
+  let digest = Sha256::digest(trimmed.as_bytes());
+  let hash: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+  format!("https://gravatar.com/avatar/{hash}?s=32&d=identicon")
+}
 
 /// Parse parallel `link_rel[]` and `link_ref[]` form fields into `Vec<Link>`.
 fn parse_form_links(rels: &[String], refs: &[String]) -> Vec<Link> {
@@ -53,6 +176,8 @@ fn render_markdown(input: &str) -> String {
   html::push_html(&mut html_output, parser);
   html_output
 }
+
+// ── Handlers ──────────────────────────────────────────────────────────────────
 
 /// GET / — dashboard with entity counts and navigation.
 pub async fn dashboard(State(state): State<ServerState>) -> Response {
@@ -88,13 +213,6 @@ pub async fn dashboard(State(state): State<ServerState>) -> Response {
     cancelled_count,
   }
   .into_response()
-}
-
-/// Query parameters for the task list endpoint.
-#[derive(serde::Deserialize)]
-pub struct TaskListParams {
-  #[serde(default)]
-  pub status: Option<String>,
 }
 
 /// GET /tasks — task list filtered by status.
@@ -207,7 +325,6 @@ pub async fn task_detail(State(state): State<ServerState>, Path(id_str): Path<St
     .notes
     .iter()
     .map(|note| {
-      use crate::model::note::AuthorType;
       let author = match note.author_type {
         AuthorType::Agent => note.author.clone(),
         AuthorType::Human => note.author.clone(),
@@ -245,49 +362,6 @@ pub async fn task_create_form() -> Response {
     error: None,
   }
   .into_response()
-}
-
-/// Form data for task creation.
-pub struct TaskFormData {
-  pub title: String,
-  pub description: String,
-  pub tags: String,
-  pub priority: String,
-  pub link_rels: Vec<String>,
-  pub link_refs: Vec<String>,
-}
-
-impl TaskFormData {
-  /// Parse from raw URL-encoded form bytes, correctly handling repeated keys.
-  fn from_bytes(bytes: &[u8]) -> Self {
-    let mut title = String::new();
-    let mut description = String::new();
-    let mut tags = String::new();
-    let mut priority = String::new();
-    let mut link_rels = Vec::new();
-    let mut link_refs = Vec::new();
-
-    for (key, value) in form_urlencoded::parse(bytes) {
-      match key.as_ref() {
-        "title" => title = value.into_owned(),
-        "description" => description = value.into_owned(),
-        "tags" => tags = value.into_owned(),
-        "priority" => priority = value.into_owned(),
-        "link_rel[]" => link_rels.push(value.into_owned()),
-        "link_ref[]" => link_refs.push(value.into_owned()),
-        _ => {}
-      }
-    }
-
-    Self {
-      title,
-      description,
-      tags,
-      priority,
-      link_rels,
-      link_refs,
-    }
-  }
 }
 
 /// POST /tasks — create a task.
@@ -434,13 +508,6 @@ pub async fn task_update(State(state): State<ServerState>, Path(id_str): Path<St
   }
 }
 
-/// Query parameters for the artifact list endpoint.
-#[derive(serde::Deserialize)]
-pub struct ArtifactListParams {
-  #[serde(default)]
-  pub status: Option<String>,
-}
-
 /// GET /artifacts — artifact list with status filtering.
 pub async fn artifact_list(State(state): State<ServerState>, Query(params): Query<ArtifactListParams>) -> Response {
   let filter = ArtifactFilter {
@@ -518,18 +585,6 @@ pub async fn artifact_create_form() -> Response {
     error: None,
   }
   .into_response()
-}
-
-/// Form data for creating/updating an artifact.
-#[derive(serde::Deserialize)]
-pub struct ArtifactFormData {
-  pub title: String,
-  #[serde(default)]
-  pub kind: String,
-  #[serde(default)]
-  pub tags: String,
-  #[serde(default)]
-  pub body: String,
 }
 
 /// POST /artifacts — create a new artifact.
@@ -680,13 +735,6 @@ pub async fn artifact_archive(State(state): State<ServerState>, Path(id_str): Pa
   }
 }
 
-/// Query parameters for the iteration list endpoint.
-#[derive(serde::Deserialize)]
-pub struct IterationListParams {
-  #[serde(default)]
-  pub status: Option<String>,
-}
-
 /// GET /iterations — iteration list filtered by status.
 pub async fn iteration_list(State(state): State<ServerState>, Query(params): Query<IterationListParams>) -> Response {
   let filter = IterationFilter {
@@ -752,7 +800,7 @@ pub async fn iteration_detail(State(state): State<ServerState>, Path(id_str): Pa
 
   let tasks = store::read_iteration_tasks(&state.settings, &iteration);
 
-  let mut phase_map: std::collections::BTreeMap<u16, Vec<crate::model::Task>> = std::collections::BTreeMap::new();
+  let mut phase_map: BTreeMap<u16, Vec<crate::model::Task>> = BTreeMap::new();
   for task in &tasks {
     let phase = task.phase.unwrap_or(0);
     phase_map.entry(phase).or_default().push(task.clone());
@@ -813,13 +861,6 @@ pub async fn iteration_board(State(state): State<ServerState>, Path(id_str): Pat
   .into_response()
 }
 
-/// Query parameters for the search endpoint.
-#[derive(serde::Deserialize)]
-pub struct SearchParams {
-  #[serde(default)]
-  pub q: String,
-}
-
 /// GET /search — search across all entity types.
 pub async fn search(State(state): State<ServerState>, Query(params): Query<SearchParams>) -> Response {
   if params.q.is_empty() {
@@ -859,16 +900,6 @@ pub async fn search(State(state): State<ServerState>, Query(params): Query<Searc
 }
 
 // ── API endpoints ─────────────────────────────────────────────────────────────
-
-/// A single search result for the JSON API.
-#[derive(serde::Serialize)]
-pub struct ApiSearchResult {
-  #[serde(rename = "type")]
-  pub kind: String,
-  pub id: String,
-  pub short_id: String,
-  pub title: String,
-}
 
 /// GET /api/search?q=... — JSON search results.
 pub async fn api_search(State(state): State<ServerState>, Query(params): Query<SearchParams>) -> Response {
@@ -913,12 +944,6 @@ pub async fn api_search(State(state): State<ServerState>, Query(params): Query<S
   Json(items).into_response()
 }
 
-/// Request body for the render-markdown endpoint.
-#[derive(serde::Deserialize)]
-pub struct RenderMarkdownBody {
-  pub body: String,
-}
-
 /// POST /api/render-markdown — render Markdown to HTML.
 pub async fn api_render_markdown(Json(payload): Json<RenderMarkdownBody>) -> Response {
   let html_output = render_markdown(&payload.body);
@@ -927,13 +952,6 @@ pub async fn api_render_markdown(Json(payload): Json<RenderMarkdownBody>) -> Res
     html_output,
   )
     .into_response()
-}
-
-/// Form data for adding a note to a task.
-#[derive(serde::Deserialize)]
-pub struct NoteFormData {
-  #[serde(default)]
-  pub body: String,
 }
 
 /// POST /tasks/:id/notes — add a note to a task.
@@ -953,7 +971,6 @@ pub async fn note_add(
   }
 
   let (author, author_email, author_type) = {
-    use crate::model::note::AuthorType;
     match crate::cli::git::resolve_author() {
       Some(git_author) => (git_author.name, git_author.email, AuthorType::Human),
       None => ("web".to_string(), None, AuthorType::Human),
@@ -974,16 +991,6 @@ pub async fn note_add(
       (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response()
     }
   }
-}
-
-/// Generate a Gravatar URL from an email address using SHA-256.
-fn gravatar_url(email: Option<&str>) -> String {
-  use sha2::{Digest, Sha256};
-  let email = email.unwrap_or("");
-  let trimmed = email.trim().to_lowercase();
-  let digest = Sha256::digest(trimmed.as_bytes());
-  let hash: String = digest.iter().map(|b| format!("{b:02x}")).collect();
-  format!("https://gravatar.com/avatar/{hash}?s=32&d=identicon")
 }
 
 /// Fallback handler for unmatched routes.

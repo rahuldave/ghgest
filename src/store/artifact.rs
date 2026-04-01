@@ -301,69 +301,6 @@ mod tests {
     }
   }
 
-  mod update_artifact {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-    use crate::model::ArtifactPatch;
-
-    #[test]
-    fn it_keeps_active_artifact_in_active_dir() {
-      let dir = tempfile::tempdir().unwrap();
-      let a = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Original", "body");
-      crate::store::write_artifact(&make_config(dir.path()), &a).unwrap();
-
-      let patch = ArtifactPatch {
-        title: Some("Updated".to_string()),
-        ..Default::default()
-      };
-      crate::store::update_artifact(&make_config(dir.path()), &a.id, patch).unwrap();
-
-      assert!(
-        dir
-          .path()
-          .join("artifacts/zyxwvutsrqponmlkzyxwvutsrqponmlk.md")
-          .exists()
-      );
-      assert!(
-        !dir
-          .path()
-          .join("artifacts/archive/zyxwvutsrqponmlkzyxwvutsrqponmlk.md")
-          .exists()
-      );
-    }
-
-    #[test]
-    fn it_writes_to_archive_not_active() {
-      let dir = tempfile::tempdir().unwrap();
-      let a = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Original", "body");
-      crate::store::write_artifact(&make_config(dir.path()), &a).unwrap();
-      crate::store::archive_artifact(&make_config(dir.path()), &a.id).unwrap();
-
-      let patch = ArtifactPatch {
-        title: Some("Updated".to_string()),
-        ..Default::default()
-      };
-      crate::store::update_artifact(&make_config(dir.path()), &a.id, patch).unwrap();
-
-      assert!(
-        !dir
-          .path()
-          .join("artifacts/zyxwvutsrqponmlkzyxwvutsrqponmlk.md")
-          .exists()
-      );
-      assert!(
-        dir
-          .path()
-          .join("artifacts/archive/zyxwvutsrqponmlkzyxwvutsrqponmlk.md")
-          .exists()
-      );
-
-      let loaded = crate::store::read_artifact(&make_config(dir.path()), &a.id).unwrap();
-      assert_eq!(loaded.title, "Updated");
-    }
-  }
-
   mod parse_artifact_file {
     use pretty_assertions::assert_eq;
 
@@ -428,6 +365,69 @@ mod tests {
       let resolved = crate::store::resolve_artifact_id(&make_config(dir.path()), "zyxw", true).unwrap();
 
       assert_eq!(resolved.to_string(), "zyxwvutsrqponmlkzyxwvutsrqponmlk");
+    }
+  }
+
+  mod update_artifact {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+    use crate::model::ArtifactPatch;
+
+    #[test]
+    fn it_keeps_active_artifact_in_active_dir() {
+      let dir = tempfile::tempdir().unwrap();
+      let a = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Original", "body");
+      crate::store::write_artifact(&make_config(dir.path()), &a).unwrap();
+
+      let patch = ArtifactPatch {
+        title: Some("Updated".to_string()),
+        ..Default::default()
+      };
+      crate::store::update_artifact(&make_config(dir.path()), &a.id, patch).unwrap();
+
+      assert!(
+        dir
+          .path()
+          .join("artifacts/zyxwvutsrqponmlkzyxwvutsrqponmlk.md")
+          .exists()
+      );
+      assert!(
+        !dir
+          .path()
+          .join("artifacts/archive/zyxwvutsrqponmlkzyxwvutsrqponmlk.md")
+          .exists()
+      );
+    }
+
+    #[test]
+    fn it_writes_to_archive_not_active() {
+      let dir = tempfile::tempdir().unwrap();
+      let a = make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Original", "body");
+      crate::store::write_artifact(&make_config(dir.path()), &a).unwrap();
+      crate::store::archive_artifact(&make_config(dir.path()), &a.id).unwrap();
+
+      let patch = ArtifactPatch {
+        title: Some("Updated".to_string()),
+        ..Default::default()
+      };
+      crate::store::update_artifact(&make_config(dir.path()), &a.id, patch).unwrap();
+
+      assert!(
+        !dir
+          .path()
+          .join("artifacts/zyxwvutsrqponmlkzyxwvutsrqponmlk.md")
+          .exists()
+      );
+      assert!(
+        dir
+          .path()
+          .join("artifacts/archive/zyxwvutsrqponmlkzyxwvutsrqponmlk.md")
+          .exists()
+      );
+
+      let loaded = crate::store::read_artifact(&make_config(dir.path()), &a.id).unwrap();
+      assert_eq!(loaded.title, "Updated");
     }
   }
 }

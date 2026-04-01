@@ -26,28 +26,11 @@ impl<'a> IterationStatus<'a> {
   pub fn new(id: &'a str, title: &'a str, status: &'a str, progress: &'a IterationProgress, theme: &'a Theme) -> Self {
     Self {
       id,
-      title,
-      status,
       progress,
+      status,
       theme,
+      title,
     }
-  }
-
-  fn phase_line(&self) -> String {
-    match self.progress.active_phase {
-      Some(phase) => format!(
-        "Phase {}: {}/{} done",
-        phase, self.progress.phase_progress.done, self.progress.phase_progress.total,
-      ),
-      None => "none".to_string(),
-    }
-  }
-
-  fn overall_line(&self) -> String {
-    format!(
-      "{}/{}",
-      self.progress.overall_progress.done, self.progress.overall_progress.total,
-    )
   }
 
   fn counts_line(&self) -> String {
@@ -71,6 +54,23 @@ impl<'a> IterationStatus<'a> {
       "in progress".paint(self.theme.iteration_detail_count_in_progress),
     );
     format!("{in_progress}{sep}{blocked}")
+  }
+
+  fn overall_line(&self) -> String {
+    format!(
+      "{}/{}",
+      self.progress.overall_progress.done, self.progress.overall_progress.total,
+    )
+  }
+
+  fn phase_line(&self) -> String {
+    match self.progress.active_phase {
+      Some(phase) => format!(
+        "Phase {}: {}/{} done",
+        phase, self.progress.phase_progress.done, self.progress.phase_progress.total,
+      ),
+      None => "none".to_string(),
+    }
   }
 }
 
@@ -161,53 +161,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_renders_id_on_first_line() {
-      let t = theme();
-      let progress = sample_progress();
-      let view = IterationStatus::new("q1ebvmxp", "Q1 Benchmark", "active", &progress, &t);
-      let out = render(&view);
-      let first_line = out.lines().next().unwrap();
-      assert!(first_line.contains("q1ebvmxp"));
-    }
-
-    #[test]
-    fn it_renders_title_and_status() {
-      let t = theme();
-      let progress = sample_progress();
-      let view = IterationStatus::new("q1ebvmxp", "Q1 Benchmark", "active", &progress, &t);
-      let out = render(&view);
-      assert!(out.contains("Q1 Benchmark"));
-      assert!(out.contains("active"));
-    }
-
-    #[test]
-    fn it_renders_phase_fraction() {
-      let t = theme();
-      let progress = sample_progress();
-      let view = IterationStatus::new("q1ebvmxp", "Q1 Benchmark", "active", &progress, &t);
-      let out = render(&view);
-      assert!(out.contains("2 / 4"), "should show active/total phases");
-    }
-
-    #[test]
-    fn it_renders_phase_progress() {
-      let t = theme();
-      let progress = sample_progress();
-      let view = IterationStatus::new("q1ebvmxp", "Q1 Benchmark", "active", &progress, &t);
-      let out = render(&view);
-      assert!(out.contains("Phase 2: 3/5 done"));
-    }
-
-    #[test]
-    fn it_renders_overall_progress() {
-      let t = theme();
-      let progress = sample_progress();
-      let view = IterationStatus::new("q1ebvmxp", "Q1 Benchmark", "active", &progress, &t);
-      let out = render(&view);
-      assert!(out.contains("8/15"));
-    }
-
-    #[test]
     fn it_renders_activity_counts() {
       let t = theme();
       let progress = sample_progress();
@@ -224,6 +177,16 @@ mod tests {
       let view = IterationStatus::new("q1ebvmxp", "Q1 Benchmark", "active", &progress, &t);
       let out = render(&view);
       assert!(out.contains("agent-a, agent-b"));
+    }
+
+    #[test]
+    fn it_renders_id_on_first_line() {
+      let t = theme();
+      let progress = sample_progress();
+      let view = IterationStatus::new("q1ebvmxp", "Q1 Benchmark", "active", &progress, &t);
+      let out = render(&view);
+      let first_line = out.lines().next().unwrap();
+      assert!(first_line.contains("q1ebvmxp"));
     }
 
     #[test]
@@ -251,6 +214,43 @@ mod tests {
         out.contains("none"),
         "should show none for phase progress and assignees"
       );
+    }
+
+    #[test]
+    fn it_renders_overall_progress() {
+      let t = theme();
+      let progress = sample_progress();
+      let view = IterationStatus::new("q1ebvmxp", "Q1 Benchmark", "active", &progress, &t);
+      let out = render(&view);
+      assert!(out.contains("8/15"));
+    }
+
+    #[test]
+    fn it_renders_phase_fraction() {
+      let t = theme();
+      let progress = sample_progress();
+      let view = IterationStatus::new("q1ebvmxp", "Q1 Benchmark", "active", &progress, &t);
+      let out = render(&view);
+      assert!(out.contains("2 / 4"), "should show active/total phases");
+    }
+
+    #[test]
+    fn it_renders_phase_progress() {
+      let t = theme();
+      let progress = sample_progress();
+      let view = IterationStatus::new("q1ebvmxp", "Q1 Benchmark", "active", &progress, &t);
+      let out = render(&view);
+      assert!(out.contains("Phase 2: 3/5 done"));
+    }
+
+    #[test]
+    fn it_renders_title_and_status() {
+      let t = theme();
+      let progress = sample_progress();
+      let view = IterationStatus::new("q1ebvmxp", "Q1 Benchmark", "active", &progress, &t);
+      let out = render(&view);
+      assert!(out.contains("Q1 Benchmark"));
+      assert!(out.contains("active"));
     }
   }
 }

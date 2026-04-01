@@ -24,30 +24,12 @@ pub struct Command {
   command: IterationCommand,
 }
 
-#[derive(Debug, Subcommand)]
-enum IterationCommand {
-  Advance(advance::Command),
-  Add(add::Command),
-  Create(create::Command),
-  Graph(graph::Command),
-  Link(link::Command),
-  List(list::Command),
-  Meta(meta::Command),
-  Next(next::Command),
-  Remove(remove::Command),
-  Show(show::Command),
-  Status(status::Command),
-  Tag(tag::Command),
-  Untag(untag::Command),
-  Update(update::Command),
-}
-
 impl Command {
   /// Dispatch to the appropriate iteration subcommand.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
     match &self.command {
-      IterationCommand::Advance(cmd) => cmd.call(ctx),
       IterationCommand::Add(cmd) => cmd.call(ctx),
+      IterationCommand::Advance(cmd) => cmd.call(ctx),
       IterationCommand::Create(cmd) => cmd.call(ctx),
       IterationCommand::Graph(cmd) => cmd.call(ctx),
       IterationCommand::Link(cmd) => cmd.call(ctx),
@@ -62,4 +44,22 @@ impl Command {
       IterationCommand::Update(cmd) => cmd.call(ctx),
     }
   }
+}
+
+#[derive(Debug, Subcommand)]
+enum IterationCommand {
+  Add(add::Command),
+  Advance(advance::Command),
+  Create(create::Command),
+  Graph(graph::Command),
+  Link(link::Command),
+  List(list::Command),
+  Meta(meta::Command),
+  Next(next::Command),
+  Remove(remove::Command),
+  Show(show::Command),
+  Status(status::Command),
+  Tag(tag::Command),
+  Untag(untag::Command),
+  Update(update::Command),
 }

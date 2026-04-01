@@ -20,6 +20,87 @@ pub struct ResolvedBlocking {
   pub is_blocking: bool,
 }
 
+/// Persist a new task, resolving it immediately if the status is terminal.
+pub fn create_task(config: &Settings, new: NewTask) -> super::Result<Task> {
+  let now = Utc::now();
+  let task = Task {
+    assigned_to: new.assigned_to,
+    created_at: now,
+    description: new.description,
+    id: Id::new(),
+    links: new.links,
+    metadata: new.metadata,
+    phase: new.phase,
+    notes: Vec::new(),
+    priority: new.priority,
+    resolved_at: None,
+    status: new.status,
+    tags: new.tags,
+    title: new.title,
+    updated_at: now,
+  };
+
+  write_task(config, &task)?;
+
+  if task.status.is_terminal() {
+    resolve_task(config, &task.id)?;
+    return read_task(config, &task.id);
+  }
+
+  Ok(task)
+}
+
+/// Check whether a task has been moved to the resolved directory.
+pub fn is_task_resolved(config: &Settings, id: &Id) -> bool {
+  let resolved_path = config.storage().task_dir().join(format!("resolved/{id}.toml"));
+  let active_path = config.storage().task_dir().join(format!("{id}.toml"));
+  resolved_path.exists() && !active_path.exists()
+}
+
+/// List tasks matching the given filter criteria.
+pub fn list_tasks(config: &Settings, filter: &TaskFilter) -> super::Result<Vec<Task>> {
+  let parse = |content: &str| Ok(toml::from_str::<Task>(content)?);
+  let mut tasks = load_entities_from_dirs(
+    config.storage().task_dir(),
+    &config.storage().task_dir().join("resolved"),
+    "toml",
+    false,
+    filter.all,
+    parse,
+  )?;
+
+  tasks.retain(|task| {
+    if let Some(ref assigned_to) = filter.assigned_to
+      && task.assigned_to.as_deref() != Some(assigned_to.as_str())
+    {
+      return false;
+    }
+    if let Some(ref status) = filter.status
+      && &task.status != status
+    {
+      return false;
+    }
+    if let Some(ref tag) = filter.tag
+      && !task.tags.contains(tag)
+    {
+      return false;
+    }
+    true
+  });
+
+  Ok(tasks)
+}
+
+/// Load a single task by exact ID, checking both active and resolved directories.
+pub fn read_task(config: &Settings, id: &Id) -> super::Result<Task> {
+  let active = config.storage().task_dir().join(format!("{id}.toml"));
+  let resolved = config.storage().task_dir().join(format!("resolved/{id}.toml"));
+
+  read_entity_file(&active, &resolved, "resolved", "Task", id, |content| {
+    Ok(toml::from_str::<Task>(content)?)
+  })
+}
+
 /// Resolve the actual blocking state of a task by reading the status of referenced tasks.
 ///
 /// A `blocked-by` link is only active if the referenced task exists and is non-terminal.
@@ -102,87 +183,6 @@ pub fn resolve_blocking_batch(config: &Settings, tasks: &[Task]) -> Vec<Resolved
       }
     })
     .collect()
-}
-
-/// Persist a new task, resolving it immediately if the status is terminal.
-pub fn create_task(config: &Settings, new: NewTask) -> super::Result<Task> {
-  let now = Utc::now();
-  let task = Task {
-    assigned_to: new.assigned_to,
-    created_at: now,
-    description: new.description,
-    id: Id::new(),
-    links: new.links,
-    metadata: new.metadata,
-    phase: new.phase,
-    notes: Vec::new(),
-    priority: new.priority,
-    resolved_at: None,
-    status: new.status,
-    tags: new.tags,
-    title: new.title,
-    updated_at: now,
-  };
-
-  write_task(config, &task)?;
-
-  if task.status.is_terminal() {
-    resolve_task(config, &task.id)?;
-    return read_task(config, &task.id);
-  }
-
-  Ok(task)
-}
-
-/// Check whether a task has been moved to the resolved directory.
-pub fn is_task_resolved(config: &Settings, id: &Id) -> bool {
-  let resolved_path = config.storage().task_dir().join(format!("resolved/{id}.toml"));
-  let active_path = config.storage().task_dir().join(format!("{id}.toml"));
-  resolved_path.exists() && !active_path.exists()
-}
-
-/// List tasks matching the given filter criteria.
-pub fn list_tasks(config: &Settings, filter: &TaskFilter) -> super::Result<Vec<Task>> {
-  let parse = |content: &str| Ok(toml::from_str::<Task>(content)?);
-  let mut tasks = load_entities_from_dirs(
-    config.storage().task_dir(),
-    &config.storage().task_dir().join("resolved"),
-    "toml",
-    false,
-    filter.all,
-    parse,
-  )?;
-
-  tasks.retain(|task| {
-    if let Some(ref assigned_to) = filter.assigned_to
-      && task.assigned_to.as_deref() != Some(assigned_to.as_str())
-    {
-      return false;
-    }
-    if let Some(ref status) = filter.status
-      && &task.status != status
-    {
-      return false;
-    }
-    if let Some(ref tag) = filter.tag
-      && !task.tags.contains(tag)
-    {
-      return false;
-    }
-    true
-  });
-
-  Ok(tasks)
-}
-
-/// Load a single task by exact ID, checking both active and resolved directories.
-pub fn read_task(config: &Settings, id: &Id) -> super::Result<Task> {
-  let active = config.storage().task_dir().join(format!("{id}.toml"));
-  let resolved = config.storage().task_dir().join(format!("resolved/{id}.toml"));
-
-  read_entity_file(&active, &resolved, "resolved", "Task", id, |content| {
-    Ok(toml::from_str::<Task>(content)?)
-  })
 }
 
 /// Move a task to the resolved directory, setting its `resolved_at` timestamp.
@@ -355,6 +355,41 @@ mod tests {
     }
 
     #[test]
+    fn it_excludes_unassigned_when_filtering_by_assigned_to() {
+      let dir = tempfile::tempdir().unwrap();
+      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Unassigned");
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
+
+      let filter = TaskFilter {
+        assigned_to: Some("agent-1".to_string()),
+        ..Default::default()
+      };
+      let tasks = crate::store::list_tasks(&make_config(dir.path()), &filter).unwrap();
+      assert_eq!(tasks.len(), 0);
+    }
+
+    #[test]
+    fn it_filters_by_assigned_to() {
+      let dir = tempfile::tempdir().unwrap();
+      let mut task1 = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Assigned Task");
+      task1.assigned_to = Some("agent-1".to_string());
+      let mut task2 = make_test_task("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Other Task");
+      task2.assigned_to = Some("agent-2".to_string());
+      let task3 = make_test_task("mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm", "Unassigned Task");
+      crate::store::write_task(&make_config(dir.path()), &task1).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task2).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task3).unwrap();
+
+      let filter = TaskFilter {
+        assigned_to: Some("agent-1".to_string()),
+        ..Default::default()
+      };
+      let tasks = crate::store::list_tasks(&make_config(dir.path()), &filter).unwrap();
+      assert_eq!(tasks.len(), 1);
+      assert_eq!(tasks[0].title, "Assigned Task");
+    }
+
+    #[test]
     fn it_filters_by_status() {
       let dir = tempfile::tempdir().unwrap();
       let mut task1 = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Open Task");
@@ -389,41 +424,6 @@ mod tests {
       let tasks = crate::store::list_tasks(&make_config(dir.path()), &filter).unwrap();
       assert_eq!(tasks.len(), 1);
       assert_eq!(tasks[0].title, "Tagged");
-    }
-
-    #[test]
-    fn it_filters_by_assigned_to() {
-      let dir = tempfile::tempdir().unwrap();
-      let mut task1 = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Assigned Task");
-      task1.assigned_to = Some("agent-1".to_string());
-      let mut task2 = make_test_task("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Other Task");
-      task2.assigned_to = Some("agent-2".to_string());
-      let task3 = make_test_task("mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm", "Unassigned Task");
-      crate::store::write_task(&make_config(dir.path()), &task1).unwrap();
-      crate::store::write_task(&make_config(dir.path()), &task2).unwrap();
-      crate::store::write_task(&make_config(dir.path()), &task3).unwrap();
-
-      let filter = TaskFilter {
-        assigned_to: Some("agent-1".to_string()),
-        ..Default::default()
-      };
-      let tasks = crate::store::list_tasks(&make_config(dir.path()), &filter).unwrap();
-      assert_eq!(tasks.len(), 1);
-      assert_eq!(tasks[0].title, "Assigned Task");
-    }
-
-    #[test]
-    fn it_excludes_unassigned_when_filtering_by_assigned_to() {
-      let dir = tempfile::tempdir().unwrap();
-      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Unassigned");
-      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
-
-      let filter = TaskFilter {
-        assigned_to: Some("agent-1".to_string()),
-        ..Default::default()
-      };
-      let tasks = crate::store::list_tasks(&make_config(dir.path()), &filter).unwrap();
-      assert_eq!(tasks.len(), 0);
     }
 
     #[test]
@@ -753,6 +753,34 @@ mod tests {
     }
   }
 
+  mod task_io {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn it_roundtrips_task_with_links_and_metadata() {
+      let dir = tempfile::tempdir().unwrap();
+      let mut task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test Task");
+      task.description = "A description".to_string();
+      task.links = vec![Link {
+        ref_: "https://example.com".to_string(),
+        rel: crate::model::link::RelationshipType::RelatesTo,
+      }];
+      task.metadata = {
+        let mut table = toml::Table::new();
+        table.insert("priority".to_string(), toml::Value::String("high".to_string()));
+        table
+      };
+      task.tags = vec!["rust".to_string(), "test".to_string()];
+
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
+      let loaded = crate::store::read_task(&make_config(dir.path()), &task.id).unwrap();
+
+      assert_eq!(task, loaded);
+    }
+  }
+
   mod update_task {
     use pretty_assertions::assert_eq;
 
@@ -804,34 +832,6 @@ mod tests {
 
       let loaded = crate::store::read_task(&make_config(dir.path()), &task.id).unwrap();
       assert_eq!(loaded.title, "Updated");
-    }
-  }
-
-  mod task_io {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn it_roundtrips_task_with_links_and_metadata() {
-      let dir = tempfile::tempdir().unwrap();
-      let mut task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test Task");
-      task.description = "A description".to_string();
-      task.links = vec![Link {
-        ref_: "https://example.com".to_string(),
-        rel: crate::model::link::RelationshipType::RelatesTo,
-      }];
-      task.metadata = {
-        let mut table = toml::Table::new();
-        table.insert("priority".to_string(), toml::Value::String("high".to_string()));
-        table
-      };
-      task.tags = vec!["rust".to_string(), "test".to_string()];
-
-      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
-      let loaded = crate::store::read_task(&make_config(dir.path()), &task.id).unwrap();
-
-      assert_eq!(task, loaded);
     }
   }
 }

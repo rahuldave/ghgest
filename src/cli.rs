@@ -23,10 +23,10 @@ pub enum Error {
   Config(#[from] crate::config::Error),
   #[error("{0}")]
   Generic(String),
-  #[error("{0}")]
-  NoResult(String),
   #[error(transparent)]
   Io(#[from] std::io::Error),
+  #[error("{0}")]
+  NoResult(String),
   #[error(transparent)]
   SerdeJson(#[from] serde_json::Error),
   #[error(transparent)]
@@ -34,6 +34,14 @@ pub enum Error {
 }
 
 impl Error {
+  /// Return the exit code for this error: 2 for no-result, 1 for everything else.
+  pub fn exit_code(&self) -> i32 {
+    match self {
+      Self::NoResult(_) => 2,
+      _ => 1,
+    }
+  }
+
   /// Construct a free-form error from any string-like message.
   pub fn generic(msg: impl Into<String>) -> Self {
     Self::Generic(msg.into())
@@ -42,14 +50,6 @@ impl Error {
   /// Construct a "no result" error that maps to exit code 2.
   pub fn no_result(msg: impl Into<String>) -> Self {
     Self::NoResult(msg.into())
-  }
-
-  /// Return the exit code for this error: 2 for no-result, 1 for everything else.
-  pub fn exit_code(&self) -> i32 {
-    match self {
-      Self::NoResult(_) => 2,
-      _ => 1,
-    }
   }
 }
 

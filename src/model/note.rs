@@ -44,6 +44,14 @@ impl FromStr for AuthorType {
   }
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct NewNote {
+  pub author: String,
+  pub author_email: Option<String>,
+  pub author_type: AuthorType,
+  pub body: String,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Note {
   pub author: String,
@@ -55,14 +63,6 @@ pub struct Note {
   pub created_at: DateTime<Utc>,
   pub id: Id,
   pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct NewNote {
-  pub author: String,
-  pub author_email: Option<String>,
-  pub author_type: AuthorType,
-  pub body: String,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -116,21 +116,20 @@ mod tests {
       use super::*;
 
       #[test]
-      fn it_roundtrips_through_toml() {
+      fn it_omits_author_email_when_none() {
         let now = Utc::now();
         let note = Note {
-          author: "alice".to_string(),
-          author_email: Some("alice@example.com".to_string()),
-          author_type: AuthorType::Human,
-          body: "This is a note".to_string(),
+          author: "claude".to_string(),
+          author_email: None,
+          author_type: AuthorType::Agent,
+          body: "test".to_string(),
           created_at: now,
           id: "zyxwvutsrqponmlkzyxwvutsrqponmlk".parse().unwrap(),
           updated_at: now,
         };
 
         let toml_str = toml::to_string(&note).unwrap();
-        let roundtripped: Note = toml::from_str(&toml_str).unwrap();
-        assert_eq!(note, roundtripped);
+        assert!(!toml_str.contains("author_email"));
       }
 
       #[test]
@@ -152,20 +151,21 @@ mod tests {
       }
 
       #[test]
-      fn it_omits_author_email_when_none() {
+      fn it_roundtrips_through_toml() {
         let now = Utc::now();
         let note = Note {
-          author: "claude".to_string(),
-          author_email: None,
-          author_type: AuthorType::Agent,
-          body: "test".to_string(),
+          author: "alice".to_string(),
+          author_email: Some("alice@example.com".to_string()),
+          author_type: AuthorType::Human,
+          body: "This is a note".to_string(),
           created_at: now,
           id: "zyxwvutsrqponmlkzyxwvutsrqponmlk".parse().unwrap(),
           updated_at: now,
         };
 
         let toml_str = toml::to_string(&note).unwrap();
-        assert!(!toml_str.contains("author_email"));
+        let roundtripped: Note = toml::from_str(&toml_str).unwrap();
+        assert_eq!(note, roundtripped);
       }
     }
   }

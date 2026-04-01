@@ -345,6 +345,47 @@ mod tests {
   }
 
   #[test]
+  fn it_aligns_titles_with_mixed_priorities() {
+    let t = theme();
+    let graph = IterationGraph {
+      title: "Mixed priority test",
+      phases: vec![PhaseData {
+        number: 1,
+        name: Some("mixed"),
+        tasks: vec![
+          TaskData {
+            status: "done",
+            id: "aaaaaaaa",
+            title: "has priority",
+            priority: Some(1),
+
+            is_blocking: false,
+            blocked_by: None,
+          },
+          TaskData {
+            status: "open",
+            id: "bbbbbbbb",
+            title: "no priority",
+            priority: None,
+
+            is_blocking: false,
+            blocked_by: None,
+          },
+        ],
+      }],
+      theme: &t,
+    };
+    let output = render(&graph);
+
+    let line_with = output.lines().find(|l| l.contains("has priority")).unwrap();
+    let line_without = output.lines().find(|l| l.contains("no priority")).unwrap();
+
+    let pos_with = line_with.find("has priority").unwrap();
+    let pos_without = line_without.find("no priority").unwrap();
+    assert_eq!(pos_with, pos_without, "titles should align when priorities are mixed");
+  }
+
+  #[test]
   fn it_omits_branches_for_single_task_phase() {
     let t = theme();
     let graph = IterationGraph {
@@ -538,47 +579,6 @@ mod tests {
     assert!(output.contains("1 phase"), "should use singular 'phase'");
     assert!(output.contains("1 task"), "should use singular 'task'");
     assert!(!output.contains("1 phases"), "should not use plural for 1");
-  }
-
-  #[test]
-  fn it_aligns_titles_with_mixed_priorities() {
-    let t = theme();
-    let graph = IterationGraph {
-      title: "Mixed priority test",
-      phases: vec![PhaseData {
-        number: 1,
-        name: Some("mixed"),
-        tasks: vec![
-          TaskData {
-            status: "done",
-            id: "aaaaaaaa",
-            title: "has priority",
-            priority: Some(1),
-
-            is_blocking: false,
-            blocked_by: None,
-          },
-          TaskData {
-            status: "open",
-            id: "bbbbbbbb",
-            title: "no priority",
-            priority: None,
-
-            is_blocking: false,
-            blocked_by: None,
-          },
-        ],
-      }],
-      theme: &t,
-    };
-    let output = render(&graph);
-
-    let line_with = output.lines().find(|l| l.contains("has priority")).unwrap();
-    let line_without = output.lines().find(|l| l.contains("no priority")).unwrap();
-
-    let pos_with = line_with.find("has priority").unwrap();
-    let pos_without = line_without.find("no priority").unwrap();
-    assert_eq!(pos_with, pos_without, "titles should align when priorities are mixed");
   }
 
   #[test]

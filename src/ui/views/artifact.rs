@@ -66,15 +66,6 @@ impl Display for ArtifactDetailView<'_> {
   }
 }
 
-/// Data for a single row in the artifact list view.
-pub struct ArtifactViewData {
-  pub id: String,
-  pub is_archived: bool,
-  pub kind: Option<String>,
-  pub tags: Vec<String>,
-  pub title: String,
-}
-
 /// Renders a grouped list of artifacts with a summary header.
 pub struct ArtifactListView<'a> {
   archived: usize,
@@ -136,12 +127,59 @@ impl Display for ArtifactListView<'_> {
   }
 }
 
+/// Data for a single row in the artifact list view.
+pub struct ArtifactViewData {
+  pub id: String,
+  pub is_archived: bool,
+  pub kind: Option<String>,
+  pub tags: Vec<String>,
+  pub title: String,
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
 
   fn theme() -> Theme {
     Theme::default()
+  }
+
+  #[test]
+  fn it_aligns_titles_with_mixed_kinds() {
+    yansi::disable();
+    let theme = theme();
+    let view = ArtifactListView::new(2, 0, &theme).artifacts(vec![
+      ArtifactViewData {
+        id: "aaaaaaaa".into(),
+        title: "has-kind".into(),
+        kind: Some("spec".into()),
+        tags: vec![],
+        is_archived: false,
+      },
+      ArtifactViewData {
+        id: "bbbbbbbb".into(),
+        title: "no-kind".into(),
+        kind: None,
+        tags: vec![],
+        is_archived: false,
+      },
+    ]);
+    let output = view.to_string();
+    let lines: Vec<&str> = output.lines().collect();
+
+    let line_with = lines
+      .iter()
+      .find(|l| l.contains("has-kind"))
+      .expect("should find has-kind line");
+    let line_without = lines
+      .iter()
+      .find(|l| l.contains("no-kind"))
+      .expect("should find no-kind line");
+
+    let pos_with = line_with.find("has-kind").unwrap();
+    let pos_without = line_without.find("no-kind").unwrap();
+
+    assert_eq!(pos_with, pos_without, "titles should align when kinds differ");
   }
 
   #[test]
@@ -195,6 +233,32 @@ mod tests {
   }
 
   #[test]
+  fn it_renders_kind_in_list_rows() {
+    yansi::disable();
+    let theme = theme();
+    let view = ArtifactListView::new(2, 0, &theme).artifacts(vec![
+      ArtifactViewData {
+        id: "abcdefgh".into(),
+        title: "my-spec".into(),
+        kind: Some("spec".into()),
+        tags: vec![],
+        is_archived: false,
+      },
+      ArtifactViewData {
+        id: "ijklmnop".into(),
+        title: "my-adr".into(),
+        kind: Some("adr".into()),
+        tags: vec![],
+        is_archived: false,
+      },
+    ]);
+    let output = view.to_string();
+
+    assert!(output.contains("spec"), "should contain kind for first row");
+    assert!(output.contains("adr"), "should contain kind for second row");
+  }
+
+  #[test]
   fn it_renders_list_view_heading_and_summary() {
     yansi::disable();
     let theme = theme();
@@ -245,69 +309,5 @@ mod tests {
     assert!(output.contains("1 artifact"), "should use singular");
     assert!(!output.contains("1 artifacts"), "should not use plural for count of 1");
     assert!(!output.contains("archived"), "should omit archived when zero");
-  }
-
-  #[test]
-  fn it_renders_kind_in_list_rows() {
-    yansi::disable();
-    let theme = theme();
-    let view = ArtifactListView::new(2, 0, &theme).artifacts(vec![
-      ArtifactViewData {
-        id: "abcdefgh".into(),
-        title: "my-spec".into(),
-        kind: Some("spec".into()),
-        tags: vec![],
-        is_archived: false,
-      },
-      ArtifactViewData {
-        id: "ijklmnop".into(),
-        title: "my-adr".into(),
-        kind: Some("adr".into()),
-        tags: vec![],
-        is_archived: false,
-      },
-    ]);
-    let output = view.to_string();
-
-    assert!(output.contains("spec"), "should contain kind for first row");
-    assert!(output.contains("adr"), "should contain kind for second row");
-  }
-
-  #[test]
-  fn it_aligns_titles_with_mixed_kinds() {
-    yansi::disable();
-    let theme = theme();
-    let view = ArtifactListView::new(2, 0, &theme).artifacts(vec![
-      ArtifactViewData {
-        id: "aaaaaaaa".into(),
-        title: "has-kind".into(),
-        kind: Some("spec".into()),
-        tags: vec![],
-        is_archived: false,
-      },
-      ArtifactViewData {
-        id: "bbbbbbbb".into(),
-        title: "no-kind".into(),
-        kind: None,
-        tags: vec![],
-        is_archived: false,
-      },
-    ]);
-    let output = view.to_string();
-    let lines: Vec<&str> = output.lines().collect();
-
-    let line_with = lines
-      .iter()
-      .find(|l| l.contains("has-kind"))
-      .expect("should find has-kind line");
-    let line_without = lines
-      .iter()
-      .find(|l| l.contains("no-kind"))
-      .expect("should find no-kind line");
-
-    let pos_with = line_with.find("has-kind").unwrap();
-    let pos_without = line_without.find("no-kind").unwrap();
-
-    assert_eq!(pos_with, pos_without, "titles should align when kinds differ");
   }
 }

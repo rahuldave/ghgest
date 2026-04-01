@@ -78,6 +78,17 @@ mod tests {
     }
   }
 
+  mod display {
+    use super::*;
+
+    #[test]
+    fn it_renders_correct_character() {
+      let icon = Icon::new('X', Style::default());
+      let rendered = format!("{icon}");
+      assert!(rendered.contains('X'));
+    }
+  }
+
   mod phase {
     use super::*;
 
@@ -125,17 +136,6 @@ mod tests {
       let theme = Theme::default();
       let icon = Icon::status("unknown", &theme);
       assert_eq!(icon.ch, '\u{25CB}');
-    }
-  }
-
-  mod display {
-    use super::*;
-
-    #[test]
-    fn it_renders_correct_character() {
-      let icon = Icon::new('X', Style::default());
-      let rendered = format!("{icon}");
-      assert!(rendered.contains('X'));
     }
   }
 }

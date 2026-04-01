@@ -90,57 +90,16 @@ mod tests {
     out
   }
 
-  mod new {
-    use super::*;
-
-    #[test]
-    fn it_defaults_to_icon_and_text() {
-      let t = theme();
-      let badge = StatusBadge::new("done", &t);
-      let out = render(&badge);
-
-      assert!(out.contains('\u{25CF}'), "should contain done icon");
-      assert!(out.contains("done"), "should contain label text");
-    }
-  }
-
   mod display {
     use super::*;
 
     #[test]
-    fn it_renders_open() {
+    fn it_falls_back_to_open_for_unknown_status() {
       let t = theme();
-      let out = render(&StatusBadge::new("open", &t));
+      let out = render(&StatusBadge::new("mystery", &t));
 
-      assert!(out.contains('\u{25CB}'), "should contain open icon");
-      assert!(out.contains("open"), "should contain open label");
-    }
-
-    #[test]
-    fn it_renders_in_progress() {
-      let t = theme();
-      let out = render(&StatusBadge::new("in-progress", &t));
-
-      assert!(out.contains('\u{25D0}'), "should contain in-progress icon");
-      assert!(out.contains("in progress"), "should contain spaced label");
-    }
-
-    #[test]
-    fn it_renders_done() {
-      let t = theme();
-      let out = render(&StatusBadge::new("done", &t));
-
-      assert!(out.contains('\u{25CF}'), "should contain done icon");
-      assert!(out.contains("done"), "should contain done label");
-    }
-
-    #[test]
-    fn it_renders_cancelled() {
-      let t = theme();
-      let out = render(&StatusBadge::new("cancelled", &t));
-
-      assert!(out.contains('\u{2298}'), "should contain cancelled icon");
-      assert!(out.contains("cancelled"), "should contain cancelled label");
+      assert!(out.contains('\u{25CB}'), "should use open icon for unknown status");
+      assert!(out.contains("mystery"), "should use raw status as label");
     }
 
     #[test]
@@ -153,12 +112,53 @@ mod tests {
     }
 
     #[test]
-    fn it_falls_back_to_open_for_unknown_status() {
+    fn it_renders_cancelled() {
       let t = theme();
-      let out = render(&StatusBadge::new("mystery", &t));
+      let out = render(&StatusBadge::new("cancelled", &t));
 
-      assert!(out.contains('\u{25CB}'), "should use open icon for unknown status");
-      assert!(out.contains("mystery"), "should use raw status as label");
+      assert!(out.contains('\u{2298}'), "should contain cancelled icon");
+      assert!(out.contains("cancelled"), "should contain cancelled label");
+    }
+
+    #[test]
+    fn it_renders_done() {
+      let t = theme();
+      let out = render(&StatusBadge::new("done", &t));
+
+      assert!(out.contains('\u{25CF}'), "should contain done icon");
+      assert!(out.contains("done"), "should contain done label");
+    }
+
+    #[test]
+    fn it_renders_in_progress() {
+      let t = theme();
+      let out = render(&StatusBadge::new("in-progress", &t));
+
+      assert!(out.contains('\u{25D0}'), "should contain in-progress icon");
+      assert!(out.contains("in progress"), "should contain spaced label");
+    }
+
+    #[test]
+    fn it_renders_open() {
+      let t = theme();
+      let out = render(&StatusBadge::new("open", &t));
+
+      assert!(out.contains('\u{25CB}'), "should contain open icon");
+      assert!(out.contains("open"), "should contain open label");
+    }
+  }
+
+  mod new {
+    use super::*;
+
+    #[test]
+    fn it_defaults_to_icon_and_text() {
+      let t = theme();
+      let badge = StatusBadge::new("done", &t);
+      let out = render(&badge);
+
+      assert!(out.contains('\u{25CF}'), "should contain done icon");
+      assert!(out.contains("done"), "should contain label text");
     }
   }
 }

@@ -135,6 +135,52 @@ fn nibble_from_char(c: u8) -> Result<u8, String> {
 mod tests {
   use super::*;
 
+  mod display {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn it_encodes_all_ff_bytes_as_all_k() {
+      let id = Id([0xFF; 16]);
+      assert_eq!(id.to_string(), "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
+    }
+
+    #[test]
+    fn it_formats_as_the_encoded_string() {
+      let id: Id = "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz".parse().unwrap();
+      assert_eq!(id.to_string(), "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");
+    }
+  }
+
+  mod encode_decode {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn it_encodes_ff_bytes_as_k() {
+      let bytes = [0xFF; 16];
+      assert_eq!(encode(&bytes), "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
+    }
+
+    #[test]
+    fn it_encodes_zero_bytes_as_z() {
+      let bytes = [0u8; 16];
+      assert_eq!(encode(&bytes), "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");
+    }
+
+    #[test]
+    fn it_roundtrips_encode_decode() {
+      let bytes = [
+        0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
+      ];
+      let encoded = encode(&bytes);
+      let decoded = decode(&encoded).unwrap();
+      assert_eq!(bytes, decoded);
+    }
+  }
+
   mod from_str {
     use pretty_assertions::assert_eq;
 
@@ -180,24 +226,6 @@ mod tests {
       let s = id.to_string();
       assert_eq!(s.len(), 32);
       assert!(s.chars().all(|c| ('k'..='z').contains(&c)));
-    }
-  }
-
-  mod display {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn it_encodes_all_ff_bytes_as_all_k() {
-      let id = Id([0xFF; 16]);
-      assert_eq!(id.to_string(), "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
-    }
-
-    #[test]
-    fn it_formats_as_the_encoded_string() {
-      let id: Id = "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz".parse().unwrap();
-      assert_eq!(id.to_string(), "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");
     }
   }
 
@@ -279,34 +307,6 @@ mod tests {
     #[test]
     fn it_rejects_chars_below_range() {
       assert!(Id::validate_prefix("kkkj").is_err());
-    }
-  }
-
-  mod encode_decode {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn it_encodes_ff_bytes_as_k() {
-      let bytes = [0xFF; 16];
-      assert_eq!(encode(&bytes), "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
-    }
-
-    #[test]
-    fn it_encodes_zero_bytes_as_z() {
-      let bytes = [0u8; 16];
-      assert_eq!(encode(&bytes), "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");
-    }
-
-    #[test]
-    fn it_roundtrips_encode_decode() {
-      let bytes = [
-        0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
-      ];
-      let encoded = encode(&bytes);
-      let decoded = decode(&encoded).unwrap();
-      assert_eq!(bytes, decoded);
     }
   }
 }

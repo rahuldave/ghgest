@@ -13,59 +13,17 @@ use rusqlite::{Connection, params};
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
   #[error(transparent)]
-  Rusqlite(#[from] rusqlite::Error),
-  #[error(transparent)]
   Io(#[from] std::io::Error),
-}
-
-/// Convenience alias for event store operations.
-pub type Result<T> = std::result::Result<T, Error>;
-
-/// The type of file mutation recorded in an event.
-#[derive(Clone, Debug, PartialEq)]
-pub enum EventType {
-  /// A file that did not exist before the command.
-  Created,
-  /// A file that existed and was changed.
-  Modified,
-  /// A file that existed and was removed.
-  Deleted,
-}
-
-impl EventType {
-  fn as_str(&self) -> &'static str {
-    match self {
-      Self::Created => "created",
-      Self::Modified => "modified",
-      Self::Deleted => "deleted",
-    }
-  }
-
-  fn from_str(s: &str) -> Self {
-    match s {
-      "created" => Self::Created,
-      "modified" => Self::Modified,
-      "deleted" => Self::Deleted,
-      other => panic!("unknown event type: {other}"),
-    }
-  }
+  #[error(transparent)]
+  Rusqlite(#[from] rusqlite::Error),
 }
 
 /// A single file mutation within a transaction.
 #[derive(Clone, Debug)]
 pub struct Event {
-  pub file_path: String,
-  pub event_type: EventType,
   pub before_content: Option<Vec<u8>>,
-}
-
-/// A group of events from a single CLI invocation.
-#[derive(Clone, Debug)]
-pub struct Transaction {
-  pub id: String,
-  pub command: String,
-  pub created_at: DateTime<Utc>,
-  pub events: Vec<Event>,
+  pub event_type: EventType,
+  pub file_path: String,
 }
 
 /// Handle to the event store database.
@@ -74,32 +32,6 @@ pub struct EventStore {
 }
 
 impl EventStore {
-  /// Open (or create) the event store database at `<state_dir>/events.db`.
-  ///
-  /// Creates the schema on first use and enables WAL mode.
-  pub fn open(state_dir: &Path) -> Result<Self> {
-    std::fs::create_dir_all(state_dir)?;
-    let db_path = state_dir.join("events.db");
-    let conn = Connection::open(db_path)?;
-    conn.pragma_update(None, "journal_mode", "wal")?;
-    conn.pragma_update(None, "foreign_keys", "on")?;
-    create_schema(&conn)?;
-    Ok(Self {
-      conn,
-    })
-  }
-
-  /// Open an in-memory event store (for testing).
-  #[cfg(test)]
-  pub fn open_in_memory() -> Result<Self> {
-    let conn = Connection::open_in_memory()?;
-    conn.pragma_update(None, "foreign_keys", "on")?;
-    create_schema(&conn)?;
-    Ok(Self {
-      conn,
-    })
-  }
-
   /// Begin a new transaction for a CLI command invocation.
   ///
   /// Returns the transaction ID (a UUID-like random hex string).
@@ -111,23 +43,6 @@ impl EventStore {
       params![id, project_id, command, now],
     )?;
     Ok(id)
-  }
-
-  /// Record a file mutation event within a transaction.
-  pub fn record_event(
-    &self,
-    transaction_id: &str,
-    file_path: &str,
-    event_type: EventType,
-    before_content: Option<&[u8]>,
-  ) -> Result<()> {
-    let now = Utc::now().to_rfc3339();
-    self.conn.execute(
-      "INSERT INTO events (transaction_id, file_path, event_type, before_content, \
-        created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-      params![transaction_id, file_path, event_type.as_str(), before_content, now],
-    )?;
-    Ok(())
   }
 
   /// Return the most recent non-undone transaction for a project, with its events.
@@ -157,19 +72,11 @@ impl EventStore {
     let events = self.load_events(&tx.id)?;
 
     Ok(Some(Transaction {
-      id: tx.id,
       command: tx.command,
       created_at: parse_datetime(&tx.created_at),
       events,
+      id: tx.id,
     }))
-  }
-
-  /// Delete a transaction that produced no events (cleanup for no-op commands).
-  pub fn rollback_transaction(&self, transaction_id: &str) -> Result<()> {
-    self
-      .conn
-      .execute("DELETE FROM transactions WHERE id = ?1", params![transaction_id])?;
-    Ok(())
   }
 
   /// Mark a transaction as undone by setting its `undone_at` timestamp.
@@ -179,6 +86,57 @@ impl EventStore {
       "UPDATE transactions SET undone_at = ?1 WHERE id = ?2",
       params![now, transaction_id],
     )?;
+    Ok(())
+  }
+
+  /// Open (or create) the event store database at `<state_dir>/events.db`.
+  ///
+  /// Creates the schema on first use and enables WAL mode.
+  pub fn open(state_dir: &Path) -> Result<Self> {
+    std::fs::create_dir_all(state_dir)?;
+    let db_path = state_dir.join("events.db");
+    let conn = Connection::open(db_path)?;
+    conn.pragma_update(None, "journal_mode", "wal")?;
+    conn.pragma_update(None, "foreign_keys", "on")?;
+    create_schema(&conn)?;
+    Ok(Self {
+      conn,
+    })
+  }
+
+  /// Open an in-memory event store (for testing).
+  #[cfg(test)]
+  pub fn open_in_memory() -> Result<Self> {
+    let conn = Connection::open_in_memory()?;
+    conn.pragma_update(None, "foreign_keys", "on")?;
+    create_schema(&conn)?;
+    Ok(Self {
+      conn,
+    })
+  }
+
+  /// Record a file mutation event within a transaction.
+  pub fn record_event(
+    &self,
+    transaction_id: &str,
+    file_path: &str,
+    event_type: EventType,
+    before_content: Option<&[u8]>,
+  ) -> Result<()> {
+    let now = Utc::now().to_rfc3339();
+    self.conn.execute(
+      "INSERT INTO events (transaction_id, file_path, event_type, before_content, \
+        created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+      params![transaction_id, file_path, event_type.as_str(), before_content, now],
+    )?;
+    Ok(())
+  }
+
+  /// Delete a transaction that produced no events (cleanup for no-op commands).
+  pub fn rollback_transaction(&self, transaction_id: &str) -> Result<()> {
+    self
+      .conn
+      .execute("DELETE FROM transactions WHERE id = ?1", params![transaction_id])?;
     Ok(())
   }
 
@@ -195,9 +153,9 @@ impl EventStore {
         let event_type: String = row.get(1)?;
         let before_content: Option<Vec<u8>> = row.get(2)?;
         Ok(Event {
-          file_path,
-          event_type: EventType::from_str(&event_type),
           before_content,
+          event_type: EventType::from_str(&event_type),
+          file_path,
         })
       })?
       .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -206,11 +164,46 @@ impl EventStore {
   }
 }
 
-/// Intermediate row type for SQLite query results.
-struct TransactionRow {
-  id: String,
-  command: String,
-  created_at: String,
+/// The type of file mutation recorded in an event.
+#[derive(Clone, Debug, PartialEq)]
+pub enum EventType {
+  /// A file that did not exist before the command.
+  Created,
+  /// A file that existed and was removed.
+  Deleted,
+  /// A file that existed and was changed.
+  Modified,
+}
+
+impl EventType {
+  fn as_str(&self) -> &'static str {
+    match self {
+      Self::Created => "created",
+      Self::Deleted => "deleted",
+      Self::Modified => "modified",
+    }
+  }
+
+  fn from_str(s: &str) -> Self {
+    match s {
+      "created" => Self::Created,
+      "deleted" => Self::Deleted,
+      "modified" => Self::Modified,
+      other => panic!("unknown event type: {other}"),
+    }
+  }
+}
+
+/// Convenience alias for event store operations.
+pub type Result<T> = std::result::Result<T, Error>;
+
+/// A group of events from a single CLI invocation.
+#[derive(Clone, Debug)]
+pub struct Transaction {
+  pub command: String,
+  pub created_at: DateTime<Utc>,
+  pub events: Vec<Event>,
+  pub id: String,
 }
 
 /// Use `optional()` extension from rusqlite.
@@ -226,6 +219,13 @@ impl<T> OptionalExt<T> for std::result::Result<T, rusqlite::Error> {
       Err(e) => Err(e),
     }
   }
+}
+
+/// Intermediate row type for SQLite query results.
+struct TransactionRow {
+  command: String,
+  created_at: String,
+  id: String,
 }
 
 fn create_schema(conn: &Connection) -> std::result::Result<(), rusqlite::Error> {
@@ -294,23 +294,61 @@ mod tests {
   }
 
   #[test]
-  fn it_stores_before_content_for_modified_events() {
+  fn it_handles_deleted_event_type() {
     let store = make_store();
-    let tx_id = store.begin_transaction("proj1", "task update foo").unwrap();
-    let content = b"title = \"old title\"\n";
+    let tx_id = store.begin_transaction("proj1", "artifact archive foo").unwrap();
 
     store
-      .record_event(&tx_id, "tasks/abc.toml", EventType::Modified, Some(content))
+      .record_event(&tx_id, "artifacts/x.md", EventType::Deleted, Some(b"# Old content"))
       .unwrap();
 
     let tx = store.latest_undoable("proj1").unwrap().unwrap();
-    assert_eq!(tx.events[0].before_content.as_deref(), Some(content.as_slice()));
+    assert_eq!(tx.events[0].event_type, EventType::Deleted);
+    assert_eq!(
+      tx.events[0].before_content.as_deref(),
+      Some(b"# Old content".as_slice())
+    );
+  }
+
+  #[test]
+  fn it_records_multiple_events_per_transaction() {
+    let store = make_store();
+    let tx_id = store.begin_transaction("proj1", "advance phase").unwrap();
+
+    store
+      .record_event(&tx_id, "tasks/a.toml", EventType::Modified, Some(b"old a"))
+      .unwrap();
+    store
+      .record_event(&tx_id, "tasks/b.toml", EventType::Modified, Some(b"old b"))
+      .unwrap();
+    store
+      .record_event(&tx_id, "tasks/c.toml", EventType::Modified, Some(b"old c"))
+      .unwrap();
+
+    let tx = store.latest_undoable("proj1").unwrap().unwrap();
+    assert_eq!(tx.events.len(), 3);
+    assert_eq!(tx.events[0].file_path, "tasks/a.toml");
+    assert_eq!(tx.events[2].file_path, "tasks/c.toml");
   }
 
   #[test]
   fn it_returns_none_when_no_undoable_transactions() {
     let store = make_store();
     assert!(store.latest_undoable("proj1").unwrap().is_none());
+  }
+
+  #[test]
+  fn it_scopes_transactions_by_project() {
+    let store = make_store();
+
+    store.begin_transaction("proj1", "command in proj1").unwrap();
+    store.begin_transaction("proj2", "command in proj2").unwrap();
+
+    let tx = store.latest_undoable("proj1").unwrap().unwrap();
+    assert_eq!(tx.command, "command in proj1");
+
+    let tx = store.latest_undoable("proj2").unwrap().unwrap();
+    assert_eq!(tx.command, "command in proj2");
   }
 
   #[test]
@@ -337,54 +375,16 @@ mod tests {
   }
 
   #[test]
-  fn it_scopes_transactions_by_project() {
+  fn it_stores_before_content_for_modified_events() {
     let store = make_store();
-
-    store.begin_transaction("proj1", "command in proj1").unwrap();
-    store.begin_transaction("proj2", "command in proj2").unwrap();
-
-    let tx = store.latest_undoable("proj1").unwrap().unwrap();
-    assert_eq!(tx.command, "command in proj1");
-
-    let tx = store.latest_undoable("proj2").unwrap().unwrap();
-    assert_eq!(tx.command, "command in proj2");
-  }
-
-  #[test]
-  fn it_records_multiple_events_per_transaction() {
-    let store = make_store();
-    let tx_id = store.begin_transaction("proj1", "advance phase").unwrap();
+    let tx_id = store.begin_transaction("proj1", "task update foo").unwrap();
+    let content = b"title = \"old title\"\n";
 
     store
-      .record_event(&tx_id, "tasks/a.toml", EventType::Modified, Some(b"old a"))
-      .unwrap();
-    store
-      .record_event(&tx_id, "tasks/b.toml", EventType::Modified, Some(b"old b"))
-      .unwrap();
-    store
-      .record_event(&tx_id, "tasks/c.toml", EventType::Modified, Some(b"old c"))
+      .record_event(&tx_id, "tasks/abc.toml", EventType::Modified, Some(content))
       .unwrap();
 
     let tx = store.latest_undoable("proj1").unwrap().unwrap();
-    assert_eq!(tx.events.len(), 3);
-    assert_eq!(tx.events[0].file_path, "tasks/a.toml");
-    assert_eq!(tx.events[2].file_path, "tasks/c.toml");
-  }
-
-  #[test]
-  fn it_handles_deleted_event_type() {
-    let store = make_store();
-    let tx_id = store.begin_transaction("proj1", "artifact archive foo").unwrap();
-
-    store
-      .record_event(&tx_id, "artifacts/x.md", EventType::Deleted, Some(b"# Old content"))
-      .unwrap();
-
-    let tx = store.latest_undoable("proj1").unwrap().unwrap();
-    assert_eq!(tx.events[0].event_type, EventType::Deleted);
-    assert_eq!(
-      tx.events[0].before_content.as_deref(),
-      Some(b"# Old content".as_slice())
-    );
+    assert_eq!(tx.events[0].before_content.as_deref(), Some(content.as_slice()));
   }
 }
