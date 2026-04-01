@@ -37,6 +37,7 @@ impl Command {
 
     let filter = TaskFilter {
       all: self.show_all,
+      assigned_to: None,
       status,
       tag: self.tag.clone(),
     };

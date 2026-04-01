@@ -153,6 +153,11 @@ pub fn list_tasks(config: &Settings, filter: &TaskFilter) -> super::Result<Vec<T
   )?;
 
   tasks.retain(|task| {
+    if let Some(ref assigned_to) = filter.assigned_to
+      && task.assigned_to.as_deref() != Some(assigned_to.as_str())
+    {
+      return false;
+    }
     if let Some(ref status) = filter.status
       && &task.status != status
     {
@@ -383,6 +388,41 @@ mod tests {
       let tasks = crate::store::list_tasks(&make_config(dir.path()), &filter).unwrap();
       assert_eq!(tasks.len(), 1);
       assert_eq!(tasks[0].title, "Tagged");
+    }
+
+    #[test]
+    fn it_filters_by_assigned_to() {
+      let dir = tempfile::tempdir().unwrap();
+      let mut task1 = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Assigned Task");
+      task1.assigned_to = Some("agent-1".to_string());
+      let mut task2 = make_test_task("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Other Task");
+      task2.assigned_to = Some("agent-2".to_string());
+      let task3 = make_test_task("mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm", "Unassigned Task");
+      crate::store::write_task(&make_config(dir.path()), &task1).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task2).unwrap();
+      crate::store::write_task(&make_config(dir.path()), &task3).unwrap();
+
+      let filter = TaskFilter {
+        assigned_to: Some("agent-1".to_string()),
+        ..Default::default()
+      };
+      let tasks = crate::store::list_tasks(&make_config(dir.path()), &filter).unwrap();
+      assert_eq!(tasks.len(), 1);
+      assert_eq!(tasks[0].title, "Assigned Task");
+    }
+
+    #[test]
+    fn it_excludes_unassigned_when_filtering_by_assigned_to() {
+      let dir = tempfile::tempdir().unwrap();
+      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Unassigned");
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
+
+      let filter = TaskFilter {
+        assigned_to: Some("agent-1".to_string()),
+        ..Default::default()
+      };
+      let tasks = crate::store::list_tasks(&make_config(dir.path()), &filter).unwrap();
+      assert_eq!(tasks.len(), 0);
     }
 
     #[test]

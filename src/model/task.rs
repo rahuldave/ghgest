@@ -99,6 +99,7 @@ pub struct Task {
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct TaskFilter {
   pub all: bool,
+  pub assigned_to: Option<String>,
   pub status: Option<Status>,
   pub tag: Option<String>,
 }
