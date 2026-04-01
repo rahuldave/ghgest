@@ -32,8 +32,11 @@ proposal.
 Create a gest artifact with the RFC content inline:
 
 ```sh
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create --title "<title>" --type rfc --body "<content>"
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create --title "<title>" --type rfc --tags "<area>,rfc" --body "<content>"
 ```
+
+Use bare tags (no `area:` or `type:` prefixes). Include the relevant area tag(s) from `docs/process/labels.md` and the
+`rfc` type tag.
 
 Extract the artifact ID from the output.
 
