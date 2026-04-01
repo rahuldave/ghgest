@@ -635,21 +635,53 @@
     .note-body {
       padding-left: 42px;
     }
+
+    /* ── skip navigation ─────────────────────────────────────────────── */
+    .skip-link {
+      position: absolute;
+      left: -9999px;
+      top: auto;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      z-index: 1000;
+      background: var(--azure);
+      color: #fff;
+      font-size: 0.8125rem;
+      font-weight: 700;
+      padding: 8px 16px;
+      border-radius: 0 0 6px 0;
+      text-decoration: none;
+    }
+
+    .skip-link:focus {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: auto;
+      height: auto;
+      overflow: visible;
+    }
   </style>
   {% block head %}{% endblock %}
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
   <div class="shell">
-    <nav class="nav">
-      <span class="nav-brand">gest</span>
-      <a href="/" {% block nav_dashboard %}{% endblock %}>dashboard</a>
-      <a href="/tasks" {% block nav_tasks %}{% endblock %}>tasks</a>
-      <a href="/artifacts" {% block nav_artifacts %}{% endblock %}>artifacts</a>
-      <a href="/iterations" {% block nav_iterations %}{% endblock %}>iterations</a>
-      <a href="/search" {% block nav_search %}{% endblock %}>search</a>
-    </nav>
+    <header>
+      <nav class="nav">
+        <span class="nav-brand">gest</span>
+        <a href="/" {% block nav_dashboard %}{% endblock %}>dashboard</a>
+        <a href="/tasks" {% block nav_tasks %}{% endblock %}>tasks</a>
+        <a href="/artifacts" {% block nav_artifacts %}{% endblock %}>artifacts</a>
+        <a href="/iterations" {% block nav_iterations %}{% endblock %}>iterations</a>
+        <a href="/search" {% block nav_search %}{% endblock %}>search</a>
+      </nav>
+    </header>
 
-    {% block content %}{% endblock %}
+    <main id="main-content">
+      {% block content %}{% endblock %}
+    </main>
   </div>
   <script src="/static/forms.js"></script>
 </body>
