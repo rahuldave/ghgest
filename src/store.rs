@@ -15,6 +15,18 @@ mod task;
 
 use std::io;
 
+use crate::{
+  config::Settings,
+  model::{EntityType, Id},
+};
+
+/// A successfully resolved entity ID together with its type.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedEntity {
+  pub entity_type: EntityType,
+  pub id: Id,
+}
+
 /// Errors that can occur during store operations.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -107,4 +119,173 @@ pub fn list_tags(
   }
 
   Ok(tags.into_iter().collect())
+}
+
+/// Resolve an ID prefix across tasks, artifacts, and iterations.
+///
+/// Returns the full [`Id`] and [`EntityType`] when the prefix matches exactly one
+/// entity type. Returns an error with disambiguation info when the prefix matches
+/// multiple entity types, or a "not found" error when it matches none.
+///
+/// Resolved/archived entities are always included in the search.
+pub fn resolve_any_id(config: &Settings, prefix: &str) -> Result<ResolvedEntity> {
+  Id::validate_prefix(prefix).map_err(Error::generic)?;
+
+  let mut matches: Vec<(EntityType, Id)> = Vec::new();
+
+  if let Ok(id) = resolve_task_id(config, prefix, true) {
+    matches.push((EntityType::Task, id));
+  }
+  if let Ok(id) = resolve_artifact_id(config, prefix, true) {
+    matches.push((EntityType::Artifact, id));
+  }
+  if let Ok(id) = resolve_iteration_id(config, prefix, true) {
+    matches.push((EntityType::Iteration, id));
+  }
+
+  match matches.len() {
+    0 => Err(Error::generic(format!("No entity found matching '{prefix}'"))),
+    1 => {
+      let (entity_type, id) = matches.remove(0);
+      Ok(ResolvedEntity {
+        entity_type,
+        id,
+      })
+    }
+    _ => {
+      let types: Vec<String> = matches.iter().map(|(et, id)| format!("{et} ({id})")).collect();
+      Err(Error::generic(format!(
+        "Ambiguous ID prefix '{prefix}' matches multiple entity types: {}",
+        types.join(", ")
+      )))
+    }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::config::Settings;
+
+  fn make_config(base: &std::path::Path) -> Settings {
+    crate::test_helpers::make_test_config(base.to_path_buf())
+  }
+
+  mod resolve_any_id {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn it_resolves_a_task_prefix() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_config(dir.path());
+      let task = crate::test_helpers::make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      write_task(&config, &task).unwrap();
+
+      let resolved = resolve_any_id(&config, "zyxw").unwrap();
+
+      assert_eq!(resolved.entity_type, EntityType::Task);
+      assert_eq!(resolved.id.to_string(), "zyxwvutsrqponmlkzyxwvutsrqponmlk");
+    }
+
+    #[test]
+    fn it_resolves_an_artifact_prefix() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_config(dir.path());
+      let artifact = crate::test_helpers::make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      write_artifact(&config, &artifact).unwrap();
+
+      let resolved = resolve_any_id(&config, "zyxw").unwrap();
+
+      assert_eq!(resolved.entity_type, EntityType::Artifact);
+      assert_eq!(resolved.id.to_string(), "zyxwvutsrqponmlkzyxwvutsrqponmlk");
+    }
+
+    #[test]
+    fn it_resolves_an_iteration_prefix() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_config(dir.path());
+      let iteration = crate::test_helpers::make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      write_iteration(&config, &iteration).unwrap();
+
+      let resolved = resolve_any_id(&config, "zyxw").unwrap();
+
+      assert_eq!(resolved.entity_type, EntityType::Iteration);
+      assert_eq!(resolved.id.to_string(), "zyxwvutsrqponmlkzyxwvutsrqponmlk");
+    }
+
+    #[test]
+    fn it_errors_when_no_entity_matches() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_config(dir.path());
+      ensure_dirs(&config).unwrap();
+
+      let result = resolve_any_id(&config, "zyxw");
+
+      assert!(result.is_err());
+      let err = result.unwrap_err().to_string();
+      assert!(err.contains("No entity found"), "Expected not-found error, got: {err}");
+    }
+
+    #[test]
+    fn it_errors_with_disambiguation_when_multiple_types_match() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_config(dir.path());
+      let task = crate::test_helpers::make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      let artifact = crate::test_helpers::make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      write_task(&config, &task).unwrap();
+      write_artifact(&config, &artifact).unwrap();
+
+      let result = resolve_any_id(&config, "zyxw");
+
+      assert!(result.is_err());
+      let err = result.unwrap_err().to_string();
+      assert!(err.contains("Ambiguous"), "Expected ambiguity error, got: {err}");
+      assert!(err.contains("task"), "Expected task in disambiguation, got: {err}");
+      assert!(
+        err.contains("artifact"),
+        "Expected artifact in disambiguation, got: {err}"
+      );
+    }
+
+    #[test]
+    fn it_includes_resolved_tasks() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_config(dir.path());
+      let task = crate::test_helpers::make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      write_task(&config, &task).unwrap();
+      resolve_task(&config, &task.id).unwrap();
+
+      let resolved = resolve_any_id(&config, "zyxw").unwrap();
+
+      assert_eq!(resolved.entity_type, EntityType::Task);
+    }
+
+    #[test]
+    fn it_includes_archived_artifacts() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_config(dir.path());
+      let artifact = crate::test_helpers::make_test_artifact("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      write_artifact(&config, &artifact).unwrap();
+      archive_artifact(&config, &artifact.id).unwrap();
+
+      let resolved = resolve_any_id(&config, "zyxw").unwrap();
+
+      assert_eq!(resolved.entity_type, EntityType::Artifact);
+    }
+
+    #[test]
+    fn it_includes_resolved_iterations() {
+      let dir = tempfile::tempdir().unwrap();
+      let config = make_config(dir.path());
+      let iteration = crate::test_helpers::make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      write_iteration(&config, &iteration).unwrap();
+      resolve_iteration(&config, &iteration.id).unwrap();
+
+      let resolved = resolve_any_id(&config, "zyxw").unwrap();
+
+      assert_eq!(resolved.entity_type, EntityType::Iteration);
+    }
+  }
 }

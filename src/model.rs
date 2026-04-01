@@ -1,5 +1,7 @@
 //! Domain model types for tasks, iterations, artifacts, and their identifiers.
 
+use std::fmt::{self, Formatter};
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, de};
 
@@ -23,6 +25,16 @@ pub enum EntityType {
   Artifact,
   Iteration,
   Task,
+}
+
+impl fmt::Display for EntityType {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    match self {
+      Self::Artifact => write!(f, "artifact"),
+      Self::Iteration => write!(f, "iteration"),
+      Self::Task => write!(f, "task"),
+    }
+  }
 }
 
 /// Backward-compatible deserializer for `Option<DateTime<Utc>>` fields.
