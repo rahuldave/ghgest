@@ -8,6 +8,7 @@ mod fs;
 mod helpers;
 mod iteration;
 pub mod meta;
+pub mod note;
 mod orchestration;
 mod search;
 mod task;

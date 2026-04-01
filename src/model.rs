@@ -11,4 +11,5 @@ pub mod task;
 pub use artifact::{Artifact, ArtifactFilter, ArtifactPatch, NewArtifact};
 pub use id::Id;
 pub use iteration::{Iteration, IterationFilter, IterationPatch, NewIteration};
+pub use note::{NewNote, Note, NotePatch};
 pub use task::{NewTask, Task, TaskFilter, TaskPatch};
