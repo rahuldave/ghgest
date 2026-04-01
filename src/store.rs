@@ -61,33 +61,49 @@ pub use task::{
 };
 
 /// Collect every unique tag used across tasks, artifacts, and iterations, sorted alphabetically.
-pub fn list_tags(config: &crate::config::Settings) -> Result<Vec<String>> {
+///
+/// When `entity_types` is `None` (or an empty slice), tags are collected from all entity types.
+/// Otherwise only the specified types are queried.
+pub fn list_tags(
+  config: &crate::config::Settings,
+  entity_types: Option<&[crate::model::EntityType]>,
+) -> Result<Vec<String>> {
   use std::collections::BTreeSet;
+
+  use crate::model::EntityType;
+
+  let include_all = entity_types.is_none_or(|t| t.is_empty());
 
   let mut tags: BTreeSet<String> = BTreeSet::new();
 
-  let task_filter = crate::model::TaskFilter {
-    all: true,
-    ..Default::default()
-  };
-  for task in list_tasks(config, &task_filter)? {
-    tags.extend(task.tags);
+  if include_all || entity_types.is_some_and(|t| t.contains(&EntityType::Task)) {
+    let task_filter = crate::model::TaskFilter {
+      all: true,
+      ..Default::default()
+    };
+    for task in list_tasks(config, &task_filter)? {
+      tags.extend(task.tags);
+    }
   }
 
-  let artifact_filter = crate::model::ArtifactFilter {
-    all: true,
-    ..Default::default()
-  };
-  for artifact in list_artifacts(config, &artifact_filter)? {
-    tags.extend(artifact.tags);
+  if include_all || entity_types.is_some_and(|t| t.contains(&EntityType::Artifact)) {
+    let artifact_filter = crate::model::ArtifactFilter {
+      all: true,
+      ..Default::default()
+    };
+    for artifact in list_artifacts(config, &artifact_filter)? {
+      tags.extend(artifact.tags);
+    }
   }
 
-  let iteration_filter = crate::model::IterationFilter {
-    all: true,
-    ..Default::default()
-  };
-  for iteration in list_iterations(config, &iteration_filter)? {
-    tags.extend(iteration.tags);
+  if include_all || entity_types.is_some_and(|t| t.contains(&EntityType::Iteration)) {
+    let iteration_filter = crate::model::IterationFilter {
+      all: true,
+      ..Default::default()
+    };
+    for iteration in list_iterations(config, &iteration_filter)? {
+      tags.extend(iteration.tags);
+    }
   }
 
   Ok(tags.into_iter().collect())

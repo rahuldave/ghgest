@@ -17,6 +17,14 @@ pub use iteration::{Iteration, IterationFilter, IterationPatch, NewIteration};
 pub use note::{NewNote, Note, NotePatch};
 pub use task::{NewTask, Task, TaskFilter, TaskPatch};
 
+/// The kind of top-level entity stored in a gest project.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EntityType {
+  Artifact,
+  Iteration,
+  Task,
+}
+
 /// Backward-compatible deserializer for `Option<DateTime<Utc>>` fields.
 ///
 /// Accepts both RFC 3339 timestamps and legacy empty strings (treated as `None`).
