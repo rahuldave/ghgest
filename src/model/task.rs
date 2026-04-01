@@ -6,7 +6,7 @@ use std::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::{id::Id, link::Link};
+use super::{id::Id, link::Link, note::Note};
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct NewTask {
@@ -83,6 +83,8 @@ pub struct Task {
   pub links: Vec<Link>,
   #[serde(default)]
   pub metadata: toml::Table,
+  #[serde(default)]
+  pub notes: Vec<Note>,
   #[serde(default)]
   pub phase: Option<u16>,
   #[serde(default)]
@@ -183,6 +185,7 @@ mod tests {
             table.insert("custom_key".to_string(), toml::Value::String("high".to_string()));
             table
           },
+          notes: vec![],
           phase: Some(2),
           priority: Some(1),
           status: Status::Open,

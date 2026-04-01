@@ -70,6 +70,7 @@ pub fn make_test_task(id: &str) -> Task {
     id: id.parse().unwrap(),
     links: vec![],
     metadata: toml::Table::new(),
+    notes: vec![],
     phase: None,
     priority: None,
     resolved_at: None,

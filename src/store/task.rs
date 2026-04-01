@@ -115,6 +115,7 @@ pub fn create_task(config: &Settings, new: NewTask) -> super::Result<Task> {
     links: new.links,
     metadata: new.metadata,
     phase: new.phase,
+    notes: Vec::new(),
     priority: new.priority,
     resolved_at: None,
     status: new.status,

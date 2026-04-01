@@ -4,6 +4,7 @@ pub mod artifact;
 pub mod id;
 pub mod iteration;
 pub mod link;
+pub mod note;
 pub(crate) mod optional_datetime;
 pub mod task;
 
