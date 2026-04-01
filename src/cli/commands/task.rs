@@ -4,6 +4,7 @@ mod create;
 mod link;
 mod list;
 mod meta;
+mod note;
 mod show;
 mod tag;
 mod untag;
@@ -26,6 +27,7 @@ enum TaskCommand {
   Link(link::Command),
   List(list::Command),
   Meta(meta::Command),
+  Note(note::Command),
   Show(show::Command),
   Tag(tag::Command),
   Untag(untag::Command),
@@ -40,6 +42,7 @@ impl Command {
       TaskCommand::Link(cmd) => cmd.call(ctx),
       TaskCommand::List(cmd) => cmd.call(ctx),
       TaskCommand::Meta(cmd) => cmd.call(ctx),
+      TaskCommand::Note(cmd) => cmd.call(ctx),
       TaskCommand::Show(cmd) => cmd.call(ctx),
       TaskCommand::Tag(cmd) => cmd.call(ctx),
       TaskCommand::Untag(cmd) => cmd.call(ctx),
