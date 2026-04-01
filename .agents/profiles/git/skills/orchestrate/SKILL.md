@@ -13,11 +13,13 @@ when needed.
 
 ### 1. Read the Iteration
 
-Retrieve the iteration via
-`GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration show --json <id>`. Then read each task
-in the iteration via `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task show --json <task-id>`.
+Retrieve the iteration and visualize the execution plan:
 
-Visualize the execution plan: `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration graph <id>`.
+```sh
+GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration show --json <id>
+GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration status <id> --json
+GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration graph <id>
+```
 
 Extract:
 
@@ -51,7 +53,14 @@ Group tasks by their `phase` field:
 
 For each phase:
 
-1. Set `assigned_to` on each task:
+1. **Claim tasks** using the orchestration commands:
+
+   ```sh
+   # For each task in the phase:
+   GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration next <iteration-id> --claim --agent implement-agent
+   ```
+
+   Or set `assigned_to` directly if you need specific task ordering:
    `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task update <task-id> --assigned-to implement-agent`
 
 2. **If the phase has a single task** (or execution strategy is sequential):
@@ -67,8 +76,8 @@ For each phase:
 
    Each worktree gets its own branch (`implement/<task-id>`) based on the current HEAD.
 
-b. **Dispatch** `/implement <task-id>` for each task. Each implementation agent works in its respective worktree
-directory (`../gest-<task-id>`).
+   b. **Dispatch** `/implement <task-id>` for each task. Each implementation agent works in its respective worktree
+   directory (`../gest-<task-id>`).
 
    c. **Wait** for all agents in the phase to complete.
 
@@ -93,7 +102,21 @@ Important: Unlike jj workspaces, git worktrees have independent branches. After 
 merge the worktree branches back into the main branch before proceeding to the next phase. Ensure all changes from the
 current phase are integrated before starting the next phase.
 
-1. Report results to the user (successes, failures, tasks needing attention).
+1. **Check phase progress:**
+
+   ```sh
+   GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration status <iteration-id> --json
+   ```
+
+2. **Advance to the next phase** once the current phase is complete:
+
+   ```sh
+   GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration advance <iteration-id>
+   ```
+
+   Use `--force` to advance past stuck tasks if needed.
+
+3. Report results to the user (successes, failures, tasks needing attention).
 
 Only proceed to the next phase after the user confirms the current phase's results.
 

@@ -17,11 +17,13 @@ executed sequentially regardless of phase structure.
 
 ### 1. Read the Iteration
 
-Retrieve the iteration via
-`GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration show --json <id>`. Then read each task
-in the iteration via `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task show --json <task-id>`.
+Retrieve the iteration and visualize the execution plan:
 
-Visualize the execution plan: `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration graph <id>`.
+```sh
+GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration show --json <id>
+GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration status <id> --json
+GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration graph <id>
+```
 
 Extract:
 
@@ -55,14 +57,35 @@ phase 2 must not start until all phase 1 tasks are complete.
 
 For each phase:
 
-1. Set `assigned_to` on each task:
+1. **Claim tasks** using the orchestration commands:
+
+   ```sh
+   # Claim the next available task in priority order:
+   GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration next <iteration-id> --claim --agent implement-agent
+   ```
+
+   Or set `assigned_to` directly if you need specific task ordering:
    `GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task update <task-id> --assigned-to implement-agent`
 
 2. For each task in the phase (in priority order):
    - Run `/implement <task-id>` in the main workspace.
    - Wait for the task to complete before starting the next.
 
-3. Report results to the user (successes, failures, tasks needing attention).
+3. **Check phase progress:**
+
+   ```sh
+   GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration status <iteration-id> --json
+   ```
+
+4. **Advance to the next phase** once the current phase is complete:
+
+   ```sh
+   GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration advance <iteration-id>
+   ```
+
+   Use `--force` to advance past stuck tasks if needed.
+
+5. Report results to the user (successes, failures, tasks needing attention).
 
 Only proceed to the next phase after the user confirms the current phase's results.
 
