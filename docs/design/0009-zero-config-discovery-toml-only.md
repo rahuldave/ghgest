@@ -40,7 +40,7 @@ Follows a strict fallback chain:
 
 1. `$GEST_DATA_DIR` environment variable (must be an absolute path to an existing directory)
 2. `storage.data_dir` from the config file (must be an absolute path to an existing directory)
-3. Walk up from CWD looking for a `.gest/` or `gest/` directory
+3. Walk up from CWD looking for a `.gest/` directory
 4. `$XDG_DATA_HOME/gest/<sha256-of-cwd>/`
 
 The data directory is created automatically on first write. `gest init` explicitly creates `.gest/` for in-repo mode.

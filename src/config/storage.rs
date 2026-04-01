@@ -2,7 +2,7 @@
 //!
 //! Storage paths are resolved with the following precedence layers:
 //! - **data_dir** (global root): `$GEST_DATA_DIR` > config `storage.data_dir` > `$XDG_DATA_HOME/gest`
-//! - **project_dir**: `$GEST_PROJECT_DIR` > config `storage.project_dir` > local `.gest`/`gest` dir > `<data_dir>/<hash>`
+//! - **project_dir**: `$GEST_PROJECT_DIR` > config `storage.project_dir` > local `.gest` dir > `<data_dir>/<hash>`
 //! - **entity dirs**: entity env var > entity config field > `<project_dir>/<entity>`
 
 use std::{
@@ -212,7 +212,7 @@ impl Settings {
   /// Resolves the project-specific data directory for the given working directory.
   ///
   /// Checks `$GEST_PROJECT_DIR`, then the configured `project_dir`, then walks up from
-  /// `cwd` looking for a `.gest` or `gest` directory, and finally falls back to
+  /// `cwd` looking for a `.gest` directory, and finally falls back to
   /// `<data_dir>/<path_hash(cwd)>`.
   pub fn resolve_project_dir(&self, cwd: &Path) -> Result<PathBuf, Error> {
     if let Ok(path) = super::env::GEST_PROJECT_DIR.value() {
@@ -251,7 +251,7 @@ impl Settings {
       }
     }
 
-    if let Some(path) = walk_up_dir(cwd, &[".gest", "gest"]) {
+    if let Some(path) = walk_up_dir(cwd, &[".gest"]) {
       log::debug!("found gest directory");
       log::trace!("project directory resolved to {}", path.display());
       return Ok(path);
@@ -312,9 +312,9 @@ fn walk_up_dir(start: &Path, names: &[&str]) -> Option<PathBuf> {
       if candidate.is_dir() {
         return Some(candidate);
       }
-      if !current.pop() {
-        return None;
-      }
+    }
+    if !current.pop() {
+      return None;
     }
   }
 }
@@ -489,6 +489,29 @@ mod tests {
 
           assert!(settings.resolve_project_dir(&std::env::current_dir().unwrap()).is_err());
         })
+      }
+
+      #[test]
+      fn it_ignores_undotted_gest_directory_during_walk_up() {
+        let tmp = TempDir::new().unwrap();
+        let undotted = tmp.path().join("gest");
+        std::fs::create_dir_all(&undotted).unwrap();
+
+        with_vars(
+          [
+            ("GEST_PROJECT_DIR", None),
+            ("GEST_DATA_DIR", Some("/tmp/gest-test-root")),
+          ],
+          || {
+            let mut settings = Settings::default();
+            settings.resolved_data_dir = PathBuf::from("/tmp/gest-test-root");
+
+            let result = settings.resolve_project_dir(&tmp.path().to_path_buf()).unwrap();
+            let expected = PathBuf::from("/tmp/gest-test-root").join(path_hash(tmp.path()));
+
+            assert_eq!(result, expected);
+          },
+        )
       }
 
       #[test]
