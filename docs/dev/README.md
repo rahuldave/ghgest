@@ -17,7 +17,6 @@ By submitting a contribution you acknowledge that you have read and agree to the
 | Resource                    | What it covers                                           |
 |-----------------------------|----------------------------------------------------------|
 | [ADRs][adrs]                | Architecture decisions and their rationale               |
-| [AI Agents][ai]             | Running AI coding assistants in a sandboxed container    |
 | [Process Guide][process]    | How we plan, review, and ship work                       |
 | [Security Policy][security] | Reporting vulnerabilities responsibly                    |
 | [Code Style Guide][style]   | Formatting rules and code organization conventions       |
@@ -40,7 +39,6 @@ By submitting a contribution you acknowledge that you have read and agree to the
 If something is unclear, open a discussion or issue -- we're happy to help.
 
 [adrs]: https://github.com/aaronmallen/gest/blob/main/docs/design/
-[ai]: https://github.com/aaronmallen/gest/blob/main/docs/dev/ai.md
 [ai-policy]: https://github.com/aaronmallen/gest/blob/main/docs/policy/ai.md
 [coc]: https://github.com/aaronmallen/gest/blob/main/docs/policy/code-of-conduct.md
 [commits]: https://github.com/aaronmallen/gest/blob/main/docs/dev/commits.md
