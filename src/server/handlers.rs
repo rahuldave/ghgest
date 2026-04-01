@@ -805,8 +805,10 @@ pub async fn search(State(state): State<ServerState>, Query(params): Query<Searc
       query: String::new(),
       tasks: Vec::new(),
       artifacts: Vec::new(),
+      iterations: Vec::new(),
       task_count: 0,
       artifact_count: 0,
+      iteration_count: 0,
     }
     .into_response();
   }
@@ -820,13 +822,16 @@ pub async fn search(State(state): State<ServerState>, Query(params): Query<Searc
   };
   let task_count = results.tasks.len();
   let artifact_count = results.artifacts.len();
+  let iteration_count = results.iterations.len();
 
   SearchTemplate {
     query: params.q,
     tasks: results.tasks,
     artifacts: results.artifacts,
+    iterations: results.iterations,
     task_count,
     artifact_count,
+    iteration_count,
   }
   .into_response()
 }
@@ -872,6 +877,14 @@ pub async fn api_search(State(state): State<ServerState>, Query(params): Query<S
       id: artifact.id.to_string(),
       short_id: artifact.id.short(),
       title: artifact.title,
+    });
+  }
+  for iteration in results.iterations {
+    items.push(ApiSearchResult {
+      kind: "iteration".to_string(),
+      id: iteration.id.to_string(),
+      short_id: iteration.id.short(),
+      title: iteration.title,
     });
   }
 

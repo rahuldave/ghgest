@@ -11,9 +11,9 @@
 </form>
 
 {% if !query.is_empty() %}
-<div class="summary">{{ task_count + artifact_count }} result{% if task_count + artifact_count != 1 %}s{% endif %} for "{{ query }}"</div>
+<div class="summary">{{ task_count + artifact_count + iteration_count }} result{% if task_count + artifact_count + iteration_count != 1 %}s{% endif %} for "{{ query }}"</div>
 
-{% if tasks.is_empty() && artifacts.is_empty() %}
+{% if tasks.is_empty() && artifacts.is_empty() && iterations.is_empty() %}
 <p class="empty">No results found.</p>
 {% endif %}
 
@@ -43,7 +43,7 @@
 {% endif %}
 
 {% if !tasks.is_empty() %}
-<div>
+<div style="margin-bottom: 24px;">
   <div class="c-azure bold" style="margin-bottom: 8px;">Tasks ({{ tasks.len() }})</div>
   <div class="term">
     <div class="term-body">
@@ -74,6 +74,32 @@
                 {% when TaskStatus::Cancelled %}<span class="status-cancelled">cancelled</span>
               {% endmatch %}
             </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if !iterations.is_empty() %}
+<div>
+  <div class="c-azure bold" style="margin-bottom: 8px;">Iterations ({{ iterations.len() }})</div>
+  <div class="term">
+    <div class="term-body">
+      <table>
+        <tbody>
+          {% for iter in iterations %}
+          <tr{% if iter.completed_at.is_some() %} class="c-dim"{% endif %}>
+            <td style="width: 100px;">
+              <a href="/iterations/{{ iter.id }}">
+                <span class="id-prefix">{{ iter.id.short() }}</span>
+              </a>
+            </td>
+            <td>{{ iter.title }}</td>
+            <td>{% for t in iter.tags %}<a href="/search?q=tag:{{ t }}" class="tag">#{{ t }}</a>{% if !loop.last %} {% endif %}{% endfor %}</td>
+            <td>{{ iter.status }}</td>
           </tr>
           {% endfor %}
         </tbody>

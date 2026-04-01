@@ -9,6 +9,7 @@ use crate::ui::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EntityType {
   Artifact,
+  Iteration,
   Task,
 }
 
@@ -17,6 +18,7 @@ impl EntityType {
   pub fn label(self) -> &'static str {
     match self {
       Self::Artifact => "artifact",
+      Self::Iteration => "iteration",
       Self::Task => "task",
     }
   }

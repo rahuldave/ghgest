@@ -2,12 +2,13 @@ use rayon::prelude::*;
 
 use crate::{
   config::Settings,
-  model::{Artifact, ArtifactFilter, Task, TaskFilter},
+  model::{Artifact, ArtifactFilter, Iteration, IterationFilter, Task, TaskFilter},
 };
 
 /// Collected search results across entity types.
 pub struct SearchResults {
   pub artifacts: Vec<Artifact>,
+  pub iterations: Vec<Iteration>,
   pub tasks: Vec<Task>,
 }
 
@@ -80,6 +81,12 @@ pub fn search(config: &Settings, query: &str, show_all: bool) -> super::Result<S
   };
   let all_artifacts = super::list_artifacts(config, &artifact_filter)?;
 
+  let iteration_filter = IterationFilter {
+    all: show_all,
+    ..Default::default()
+  };
+  let all_iterations = super::list_iterations(config, &iteration_filter)?;
+
   let tasks: Vec<Task> = all_tasks
     .into_par_iter()
     .filter(|task| {
@@ -113,8 +120,23 @@ pub fn search(config: &Settings, query: &str, show_all: bool) -> super::Result<S
     })
     .collect();
 
+  let iterations: Vec<Iteration> = all_iterations
+    .into_par_iter()
+    .filter(|iteration| {
+      if let Some(ref tag) = tag_filter {
+        return iteration.tags.iter().any(|t| t.to_lowercase() == *tag);
+      }
+      contains_ignore_case(&iteration.title, &query_lower)
+        || contains_ignore_case(&iteration.description, &query_lower)
+        || iteration.tags.iter().any(|t| contains_ignore_case(t, &query_lower))
+        || (!iteration.metadata.is_empty()
+          && contains_ignore_case(&toml::to_string(&iteration.metadata).unwrap_or_default(), &query_lower))
+    })
+    .collect();
+
   Ok(SearchResults {
     artifacts,
+    iterations,
     tasks,
   })
 }
@@ -128,6 +150,13 @@ mod tests {
       title: title.to_string(),
       body: body.to_string(),
       ..crate::test_helpers::make_test_artifact(id)
+    }
+  }
+
+  fn make_test_iteration(id: &str, title: &str) -> Iteration {
+    Iteration {
+      title: title.to_string(),
+      ..crate::test_helpers::make_test_iteration(id)
     }
   }
 
@@ -212,6 +241,69 @@ mod tests {
       .unwrap();
       assert_eq!(results.tasks.len(), 0);
       assert_eq!(results.artifacts.len(), 0);
+      assert_eq!(results.iterations.len(), 0);
+    }
+
+    #[test]
+    fn it_finds_iterations_by_title() {
+      let dir = tempfile::tempdir().unwrap();
+      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Sprint Alpha");
+      crate::store::write_iteration(
+        &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
+        &iteration,
+      )
+      .unwrap();
+
+      let results = super::super::search(
+        &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
+        "sprint",
+        false,
+      )
+      .unwrap();
+      assert_eq!(results.iterations.len(), 1);
+      assert_eq!(results.iterations[0].title, "Sprint Alpha");
+    }
+
+    #[test]
+    fn it_finds_iterations_by_description() {
+      let dir = tempfile::tempdir().unwrap();
+      let mut iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Sprint One");
+      iteration.description = "This iteration focuses on the backend refactor".to_string();
+      crate::store::write_iteration(
+        &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
+        &iteration,
+      )
+      .unwrap();
+
+      let results = super::super::search(
+        &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
+        "refactor",
+        false,
+      )
+      .unwrap();
+      assert_eq!(results.iterations.len(), 1);
+      assert_eq!(results.iterations[0].title, "Sprint One");
+    }
+
+    #[test]
+    fn it_finds_iterations_by_tag_prefix() {
+      let dir = tempfile::tempdir().unwrap();
+      let mut iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Tagged Iteration");
+      iteration.tags = vec!["release".to_string()];
+      crate::store::write_iteration(
+        &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
+        &iteration,
+      )
+      .unwrap();
+
+      let results = super::super::search(
+        &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
+        "tag:release",
+        false,
+      )
+      .unwrap();
+      assert_eq!(results.iterations.len(), 1);
+      assert_eq!(results.iterations[0].title, "Tagged Iteration");
     }
   }
 }

@@ -37,6 +37,7 @@ impl Command {
         "query": self.query,
         "tasks": results.tasks,
         "artifacts": results.artifacts,
+        "iterations": results.iterations,
       });
       let json = serde_json::to_string_pretty(&json_value)?;
       println!("{json}");
@@ -62,7 +63,7 @@ fn build_search_items(
   theme: &Theme,
   expand: bool,
 ) -> Vec<SearchResultItem> {
-  let mut items = Vec::with_capacity(results.tasks.len() + results.artifacts.len());
+  let mut items = Vec::with_capacity(results.tasks.len() + results.artifacts.len() + results.iterations.len());
 
   for task in &results.tasks {
     let id_str = task.id.to_string();
@@ -114,6 +115,28 @@ fn build_search_items(
     items.push(SearchResultItem {
       entity_type: EntityType::Artifact,
       id: artifact.id.short(),
+      row_content,
+      snippet,
+    });
+  }
+
+  for iteration in &results.iterations {
+    let id_str = iteration.id.to_string();
+    let status_str = iteration.status.as_str();
+
+    let row_content = format!("{status_str}  {id_str}  {}", iteration.title);
+
+    let snippet = if iteration.description.is_empty() {
+      None
+    } else if expand {
+      Some(iteration.description.clone())
+    } else {
+      Some(truncate_snippet(&iteration.description, 200))
+    };
+
+    items.push(SearchResultItem {
+      entity_type: EntityType::Iteration,
+      id: iteration.id.short(),
       row_content,
       snippet,
     });

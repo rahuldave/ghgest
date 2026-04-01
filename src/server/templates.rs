@@ -253,8 +253,10 @@ pub struct SearchTemplate {
   pub query: String,
   pub tasks: Vec<Task>,
   pub artifacts: Vec<Artifact>,
+  pub iterations: Vec<Iteration>,
   pub task_count: usize,
   pub artifact_count: usize,
+  pub iteration_count: usize,
 }
 
 impl IntoResponse for SearchTemplate {
