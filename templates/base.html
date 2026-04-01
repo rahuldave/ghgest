@@ -185,7 +185,9 @@
       font-size: 1.0625rem;
       font-weight: 700;
       color: var(--azure);
+      margin-top: 0;
       margin-bottom: 12px;
+      line-height: 1.7;
     }
 
     /* ── summary line ─────────────────────────────────────────────────── */
@@ -272,11 +274,12 @@
       padding: 8px 12px;
       width: 100%;
       max-width: 400px;
-      outline: none;
     }
 
-    .search-input:focus {
+    .search-input:focus-visible {
       border-color: var(--azure);
+      outline: 2px solid var(--azure);
+      outline-offset: -1px;
     }
 
     .search-input::placeholder {
@@ -395,13 +398,14 @@
       font-size: 1rem;
       padding: 8px 12px;
       width: 100%;
-      outline: none;
     }
 
-    .form-input:focus,
-    .form-textarea:focus,
-    .form-select:focus {
+    .form-input:focus-visible,
+    .form-textarea:focus-visible,
+    .form-select:focus-visible {
       border-color: var(--azure);
+      outline: 2px solid var(--azure);
+      outline-offset: -1px;
     }
 
     .form-input::placeholder,
@@ -665,6 +669,18 @@
       width: auto;
       height: auto;
       overflow: visible;
+    }
+
+    /* ── focus-visible ───────────────────────────────────────────────── */
+    .btn:focus-visible,
+    .nav a:focus-visible,
+    .dash-card:focus-visible,
+    .rel-type-btn:focus-visible,
+    .rel-result-item:focus-visible,
+    .rel-remove:focus-visible,
+    .kanban-card a:focus-visible {
+      outline: 2px solid var(--azure);
+      outline-offset: 2px;
     }
   </style>
   {% block head %}{% endblock %}
