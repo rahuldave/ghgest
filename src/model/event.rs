@@ -3,6 +3,14 @@ use serde::{Deserialize, Serialize};
 
 use super::{id::Id, note::AuthorType};
 
+/// Author identity for event attribution.
+#[derive(Clone, Debug)]
+pub struct AuthorInfo {
+  pub author: String,
+  pub author_email: Option<String>,
+  pub author_type: AuthorType,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "type")]
 #[allow(clippy::enum_variant_names)]

@@ -105,7 +105,7 @@ pub fn claim_task(config: &Settings, task_id: &Id, assigned_to: &str) -> super::
     status: Some(TaskStatus::InProgress),
     ..Default::default()
   };
-  super::update_task(config, task_id, patch)
+  super::update_task(config, task_id, patch, None)
 }
 
 /// Compute aggregated progress for an iteration.

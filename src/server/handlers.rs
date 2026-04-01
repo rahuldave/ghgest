@@ -493,7 +493,7 @@ pub async fn task_update(State(state): State<ServerState>, Path(id_str): Path<St
 
   let links = parse_form_links(&form.link_rels, &form.link_refs);
 
-  match store::update_task(&state.settings, &id, patch) {
+  match store::update_task(&state.settings, &id, patch, None) {
     Ok(mut task) => {
       task.links = links;
       if let Err(e) = store::write_task(&state.settings, &task) {

@@ -12,3 +12,4 @@ mod when_status;
 mod when_tagging;
 mod when_untagging;
 mod when_updating;
+mod when_updating_status_generates_events;

@@ -2,7 +2,7 @@ use clap::Args;
 
 use crate::{
   cli::{self, AppContext},
-  model::{IterationPatch, iteration::Status},
+  model::{IterationPatch, event::AuthorInfo, iteration::Status, note::AuthorType},
   store,
   ui::composites::success_message::SuccessMessage,
 };
@@ -53,7 +53,12 @@ impl Command {
       title: self.title.clone(),
     };
 
-    let iteration = store::update_iteration(config, &id, patch)?;
+    let author = crate::cli::git::resolve_author().map(|a| AuthorInfo {
+      author: a.name,
+      author_email: a.email,
+      author_type: AuthorType::Human,
+    });
+    let iteration = store::update_iteration(config, &id, patch, author.as_ref())?;
 
     let msg = format!("Updated iteration {}", iteration.id);
     println!("{}", SuccessMessage::new(&msg, theme));

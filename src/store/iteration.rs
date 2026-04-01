@@ -8,7 +8,11 @@ use super::{
 };
 use crate::{
   config::Settings,
-  model::{Id, Iteration, IterationFilter, IterationPatch, NewIteration, Task, iteration::Status},
+  model::{
+    Id, Iteration, IterationFilter, IterationPatch, NewIteration, Task,
+    event::{AuthorInfo, Event, EventKind},
+    iteration::Status,
+  },
 };
 
 /// Compute how many distinct phases the iteration's tasks span by reading each task file.
@@ -170,9 +174,34 @@ pub fn resolve_iteration_id(config: &Settings, prefix: &str, include_resolved: b
 }
 
 /// Apply a partial update to an existing iteration, moving it between active/resolved as needed.
-pub fn update_iteration(config: &Settings, id: &Id, patch: IterationPatch) -> super::Result<Iteration> {
+///
+/// When `author` is provided, events are appended for detected status changes.
+pub fn update_iteration(
+  config: &Settings,
+  id: &Id,
+  patch: IterationPatch,
+  author: Option<&AuthorInfo>,
+) -> super::Result<Iteration> {
   let mut iteration = read_iteration(config, id)?;
   let was_resolved = is_iteration_resolved(config, id);
+
+  if let Some(author) = author
+    && let Some(ref new_status) = patch.status
+    && *new_status != iteration.status
+  {
+    iteration.events.push(Event {
+      author: author.author.clone(),
+      author_email: author.author_email.clone(),
+      author_type: author.author_type.clone(),
+      created_at: Utc::now(),
+      description: None,
+      id: Id::new(),
+      kind: EventKind::StatusChange {
+        from: iteration.status.as_str().to_string(),
+        to: new_status.as_str().to_string(),
+      },
+    });
+  }
 
   if let Some(description) = patch.description {
     iteration.description = description;
@@ -474,7 +503,7 @@ mod tests {
         ..Default::default()
       };
 
-      let updated = crate::store::update_iteration(&make_config(dir.path()), &iteration.id, patch).unwrap();
+      let updated = crate::store::update_iteration(&make_config(dir.path()), &iteration.id, patch, None).unwrap();
 
       assert!(updated.completed_at.is_some());
       assert!(crate::store::is_iteration_resolved(
@@ -495,7 +524,7 @@ mod tests {
         ..Default::default()
       };
 
-      let updated = crate::store::update_iteration(&make_config(dir.path()), &iteration.id, patch).unwrap();
+      let updated = crate::store::update_iteration(&make_config(dir.path()), &iteration.id, patch, None).unwrap();
 
       assert!(updated.completed_at.is_none());
       assert!(!crate::store::is_iteration_resolved(
@@ -515,7 +544,7 @@ mod tests {
         ..Default::default()
       };
 
-      let updated = crate::store::update_iteration(&make_config(dir.path()), &iteration.id, patch).unwrap();
+      let updated = crate::store::update_iteration(&make_config(dir.path()), &iteration.id, patch, None).unwrap();
 
       assert_eq!(updated.title, "New Title");
     }
@@ -538,7 +567,7 @@ mod tests {
         title: Some("Updated".to_string()),
         ..Default::default()
       };
-      crate::store::update_iteration(&make_config(dir.path()), &iteration.id, patch).unwrap();
+      crate::store::update_iteration(&make_config(dir.path()), &iteration.id, patch, None).unwrap();
 
       // File should only exist in resolved, not active
       assert!(
@@ -568,7 +597,7 @@ mod tests {
         title: Some("Updated".to_string()),
         ..Default::default()
       };
-      crate::store::update_iteration(&make_config(dir.path()), &iteration.id, patch).unwrap();
+      crate::store::update_iteration(&make_config(dir.path()), &iteration.id, patch, None).unwrap();
 
       assert!(
         dir
@@ -582,6 +611,76 @@ mod tests {
           .join("iterations/resolved/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml")
           .exists()
       );
+    }
+  }
+
+  mod update_iteration_events {
+    use super::*;
+    use crate::model::{
+      IterationPatch,
+      event::{AuthorInfo, EventKind},
+      iteration::Status,
+      note::AuthorType,
+    };
+
+    fn make_author() -> AuthorInfo {
+      AuthorInfo {
+        author: "alice".to_string(),
+        author_email: Some("alice@example.com".to_string()),
+        author_type: AuthorType::Human,
+      }
+    }
+
+    #[test]
+    fn it_appends_status_change_event() {
+      let dir = tempfile::tempdir().unwrap();
+      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test");
+      crate::store::write_iteration(&make_config(dir.path()), &iteration).unwrap();
+
+      let patch = IterationPatch {
+        status: Some(Status::Completed),
+        ..Default::default()
+      };
+      let updated =
+        crate::store::update_iteration(&make_config(dir.path()), &iteration.id, patch, Some(&make_author())).unwrap();
+
+      assert_eq!(updated.events.len(), 1);
+      assert!(matches!(
+        &updated.events[0].kind,
+        EventKind::StatusChange { from, to } if from == "active" && to == "completed"
+      ));
+      assert_eq!(updated.events[0].author, "alice");
+    }
+
+    #[test]
+    fn it_generates_no_events_for_same_status() {
+      let dir = tempfile::tempdir().unwrap();
+      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test");
+      crate::store::write_iteration(&make_config(dir.path()), &iteration).unwrap();
+
+      let patch = IterationPatch {
+        status: Some(Status::Active),
+        ..Default::default()
+      };
+      let updated =
+        crate::store::update_iteration(&make_config(dir.path()), &iteration.id, patch, Some(&make_author())).unwrap();
+
+      assert!(updated.events.is_empty());
+    }
+
+    #[test]
+    fn it_generates_no_events_without_author() {
+      let dir = tempfile::tempdir().unwrap();
+      let iteration = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test");
+      crate::store::write_iteration(&make_config(dir.path()), &iteration).unwrap();
+
+      let patch = IterationPatch {
+        status: Some(Status::Completed),
+        ..Default::default()
+      };
+      let updated = crate::store::update_iteration(&make_config(dir.path()), &iteration.id, patch, None).unwrap();
+
+      assert!(updated.events.is_empty());
     }
   }
 }

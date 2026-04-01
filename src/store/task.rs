@@ -8,7 +8,11 @@ use super::{
 };
 use crate::{
   config::Settings,
-  model::{Id, NewTask, Task, TaskFilter, TaskPatch, link::RelationshipType},
+  model::{
+    Id, NewTask, Task, TaskFilter, TaskPatch,
+    event::{AuthorInfo, Event, EventKind},
+    link::RelationshipType,
+  },
 };
 
 /// Resolved blocking state for a task after checking referenced task statuses.
@@ -218,9 +222,66 @@ pub fn resolve_task_id(config: &Settings, prefix: &str, include_resolved: bool) 
 }
 
 /// Apply a partial update to an existing task, moving it between active/resolved as needed.
-pub fn update_task(config: &Settings, id: &Id, patch: TaskPatch) -> super::Result<Task> {
+///
+/// When `author` is provided, events are appended for detected status, phase, and priority changes.
+pub fn update_task(config: &Settings, id: &Id, patch: TaskPatch, author: Option<&AuthorInfo>) -> super::Result<Task> {
   let mut task = read_task(config, id)?;
   let was_resolved = is_task_resolved(config, id);
+
+  if let Some(author) = author {
+    let now = Utc::now();
+
+    if let Some(ref new_status) = patch.status
+      && *new_status != task.status
+    {
+      task.events.push(Event {
+        author: author.author.clone(),
+        author_email: author.author_email.clone(),
+        author_type: author.author_type.clone(),
+        created_at: now,
+        description: None,
+        id: Id::new(),
+        kind: EventKind::StatusChange {
+          from: task.status.as_str().to_string(),
+          to: new_status.as_str().to_string(),
+        },
+      });
+    }
+
+    if let Some(ref new_phase) = patch.phase
+      && *new_phase != task.phase
+    {
+      task.events.push(Event {
+        author: author.author.clone(),
+        author_email: author.author_email.clone(),
+        author_type: author.author_type.clone(),
+        created_at: now,
+        description: None,
+        id: Id::new(),
+        kind: EventKind::PhaseChange {
+          from: task.phase,
+          to: *new_phase,
+        },
+      });
+    }
+
+    if let Some(ref new_priority) = patch.priority
+      && *new_priority != task.priority
+    {
+      task.events.push(Event {
+        author: author.author.clone(),
+        author_email: author.author_email.clone(),
+        author_type: author.author_type.clone(),
+        created_at: now,
+        description: None,
+        id: Id::new(),
+        kind: EventKind::PriorityChange {
+          from: task.priority,
+          to: *new_priority,
+        },
+      });
+    }
+  }
 
   if let Some(assigned_to) = patch.assigned_to {
     task.assigned_to = assigned_to;
@@ -798,7 +859,7 @@ mod tests {
         title: Some("Updated".to_string()),
         ..Default::default()
       };
-      crate::store::update_task(&make_config(dir.path()), &task.id, patch).unwrap();
+      crate::store::update_task(&make_config(dir.path()), &task.id, patch, None).unwrap();
 
       assert!(dir.path().join("tasks/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml").exists());
       assert!(
@@ -821,7 +882,7 @@ mod tests {
         title: Some("Updated".to_string()),
         ..Default::default()
       };
-      crate::store::update_task(&make_config(dir.path()), &task.id, patch).unwrap();
+      crate::store::update_task(&make_config(dir.path()), &task.id, patch, None).unwrap();
 
       assert!(!dir.path().join("tasks/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml").exists());
       assert!(
@@ -833,6 +894,136 @@ mod tests {
 
       let loaded = crate::store::read_task(&make_config(dir.path()), &task.id).unwrap();
       assert_eq!(loaded.title, "Updated");
+    }
+  }
+
+  mod update_task_events {
+    use super::*;
+    use crate::model::{
+      TaskPatch,
+      event::{AuthorInfo, EventKind},
+      note::AuthorType,
+    };
+
+    fn make_author() -> AuthorInfo {
+      AuthorInfo {
+        author: "alice".to_string(),
+        author_email: Some("alice@example.com".to_string()),
+        author_type: AuthorType::Human,
+      }
+    }
+
+    #[test]
+    fn it_appends_phase_change_event() {
+      let dir = tempfile::tempdir().unwrap();
+      let mut task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test");
+      task.phase = Some(1);
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
+
+      let patch = TaskPatch {
+        phase: Some(Some(2)),
+        ..Default::default()
+      };
+      let updated = crate::store::update_task(&make_config(dir.path()), &task.id, patch, Some(&make_author())).unwrap();
+
+      assert_eq!(updated.events.len(), 1);
+      assert!(matches!(
+        &updated.events[0].kind,
+        EventKind::PhaseChange {
+          from: Some(1),
+          to: Some(2)
+        }
+      ));
+    }
+
+    #[test]
+    fn it_appends_priority_change_event() {
+      let dir = tempfile::tempdir().unwrap();
+      let mut task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test");
+      task.priority = Some(0);
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
+
+      let patch = TaskPatch {
+        priority: Some(Some(1)),
+        ..Default::default()
+      };
+      let updated = crate::store::update_task(&make_config(dir.path()), &task.id, patch, Some(&make_author())).unwrap();
+
+      assert_eq!(updated.events.len(), 1);
+      assert!(matches!(
+        &updated.events[0].kind,
+        EventKind::PriorityChange {
+          from: Some(0),
+          to: Some(1)
+        }
+      ));
+    }
+
+    #[test]
+    fn it_appends_status_change_event() {
+      let dir = tempfile::tempdir().unwrap();
+      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test");
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
+
+      let patch = TaskPatch {
+        status: Some(Status::InProgress),
+        ..Default::default()
+      };
+      let updated = crate::store::update_task(&make_config(dir.path()), &task.id, patch, Some(&make_author())).unwrap();
+
+      assert_eq!(updated.events.len(), 1);
+      assert!(matches!(
+        &updated.events[0].kind,
+        EventKind::StatusChange { from, to } if from == "open" && to == "in-progress"
+      ));
+      assert_eq!(updated.events[0].author, "alice");
+    }
+
+    #[test]
+    fn it_generates_multiple_events_for_multiple_changes() {
+      let dir = tempfile::tempdir().unwrap();
+      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test");
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
+
+      let patch = TaskPatch {
+        phase: Some(Some(2)),
+        priority: Some(Some(1)),
+        status: Some(Status::InProgress),
+        ..Default::default()
+      };
+      let updated = crate::store::update_task(&make_config(dir.path()), &task.id, patch, Some(&make_author())).unwrap();
+
+      assert_eq!(updated.events.len(), 3);
+    }
+
+    #[test]
+    fn it_generates_no_events_for_same_status() {
+      let dir = tempfile::tempdir().unwrap();
+      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test");
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
+
+      let patch = TaskPatch {
+        status: Some(Status::Open),
+        ..Default::default()
+      };
+      let updated = crate::store::update_task(&make_config(dir.path()), &task.id, patch, Some(&make_author())).unwrap();
+
+      assert!(updated.events.is_empty());
+    }
+
+    #[test]
+    fn it_generates_no_events_without_author() {
+      let dir = tempfile::tempdir().unwrap();
+      let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Test");
+      crate::store::write_task(&make_config(dir.path()), &task).unwrap();
+
+      let patch = TaskPatch {
+        status: Some(Status::InProgress),
+        ..Default::default()
+      };
+      let updated = crate::store::update_task(&make_config(dir.path()), &task.id, patch, None).unwrap();
+
+      assert!(updated.events.is_empty());
     }
   }
 }
