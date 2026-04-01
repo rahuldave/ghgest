@@ -5,7 +5,7 @@ use yansi::Paint;
 use crate::ui::{
   atoms::{label::Label, value::Value},
   composites::success_message::SuccessMessage,
-  theme::Theme,
+  theming::theme::Theme,
 };
 
 /// Renders the resolved configuration summary (paths, settings, color overrides).

@@ -8,7 +8,7 @@ mod commands;
 use clap::{ArgAction, Parser, Subcommand};
 use yansi::hyperlink::HyperlinkExt;
 
-use crate::{config, ui::theme::Theme};
+use crate::{config, ui::theming::theme::Theme};
 
 /// Bundles all runtime context that commands need: resolved settings and theme.
 pub(crate) struct AppContext {
@@ -234,7 +234,7 @@ fn long_about() -> String {
   )
   .hide_version();
   let url = "https://gest.aaronmallen.dev";
-  let link = url.link(url).fg(crate::ui::colors::AZURE).underline();
+  let link = url.link(url).fg(crate::ui::theming::colors::AZURE).underline();
   let desc = env!("CARGO_PKG_DESCRIPTION");
   format!(
     "\n{banner}\n\n{desc}\n\n{link}\n\n\

@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use yansi::Paint;
 
-use crate::ui::theme::Theme;
+use crate::ui::theming::theme::Theme;
 
 /// Renders a headed list section with a summary line and optional item rows.
 pub struct GroupedList<'a> {

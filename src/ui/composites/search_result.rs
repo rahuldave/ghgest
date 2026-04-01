@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use yansi::Paint;
 
-use crate::ui::{atoms::separator::Separator, theme::Theme};
+use crate::ui::{atoms::separator::Separator, theming::theme::Theme};
 
 /// Fixed padding width for entity type labels.
 const TYPE_LABEL_PAD: usize = 10;

@@ -56,7 +56,7 @@ impl Command {
   }
 }
 
-fn print_task_detail(task: &Task, theme: &crate::ui::theme::Theme) {
+fn print_task_detail(task: &Task, theme: &crate::ui::theming::theme::Theme) {
   let id_str = task.id.to_string();
   let status_str = task.status.as_str();
 

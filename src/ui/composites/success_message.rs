@@ -4,7 +4,7 @@ use yansi::Paint;
 
 use crate::ui::{
   atoms::{id::Id, label::Label, value::Value},
-  theme::Theme,
+  theming::theme::Theme,
 };
 
 /// Renders a success message with a checkmark icon, optional entity ID, and optional key-value fields.

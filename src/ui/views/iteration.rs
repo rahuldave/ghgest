@@ -14,7 +14,7 @@ use crate::{
       iteration_list_row::IterationListRow,
       iteration_status::IterationStatus,
     },
-    theme::Theme,
+    theming::theme::Theme,
   },
 };
 

@@ -3,7 +3,7 @@ use std::{io::Write, sync::OnceLock};
 use log::{Level, Log, Metadata, Record};
 use yansi::{Paint, Style};
 
-use crate::ui::theme::Theme;
+use crate::ui::theming::theme::Theme;
 
 static LOG_STYLES: OnceLock<LogStyles> = OnceLock::new();
 static LOGGER: Logger = Logger;

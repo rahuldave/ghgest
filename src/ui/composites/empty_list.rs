@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use yansi::Paint;
 
-use crate::ui::theme::Theme;
+use crate::ui::theming::theme::Theme;
 
 /// Renders a "no {entity} found" placeholder for empty list views.
 pub struct EmptyList<'a> {

@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use yansi::Paint;
 
-use crate::ui::theme::Theme;
+use crate::ui::theming::theme::Theme;
 
 /// Renders an error message prefixed with a cross icon.
 pub struct ErrorMessage<'a> {

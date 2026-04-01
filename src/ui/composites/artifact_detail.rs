@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use crate::ui::{
   atoms::{id::Id, label::Label, separator::Separator, tag::Tags, value::Value},
   markdown,
-  theme::Theme,
+  theming::theme::Theme,
   utils,
 };
 

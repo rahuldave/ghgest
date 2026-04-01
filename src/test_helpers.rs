@@ -35,7 +35,7 @@ pub fn make_test_config(project_dir: PathBuf) -> Settings {
 
 pub fn make_test_context(base: &std::path::Path) -> crate::cli::AppContext {
   let settings = make_test_config(base.to_path_buf());
-  let theme = crate::ui::theme::Theme::default();
+  let theme = crate::ui::theming::theme::Theme::default();
   crate::cli::AppContext {
     settings,
     theme,

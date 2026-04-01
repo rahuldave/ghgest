@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use yansi::{Paint, Style};
 
-use crate::ui::theme::Theme;
+use crate::ui::theming::theme::Theme;
 
 /// A themed status badge that renders a status icon with optional label text.
 ///

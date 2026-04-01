@@ -5,7 +5,7 @@ use crate::{
   ui::{
     atoms::{id::Id, label::Label, separator::Separator, value::Value},
     markdown,
-    theme::Theme,
+    theming::theme::Theme,
     utils,
   },
 };

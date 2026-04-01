@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use yansi::{Color, Paint, Style};
 
-use crate::ui::theme::Theme;
+use crate::ui::theming::theme::Theme;
 
 /// ASCII block-art rows for the GEST logo.
 const ASCII_ART: [&str; 6] = [

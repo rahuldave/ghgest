@@ -5,7 +5,7 @@ use crate::ui::{
     artifact_detail::ArtifactDetail, artifact_list_row::ArtifactListRow, grouped_list::GroupedList,
     success_message::SuccessMessage,
   },
-  theme::Theme,
+  theming::theme::Theme,
 };
 
 /// Renders a success message after creating an artifact.

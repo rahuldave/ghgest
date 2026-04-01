@@ -6,7 +6,7 @@ use crate::{
   store,
   ui::{
     composites::{artifact_list_row::ArtifactListRow, task_list_row::TaskListRow},
-    theme::Theme,
+    theming::theme::Theme,
     views::search::{EntityType, SearchExpandedView, SearchResultItem, SearchView},
   },
 };

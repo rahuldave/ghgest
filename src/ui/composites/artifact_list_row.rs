@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use crate::ui::{
   atoms::{badge::Badge, id::Id, tag::Tags, title::Title},
   layout::Row,
-  theme::Theme,
+  theming::theme::Theme,
   utils,
 };
 

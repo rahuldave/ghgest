@@ -15,7 +15,7 @@ use crate::{
       task_list_row::TaskListRow,
     },
     markdown,
-    theme::Theme,
+    theming::theme::Theme,
     utils,
   },
 };

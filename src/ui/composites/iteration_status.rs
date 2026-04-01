@@ -6,7 +6,7 @@ use crate::{
   store::IterationProgress,
   ui::{
     atoms::{id::Id, label::Label, value::Value},
-    theme::Theme,
+    theming::theme::Theme,
   },
 };
 

@@ -4,7 +4,7 @@ use clap::Args;
 
 use crate::{
   cli::{self, AppContext},
-  ui::{theme::Theme, views::system::InitView},
+  ui::{theming::theme::Theme, views::system::InitView},
 };
 
 /// Initialize gest for the current project.

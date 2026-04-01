@@ -4,7 +4,7 @@ use yansi::Paint;
 
 use crate::ui::{
   atoms::{id::Id, label::Label, value::Value},
-  theme::Theme,
+  theming::theme::Theme,
 };
 
 /// Fixed padding width for field labels.

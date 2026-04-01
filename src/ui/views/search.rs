@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::ui::{
   composites::search_result::{SearchResultExpanded, SearchResultRow, SearchSummary},
-  theme::Theme,
+  theming::theme::Theme,
 };
 
 /// The kind of entity a search result refers to.

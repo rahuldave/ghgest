@@ -4,7 +4,7 @@ use yansi::Paint;
 
 use crate::ui::{
   atoms::{id::Id, title::Title},
-  theme::Theme,
+  theming::theme::Theme,
 };
 
 /// A single row in an iteration list, showing id, title, and phase/task counts.

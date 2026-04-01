@@ -1,7 +1,7 @@
 use pulldown_cmark::{Event, Parser, Tag, TagEnd};
 use yansi::Paint;
 
-use super::theme::Theme;
+use super::theming::theme::Theme;
 
 /// Render a markdown string to styled terminal output with word wrapping.
 pub fn render(text: &str, theme: &Theme, width: usize) -> String {

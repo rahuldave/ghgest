@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use yansi::Paint;
 
-use crate::ui::theme::Theme;
+use crate::ui::theming::theme::Theme;
 
 /// Displays a truncated, two-tone entity identifier (highlighted prefix + dimmed suffix).
 pub struct Id<'a> {

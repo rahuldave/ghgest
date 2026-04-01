@@ -4,7 +4,7 @@ use crate::ui::{
   atoms::{badge::Badge, icon::Icon, id::Id, tag::Tags, title::Title},
   composites::{indicators::Indicators, status_badge::StatusBadge},
   layout::Row,
-  theme::Theme,
+  theming::theme::Theme,
   utils,
 };
 

@@ -5,16 +5,14 @@
 
 /// Smallest styled display primitives (badge, icon, label, etc.).
 pub mod atoms;
-/// Named RGB color constants for the brand palette.
-pub mod colors;
 /// Mid-level widgets composed from atoms.
 pub mod composites;
 /// Row and column layout containers with terminal-aware overflow.
 pub mod layout;
 /// Markdown-to-styled-terminal renderer.
 pub mod markdown;
-/// Semantic style tokens resolved from the color palette.
-pub mod theme;
+/// Theming subsystem: color constants, palette abstraction, and semantic style tokens.
+pub mod theming;
 /// Terminal measurement and ANSI-stripping helpers.
 pub mod utils;
 /// Top-level output renderers, one per CLI command group.

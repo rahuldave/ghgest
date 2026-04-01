@@ -4,7 +4,7 @@ use yansi::Paint;
 
 use crate::ui::{
   atoms::{icon::Icon, id::Id},
-  theme::Theme,
+  theming::theme::Theme,
 };
 
 /// Renders inline blocked/blocking status indicators for a task.

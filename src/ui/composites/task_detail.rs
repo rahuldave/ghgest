@@ -6,7 +6,7 @@ use crate::ui::{
   atoms::{id::Id, label::Label, separator::Separator, tag::Tags, value::Value},
   composites::status_badge::StatusBadge,
   markdown,
-  theme::Theme,
+  theming::theme::Theme,
   utils,
 };
 
