@@ -59,3 +59,36 @@ pub use task::{
   ResolvedBlocking, create_task, is_task_resolved, list_tasks, read_task, resolve_blocking, resolve_blocking_batch,
   resolve_task, resolve_task_id, update_task, write_task,
 };
+
+/// Collect every unique tag used across tasks, artifacts, and iterations, sorted alphabetically.
+pub fn list_tags(config: &crate::config::Settings) -> Result<Vec<String>> {
+  use std::collections::BTreeSet;
+
+  let mut tags: BTreeSet<String> = BTreeSet::new();
+
+  let task_filter = crate::model::TaskFilter {
+    all: true,
+    ..Default::default()
+  };
+  for task in list_tasks(config, &task_filter)? {
+    tags.extend(task.tags);
+  }
+
+  let artifact_filter = crate::model::ArtifactFilter {
+    show_all: true,
+    ..Default::default()
+  };
+  for artifact in list_artifacts(config, &artifact_filter)? {
+    tags.extend(artifact.tags);
+  }
+
+  let iteration_filter = crate::model::IterationFilter {
+    all: true,
+    ..Default::default()
+  };
+  for iteration in list_iterations(config, &iteration_filter)? {
+    tags.extend(iteration.tags);
+  }
+
+  Ok(tags.into_iter().collect())
+}

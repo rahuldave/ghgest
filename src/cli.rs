@@ -67,6 +67,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub(crate) struct Cli {
   #[command(subcommand)]
   command: Option<Command>,
+  /// Disable ANSI color output.
+  #[arg(long = "no-color", global = true)]
+  no_color: bool,
   /// Print version information and exit.
   #[arg(short = 'V', long = "version")]
   print_version: bool,
@@ -77,6 +80,10 @@ pub(crate) struct Cli {
 
 impl Cli {
   fn call(&self, settings: config::Settings) -> Result<()> {
+    if self.no_color {
+      yansi::disable();
+    }
+
     if self.print_version {
       let theme = Theme::from_config(&settings);
       let ctx = AppContext {
@@ -133,6 +140,7 @@ enum Command {
   Search(commands::search::Command),
   SelfUpdate(commands::self_update::Command),
   Serve(commands::serve::Command),
+  Tags(commands::tags::list::Command),
   Task(commands::task::Command),
   Undo(commands::undo::Command),
   Version(commands::version::Command),
@@ -149,6 +157,7 @@ impl Command {
       Self::Search(cmd) => cmd.call(ctx),
       Self::SelfUpdate(cmd) => cmd.call(ctx),
       Self::Serve(cmd) => cmd.call(ctx),
+      Self::Tags(cmd) => cmd.call(ctx),
       Self::Task(cmd) => cmd.call(ctx),
       Self::Undo(cmd) => cmd.call(ctx),
       Self::Version(cmd) => cmd.call(ctx),

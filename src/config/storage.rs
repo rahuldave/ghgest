@@ -166,6 +166,11 @@ impl Settings {
         log::debug!("$GEST_DATA_DIR is set");
         log::trace!("data directory resolved to {}", path.display());
         return Ok(path);
+      } else if path.is_absolute() && !path.exists() {
+        // Path does not exist yet; accept it so commands like `init` can create it.
+        log::debug!("$GEST_DATA_DIR is set to a non-existent path");
+        log::trace!("data directory resolved to {}", path.display());
+        return Ok(path);
       } else if path.is_dir() {
         log::debug!("$GEST_DATA_DIR is set, but is not an absolute path");
         log::warn!("$GEST_DATA_DIR must be an absolute path");
@@ -178,6 +183,11 @@ impl Settings {
     if let Some(path) = &self.data_dir {
       if path.is_absolute() && path.is_dir() {
         log::debug!("config specifies storage.data_dir");
+        log::trace!("data directory resolved to {}", path.display());
+        return Ok(path.clone());
+      } else if path.is_absolute() && !path.exists() {
+        // Path does not exist yet; accept it so commands like `init` can create it.
+        log::debug!("config specifies storage.data_dir as a non-existent path");
         log::trace!("data directory resolved to {}", path.display());
         return Ok(path.clone());
       } else if path.is_dir() {
