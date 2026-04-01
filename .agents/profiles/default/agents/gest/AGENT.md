@@ -305,6 +305,31 @@ GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration adv
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration advance <id> --force   # advance past stuck tasks
 ```
 
+## Cross-Entity Tagging
+
+Tag, untag, and list tags across all entity types without knowing the entity type in advance.
+
+### Add / Remove Tags
+
+```sh
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- tag add <id> <tags...>      # add tags (space-separated)
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- tag remove <id> <tags...>   # remove tags
+```
+
+The ID prefix is resolved across tasks, artifacts, and iterations. If the prefix matches multiple entity types, an error
+is returned with disambiguation guidance.
+
+### List Tags
+
+```sh
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- tag list                    # all tags
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- tag list --task             # only task tags
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- tag list --artifact         # only artifact tags
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- tag list --iteration        # only iteration tags
+```
+
+Flags can be combined.
+
 ## Undo
 
 Reverse the most recent mutating command(s) by restoring file snapshots. Every mutating CLI command is automatically
