@@ -2,6 +2,70 @@
 
 What's new in gest — told version by version.
 
+## v0.4.0
+
+<span style="opacity: 0.5">2026-04-01</span>
+
+### Undo
+
+You can now reverse the most recent mutating command with `gest undo`. Under the hood, a new SQLite-backed event store
+captures before/after snapshots of every file mutation. If something goes wrong, `gest undo` restores the previous state
+in one step. The event store location is configurable via `GEST_STATE_DIR` or `storage.state_dir`.
+
+### Tags
+
+New `gest tag add|remove|list` subcommands let you manage tags on any entity. `gest tags` lists all tags across the
+project with optional entity-type filtering. Tags are a lightweight way to categorize and find related work.
+
+### Activity Timeline
+
+Task and iteration status, phase, and priority changes are now recorded automatically as events with author attribution.
+The `show` views merge events and notes into a single chronological activity timeline — in both the CLI and the web UI —
+so you can see the full history of an entity at a glance.
+
+### Theming Overhaul
+
+Color configuration has been restructured into two tiers: `[colors.palette]` defines 11 semantic color slots, and
+`[colors.overrides]` provides per-token customization. Palette colors cascade through to all tokens that reference a
+given slot, making it easy to restyle the entire UI by changing a few palette values. `config show` now displays palette
+and override counts separately.
+
+### Web UI Accessibility
+
+The web UI received a comprehensive accessibility pass to meet WCAG 2.1 AA requirements:
+
+- Semantic HTML landmarks and a skip-to-content link for screen readers
+- Heading hierarchy with proper `h1`–`h6` elements
+- Font sizes converted to `rem` units respecting browser preferences
+- Color contrast updated to meet the 4.5:1 minimum ratio
+- Focus-visible outlines on all interactive elements for keyboard navigation
+- ARIA labels on form fields and the relationship modal
+- Keyboard-accessible relationship modal with focus trap and Escape-to-close
+
+### Cross-Entity IDs
+
+ID generation now checks for prefix collisions across all entity types before assigning a short ID, and a new
+cross-entity resolver can look up any entity by prefix with ambiguity detection. The `--no-color` global flag is also
+available for scripting.
+
+### Breaking Changes
+
+This release bundles several breaking changes:
+
+- **`GEST_DATA_DIR` semantics changed.** It now points to the global root (e.g. `~/.local/share/gest`) instead of the
+  project-specific directory. Use the new `GEST_PROJECT_DIR` env var or `storage.project_dir` config field for the old
+  behavior.
+- **Color config restructured.** The flat `[colors]` section is replaced by `[colors.palette]` and `[colors.overrides]`.
+- **Project discovery tightened.** Only `.gest/` directories are matched during walk-up discovery; unrelated directories
+  named `gest/` are no longer false positives.
+- **Empty datetime fields omitted.** Task and iteration TOML files no longer write `resolved_at = ""` or
+  `completed_at = ""`. Existing files with empty strings are still read correctly.
+
+### Bug Fixes
+
+- `config set` now writes typed TOML values instead of wrapping everything as strings
+- Event recording no longer silently skipped when git `user.name` is unset
+
 ## v0.3.5
 
 <span style="opacity: 0.5">2026-03-31</span>

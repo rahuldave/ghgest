@@ -7,6 +7,41 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [v0.4.0] - 2026-04-01
+
+### Added
+
+- `gest undo` command reverses the most recent mutating transaction by restoring file snapshots, backed by a new SQLite
+  event store
+- `GEST_STATE_DIR` environment variable and `storage.state_dir` config field for controlling event store location
+- `gest tag add|remove|list` subcommands for managing tags across tasks, artifacts, and iterations
+- `gest tags` command for listing all tags with optional entity-type filtering
+- `--no-color` global flag for disabling colored output
+- Cross-entity ID resolution with ambiguity detection and collision-safe ID generation
+- Automatic event generation on task and iteration status, phase, and priority changes with author attribution
+- Merged event/note activity timeline in `task show`, `iteration show`, and the web task detail page
+- Two-tier color configuration: `[colors.palette]` for 11 semantic color slots and `[colors.overrides]` for per-token
+  customization, with palette values cascading through to all referencing tokens
+- `config show` now displays palette and override counts separately
+- Web UI accessibility improvements: semantic landmarks and skip navigation, rem-based font sizes, WCAG 2.1 AA color
+  contrast, focus-visible keyboard styles, form ARIA labels, semantic heading hierarchy, and keyboard-accessible
+  relationship modal
+
+### Changed
+
+- **Breaking:** `GEST_DATA_DIR` now points to the global root directory instead of the project-specific path; use the
+  new `GEST_PROJECT_DIR` env var (or `storage.project_dir` config field) for the old behavior
+- **Breaking:** The flat `[colors]` config section is replaced by `[colors.palette]` and `[colors.overrides]`
+- **Breaking:** Project discovery no longer matches undotted `gest/` directories; use `.gest/` or set
+  `$GEST_PROJECT_DIR`
+- **Breaking:** Task and iteration TOML files no longer write `resolved_at = ""` or `completed_at = ""` for unset
+  datetime fields; existing files with empty strings are still read correctly
+
+### Fixed
+
+- `config set` now writes typed TOML values (integers, booleans, floats) instead of wrapping all values as strings
+- Event recording no longer silently skipped when git `user.name` is unset — falls back to "unknown" author
+
 ## [v0.3.5] - 2026-03-31
 
 ### Added
@@ -167,7 +202,7 @@ Initial release
 [#23]: https://github.com/aaronmallen/gest/issues/23
 [#24]: https://github.com/aaronmallen/gest/issues/24
 
-[Unreleased]: https://github.com/aaronmallen/gest/compare/0.3.5...main
+[Unreleased]: https://github.com/aaronmallen/gest/compare/0.4.0...main
 [v0.2.0]: https://github.com/aaronmallen/gest/compare/0.1.0...0.2.0
 [v0.2.1]: https://github.com/aaronmallen/gest/compare/0.2.0...0.2.1
 [v0.2.2]: https://github.com/aaronmallen/gest/compare/0.2.1...0.2.2
@@ -178,3 +213,4 @@ Initial release
 [v0.3.3]: https://github.com/aaronmallen/gest/compare/0.3.2...0.3.3
 [v0.3.4]: https://github.com/aaronmallen/gest/compare/0.3.3...0.3.4
 [v0.3.5]: https://github.com/aaronmallen/gest/compare/0.3.4...0.3.5
+[v0.4.0]: https://github.com/aaronmallen/gest/compare/0.3.5...0.4.0
