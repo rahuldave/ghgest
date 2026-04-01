@@ -58,26 +58,35 @@ mod tests {
   use super::*;
 
   mod edit_temp {
+    use temp_env::{with_var, with_vars};
+
     use super::*;
 
     #[test]
     fn it_returns_empty_string_for_empty_temp() {
-      unsafe { std::env::set_var("VISUAL", "true") };
+      with_var("VISUAL", Some("true"), || {
+        let content = edit_temp(None, ".md").unwrap();
 
-      let content = edit_temp(None, ".md").unwrap();
-      assert_eq!(content, "");
-
-      unsafe { std::env::remove_var("VISUAL") };
+        assert_eq!(content, "");
+      });
     }
 
     #[test]
     fn it_returns_initial_content_with_noop_editor() {
-      unsafe { std::env::set_var("VISUAL", "true") };
+      with_var("VISUAL", Some("true"), || {
+        let content = edit_temp(Some("hello world"), ".md").unwrap();
 
-      let content = edit_temp(Some("hello world"), ".md").unwrap();
-      assert_eq!(content, "hello world");
+        assert_eq!(content, "hello world");
+      });
+    }
 
-      unsafe { std::env::remove_var("VISUAL") };
+    #[test]
+    fn it_returns_initial_content_with_editor_fallback() {
+      with_vars([("VISUAL", None::<&str>), ("EDITOR", Some("true"))], || {
+        let content = edit_temp(Some("fallback test"), ".md").unwrap();
+
+        assert_eq!(content, "fallback test");
+      });
     }
   }
 
