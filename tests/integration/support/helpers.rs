@@ -100,7 +100,7 @@ impl GestCmd {
     let path = temp_dir.path();
     cmd.current_dir(path);
     cmd.env("GEST_CONFIG", path.join("gest.toml"));
-    cmd.env("GEST_DATA_DIR", path.join(".gest"));
+    cmd.env("GEST_PROJECT_DIR", path.join(".gest"));
     cmd.env("GEST_STATE_DIR", path.join(".gest-state"));
     cmd
   }

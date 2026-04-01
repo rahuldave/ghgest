@@ -12,6 +12,6 @@ fn it_shows_config() {
     .assert()
     .success()
     .stdout(predicate::str::contains("configuration"))
-    .stdout(predicate::str::contains("data_dir"))
+    .stdout(predicate::str::contains("project_dir"))
     .stdout(predicate::str::contains("log_level"));
 }

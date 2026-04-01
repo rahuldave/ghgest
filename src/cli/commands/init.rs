@@ -24,7 +24,7 @@ impl Command {
       let base = cwd.join(".gest");
       init_at(&base, storage, Some(".gest/config.toml"), &ctx.theme)
     } else {
-      init_at(ctx.settings.storage().data_dir(), storage, None, &ctx.theme)
+      init_at(ctx.settings.storage().project_dir(), storage, None, &ctx.theme)
     }
   }
 }
@@ -50,8 +50,8 @@ fn init_at(
     std::fs::create_dir_all(entity_dir.join(secondary))?;
   }
 
-  let data_dir = base.display().to_string();
-  let view = InitView::new(&data_dir, config_path, theme);
+  let project_dir = base.display().to_string();
+  let view = InitView::new(&project_dir, config_path, theme);
   println!("{view}");
 
   Ok(())

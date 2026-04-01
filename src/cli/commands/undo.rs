@@ -24,7 +24,7 @@ impl Command {
       .map_err(|e| cli::Error::generic(format!("failed to open event store: {e}")))?;
 
     let project_id = capture::project_id(&ctx.settings);
-    let data_dir = ctx.settings.storage().data_dir();
+    let project_dir = ctx.settings.storage().project_dir();
 
     let mut undone = 0;
     for _ in 0..self.steps {
@@ -36,7 +36,7 @@ impl Command {
         break;
       };
 
-      apply_undo(data_dir, &tx)?;
+      apply_undo(project_dir, &tx)?;
 
       store
         .mark_undone(&tx.id)

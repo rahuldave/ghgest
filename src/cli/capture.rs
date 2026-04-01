@@ -1,6 +1,6 @@
 //! Filesystem capture for the event store.
 //!
-//! Snapshots `data_dir` before and after a CLI command, recording changed files
+//! Snapshots `project_dir` before and after a CLI command, recording changed files
 //! as events in the event store. Only files that actually changed produce events;
 //! if nothing changed, no transaction is created.
 
@@ -13,9 +13,9 @@ use crate::{
   event_store::{EventStore, EventType},
 };
 
-/// A pre-command snapshot of all files under `data_dir`.
+/// A pre-command snapshot of all files under `project_dir`.
 pub(crate) struct Snapshot {
-  /// Map from relative path (to data_dir) → (content hash, raw content).
+  /// Map from relative path (to project_dir) → (content hash, raw content).
   files: HashMap<String, FileEntry>,
 }
 
@@ -25,11 +25,11 @@ struct FileEntry {
 }
 
 impl Snapshot {
-  /// Walk `data_dir` recursively and capture every file's content.
-  pub(crate) fn capture(data_dir: &Path) -> Self {
+  /// Walk `project_dir` recursively and capture every file's content.
+  pub(crate) fn capture(project_dir: &Path) -> Self {
     let mut files = HashMap::new();
-    if data_dir.is_dir() {
-      walk_dir(data_dir, data_dir, &mut files);
+    if project_dir.is_dir() {
+      walk_dir(project_dir, project_dir, &mut files);
     }
     Self {
       files,
@@ -42,11 +42,11 @@ impl Snapshot {
   /// Returns `true` if any events were recorded.
   pub(crate) fn record_changes(
     &self,
-    data_dir: &Path,
+    project_dir: &Path,
     store: &EventStore,
     transaction_id: &str,
   ) -> crate::event_store::Result<bool> {
-    let after = Self::capture(data_dir);
+    let after = Self::capture(project_dir);
     let mut recorded = false;
 
     // Check for modified and deleted files.

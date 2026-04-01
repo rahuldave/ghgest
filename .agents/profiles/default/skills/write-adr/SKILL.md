@@ -37,7 +37,7 @@ additional context.
 Create a gest artifact with the ADR content inline:
 
 ```sh
-GEST_DATA_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create --title "<title>" --type adr --body "<content>"
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create --title "<title>" --type adr --body "<content>"
 ```
 
 Extract the artifact ID from the output.

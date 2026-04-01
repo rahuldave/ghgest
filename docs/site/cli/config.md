@@ -31,12 +31,12 @@ gest config get <KEY>
 
 | Argument | Description |
 | --- | --- |
-| `<KEY>` | Dot-delimited config key (e.g. `storage.data_dir`) |
+| `<KEY>` | Dot-delimited config key (e.g. `storage.project_dir`) |
 
 ### Examples
 
 ```sh
-gest config get storage.data_dir
+gest config get storage.project_dir
 gest config get log.level
 ```
 

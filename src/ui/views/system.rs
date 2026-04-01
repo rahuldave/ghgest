@@ -10,7 +10,7 @@ use crate::ui::{
 
 /// Renders the resolved configuration summary (paths, settings, color overrides).
 pub struct ConfigView<'a> {
-  data_dir: &'a str,
+  project_dir: &'a str,
   global_config: Option<&'a str>,
   has_color_overrides: bool,
   log_level: &'a str,
@@ -19,11 +19,11 @@ pub struct ConfigView<'a> {
 }
 
 impl<'a> ConfigView<'a> {
-  pub fn new(data_dir: &'a str, log_level: &'a str, theme: &'a Theme) -> Self {
+  pub fn new(project_dir: &'a str, log_level: &'a str, theme: &'a Theme) -> Self {
     Self {
       global_config: None,
       project_config: None,
-      data_dir,
+      project_dir,
       log_level,
       has_color_overrides: false,
       theme,
@@ -68,13 +68,13 @@ impl Display for ConfigView<'_> {
       Value::new(self.project_config.unwrap_or("(none)"), self.theme.config_value,),
     )?;
 
-    let setting_label_width = 9;
+    let setting_label_width = 11;
     writeln!(f)?;
     writeln!(
       f,
       "  {}  {}",
-      Label::new("data_dir", self.theme.config_label).pad_to(setting_label_width),
-      Value::new(self.data_dir, self.theme.config_value),
+      Label::new("project_dir", self.theme.config_label).pad_to(setting_label_width),
+      Value::new(self.project_dir, self.theme.config_value),
     )?;
     writeln!(
       f,
@@ -107,14 +107,14 @@ impl Display for ConfigView<'_> {
 /// Renders the post-initialization success message with getting-started hints.
 pub struct InitView<'a> {
   config_path: Option<&'a str>,
-  data_dir: &'a str,
+  project_dir: &'a str,
   theme: &'a Theme,
 }
 
 impl<'a> InitView<'a> {
-  pub fn new(data_dir: &'a str, config_path: Option<&'a str>, theme: &'a Theme) -> Self {
+  pub fn new(project_dir: &'a str, config_path: Option<&'a str>, theme: &'a Theme) -> Self {
     Self {
-      data_dir,
+      project_dir,
       config_path,
       theme,
     }
@@ -123,7 +123,7 @@ impl<'a> InitView<'a> {
 
 impl Display for InitView<'_> {
   fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-    let mut msg = SuccessMessage::new("initialized gest", self.theme).field("data dir", self.data_dir);
+    let mut msg = SuccessMessage::new("initialized gest", self.theme).field("project dir", self.project_dir);
     if let Some(config) = self.config_path {
       msg = msg.field("config", config);
     }
@@ -193,7 +193,7 @@ mod tests {
         let view = ConfigView::new(".gest/", "warn", &theme);
         let rendered = format!("{view}");
 
-        assert!(rendered.contains("data_dir"));
+        assert!(rendered.contains("project_dir"));
         assert!(rendered.contains(".gest/"));
         assert!(rendered.contains("log_level"));
         assert!(rendered.contains("warn"));

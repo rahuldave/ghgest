@@ -12,11 +12,11 @@ pub struct Command;
 impl Command {
   /// Render active settings, data directory, log level, and config file locations.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    let data_dir = ctx.settings.storage().data_dir().display().to_string();
+    let project_dir = ctx.settings.storage().project_dir().display().to_string();
     let log_level = ctx.settings.log().level().unwrap_or("warn");
 
     let mut view =
-      ConfigView::new(&data_dir, log_level, &ctx.theme).has_color_overrides(!ctx.settings.colors().is_empty());
+      ConfigView::new(&project_dir, log_level, &ctx.theme).has_color_overrides(!ctx.settings.colors().is_empty());
 
     if let Some(config_home) = dir_spec::config_home() {
       let global = config_home.join("gest/config.toml");

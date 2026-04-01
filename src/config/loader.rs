@@ -173,7 +173,7 @@ mod tests {
 
     use super::*;
 
-    const UNSET_VARS: [&str; 2] = ["GEST_CONFIG", "GEST_DATA_DIR"];
+    const UNSET_VARS: [&str; 3] = ["GEST_CONFIG", "GEST_DATA_DIR", "GEST_PROJECT_DIR"];
 
     #[test]
     fn it_loads_config_from_dot_config_gest_toml() {
@@ -189,10 +189,7 @@ mod tests {
 
       with_vars_unset(UNSET_VARS, || {
         let settings = load(tmp.path()).unwrap();
-        assert_eq!(
-          settings.storage().resolve_data_dir(tmp.path().into()).unwrap(),
-          data_dir
-        );
+        assert_eq!(settings.storage().resolve_data_dir().unwrap(), data_dir);
       })
     }
 
@@ -210,10 +207,7 @@ mod tests {
 
       with_vars_unset(UNSET_VARS, || {
         let settings = load(tmp.path()).unwrap();
-        assert_eq!(
-          settings.storage().resolve_data_dir(tmp.path().into()).unwrap(),
-          data_dir
-        );
+        assert_eq!(settings.storage().resolve_data_dir().unwrap(), data_dir);
       })
     }
 
@@ -230,10 +224,7 @@ mod tests {
 
       with_vars_unset(UNSET_VARS, || {
         let settings = load(tmp.path()).unwrap();
-        assert_eq!(
-          settings.storage().resolve_data_dir(tmp.path().into()).unwrap(),
-          data_dir
-        );
+        assert_eq!(settings.storage().resolve_data_dir().unwrap(), data_dir);
       })
     }
 
@@ -273,7 +264,7 @@ mod tests {
 
       with_vars_unset(UNSET_VARS, || {
         let settings = load(&child).unwrap();
-        assert_eq!(settings.storage().resolve_data_dir(child.clone()).unwrap(), child_dir);
+        assert_eq!(settings.storage().resolve_data_dir().unwrap(), child_dir);
       })
     }
   }

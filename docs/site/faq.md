@@ -23,9 +23,10 @@ development work and promote items to GitHub Issues when they need broader visib
 
 ## Where is my data stored?
 
-By default, gest uses the global data directory at `~/.local/share/gest/`. If you initialize
-with `--local`, data goes into a `.gest/` directory inside your project. Run
-`gest config show` to see where your resolved data directory is.
+By default, gest uses a project-specific subdirectory under the global data root at
+`~/.local/share/gest/<project-hash>/`. If you initialize with `--local`, data goes into a
+`.gest/` directory inside your project. Run `gest config show` to see where your resolved
+project directory is.
 
 The data directory contains three subdirectories:
 
@@ -40,7 +41,7 @@ iterations/       # TOML files
 
 ## What's the difference between global and local stores?
 
-**Global** (`~/.local/share/gest/`):
+**Global** (`~/.local/share/gest/<project-hash>/`):
 
 - Created with `gest init`
 - Not shared via VCS
@@ -73,11 +74,11 @@ Use `gest init --local` so the `.gest/` directory is available in your CI checko
 Gest does not have a built-in migration command yet. Since data is plain files, you can copy them directly:
 
 ```sh
-# Global to local
-cp -r ~/.local/share/gest/ .gest/
+# Global to local (use `gest config show` to find your project directory)
+cp -r ~/.local/share/gest/<project-hash>/ .gest/
 
 # Local to global
-cp -r .gest/ ~/.local/share/gest/
+cp -r .gest/ ~/.local/share/gest/<project-hash>/
 ```
 
 Be careful not to overwrite files with the same ID in the destination.

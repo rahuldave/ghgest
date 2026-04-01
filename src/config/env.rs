@@ -22,6 +22,9 @@ pub static GEST_ITERATION_DIR: Envar<PathBuf> = Envar::on_demand("GEST_ITERATION
 /// Override for the log level filter (e.g. `"debug"`, `"trace"`).
 pub static GEST_LOG_LEVEL: Envar<String> = Envar::on_demand("GEST_LOG_LEVEL", || EnvarDef::Unset);
 
+/// Override path for the project-specific data directory.
+pub static GEST_PROJECT_DIR: Envar<PathBuf> = Envar::on_demand("GEST_PROJECT_DIR", || EnvarDef::Unset);
+
 /// Override path for the state storage directory.
 pub static GEST_STATE_DIR: Envar<PathBuf> = Envar::on_demand("GEST_STATE_DIR", || EnvarDef::Unset);
 

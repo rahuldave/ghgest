@@ -26,10 +26,10 @@ pub fn make_test_artifact(id: &str) -> Artifact {
 }
 
 /// Build a [`Settings`] with resolved storage paths pointing at the given directory.
-pub fn make_test_config(data_dir: PathBuf) -> Settings {
+pub fn make_test_config(project_dir: PathBuf) -> Settings {
   let mut settings = Settings::default();
-  settings.storage_mut().resolve_at(data_dir.clone());
-  settings.storage_mut().resolve_state_at(data_dir.join("state"));
+  settings.storage_mut().resolve_at(project_dir.clone());
+  settings.storage_mut().resolve_state_at(project_dir.join("state"));
   settings
 }
 

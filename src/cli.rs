@@ -105,7 +105,7 @@ impl Cli {
     crate::logger::init(level, &theme);
 
     log::debug!("log level set to {level}");
-    log::debug!("data directory: {}", settings.storage().data_dir().display());
+    log::debug!("project directory: {}", settings.storage().project_dir().display());
 
     let ctx = AppContext {
       settings,
@@ -114,7 +114,7 @@ impl Cli {
 
     if command.is_capturable() {
       // Capture filesystem state before the command for the event store.
-      let snapshot = capture::Snapshot::capture(ctx.settings.storage().data_dir());
+      let snapshot = capture::Snapshot::capture(ctx.settings.storage().project_dir());
       let result = command.call(&ctx);
 
       // Record any file changes to the event store. Failures are logged but
@@ -186,7 +186,7 @@ fn record_snapshot(
   let command = capture::command_string();
   let tx_id = store.begin_transaction(&project_id, &command)?;
 
-  let had_changes = snapshot.record_changes(settings.storage().data_dir(), &store, &tx_id)?;
+  let had_changes = snapshot.record_changes(settings.storage().project_dir(), &store, &tx_id)?;
   if !had_changes {
     // No file changes — remove the empty transaction.
     store.rollback_transaction(&tx_id)?;

@@ -34,13 +34,27 @@ deep-merged with files closer to the working directory taking precedence.
 
 ## Data storage: global vs local
 
-gest stores its data (tasks, artifacts, iterations) in a **data directory**.
-The data directory is resolved with this precedence:
+gest stores its data (tasks, artifacts, iterations) in a **project directory**
+inside a **global data root**. Each is resolved independently.
+
+### Global data root
+
+The global data root is the parent directory that contains all project-specific
+subdirectories. It is resolved with this precedence:
 
 1. `$GEST_DATA_DIR` environment variable (must be an absolute path)
 2. `storage.data_dir` in config (must be an absolute path)
+3. The platform's global data home: `~/.local/share/gest/`
+
+### Project directory
+
+The project directory is where entity data for the current project is actually
+stored. It is resolved with this precedence:
+
+1. `$GEST_PROJECT_DIR` environment variable (must be an absolute path)
+2. `storage.project_dir` in config (must be an absolute path)
 3. A `.gest/` or `gest/` directory found by walking up from the working directory
-4. The platform's global data home: `~/.local/share/gest/<hash>/`
+4. `<data_dir>/<hash>/` (a subdirectory of the global data root derived from a hash of your project path)
 
 ### Global store (default)
 
@@ -87,7 +101,7 @@ The resolution precedence for each entity type is:
 
 1. Entity-specific environment variable (e.g. `GEST_ARTIFACT_DIR`)
 2. Entity-specific config setting (e.g. `storage.artifact_dir`)
-3. `<data_dir>/<entity>/` (default fallback)
+3. `<project_dir>/<entity>/` (default fallback)
 
 For example, to keep artifacts in your project's `docs/` directory and tasks in
 `tasks/` while letting iterations use the default:
@@ -105,8 +119,8 @@ docs/<id>.md
 docs/archive/<id>.md
 tasks/<id>.toml
 tasks/resolved/<id>.toml
-<data_dir>/iterations/<id>.toml
-<data_dir>/iterations/resolved/<id>.toml
+<project_dir>/iterations/<id>.toml
+<project_dir>/iterations/resolved/<id>.toml
 ```
 
 `gest init` respects these overrides and creates directories at the resolved
@@ -118,11 +132,12 @@ paths.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `data_dir` | string (absolute path) | _(auto-resolved)_ | Override the data directory. Must be an absolute path to an existing directory. |
+| `data_dir` | string (absolute path) | _(auto-resolved)_ | Override the global data root directory. Must be an absolute path. |
+| `project_dir` | string (absolute path) | _(auto-resolved)_ | Override the project-specific data directory. Must be an absolute path. |
 | `state_dir` | string (absolute path) | _(auto-resolved)_ | Override the state directory (event store). Must be an absolute path. |
-| `artifact_dir` | string (path) | `<data_dir>/artifacts` | Override the artifact storage directory. |
-| `iteration_dir` | string (path) | `<data_dir>/iterations` | Override the iteration storage directory. |
-| `task_dir` | string (path) | `<data_dir>/tasks` | Override the task storage directory. |
+| `artifact_dir` | string (path) | `<project_dir>/artifacts` | Override the artifact storage directory. |
+| `iteration_dir` | string (path) | `<project_dir>/iterations` | Override the iteration storage directory. |
+| `task_dir` | string (path) | `<project_dir>/tasks` | Override the task storage directory. |
 
 ### `[serve]`
 
@@ -178,7 +193,7 @@ Available fields in the table form:
 
 ```toml
 [storage]
-data_dir = "/home/user/projects/myapp/.gest"
+project_dir = "/home/user/projects/myapp/.gest"
 artifact_dir = "./docs"
 task_dir = "./tasks"
 
@@ -203,7 +218,8 @@ bold = true
 | Variable | Description |
 | --- | --- |
 | `GEST_CONFIG` | Override the path to the global config file. |
-| `GEST_DATA_DIR` | Override the data storage directory (must be an absolute path). |
+| `GEST_DATA_DIR` | Override the global data root directory (must be an absolute path). |
+| `GEST_PROJECT_DIR` | Override the project-specific data directory (must be an absolute path). |
 | `GEST_STATE_DIR` | Override the state directory for the event store (must be an absolute path). |
 | `GEST_ARTIFACT_DIR` | Override the artifact storage directory. |
 | `GEST_ITERATION_DIR` | Override the iteration storage directory. |
@@ -231,7 +247,7 @@ gest config show
 Retrieve a single value by its dot-delimited key:
 
 ```sh
-gest config get storage.data_dir
+gest config get storage.project_dir
 gest config get log.level
 ```
 
