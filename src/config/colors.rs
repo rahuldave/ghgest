@@ -3,25 +3,94 @@
 //! Colors can be specified as named colors, hex strings (`#RRGGBB`), or
 //! tables with foreground, background, and modifier fields.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Deserializer, Serialize};
 use yansi::{Color, Style};
 
-/// A map of named color overrides keyed by semantic token (e.g. `"log.error"`).
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-#[serde(transparent)]
-pub struct Settings(HashMap<String, ColorValue>);
+/// Two-tier color configuration: semantic palette slots and per-token overrides.
+///
+/// The `palette` map accepts the 11 [`PaletteColor`] keys with color-only values.
+/// The `overrides` map accepts the ~95 theme token keys with full [`ColorValue`] format.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Settings {
+  /// Per-token style overrides keyed by dot-separated token name.
+  pub overrides: HashMap<String, ColorValue>,
+  /// Semantic palette color overrides keyed by palette slot name.
+  pub palette: HashMap<String, Color>,
+}
 
 impl Settings {
-  /// Returns `true` if no color overrides are configured.
+  /// Returns `true` if neither palette nor overrides are configured.
   pub fn is_empty(&self) -> bool {
-    self.0.is_empty()
+    self.overrides.is_empty() && self.palette.is_empty()
   }
 
-  /// Iterates over all configured color entries.
+  /// Iterates over all configured token override entries.
   pub fn iter(&self) -> impl Iterator<Item = (&String, &ColorValue)> {
-    self.0.iter()
+    self.overrides.iter()
+  }
+}
+
+impl<'de> Deserialize<'de> for Settings {
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: Deserializer<'de>,
+  {
+    #[derive(Deserialize)]
+    #[serde(default)]
+    #[derive(Default)]
+    struct RawSettings {
+      #[serde(default)]
+      overrides: HashMap<String, ColorValue>,
+      #[serde(default)]
+      palette: HashMap<String, String>,
+    }
+
+    let raw = RawSettings::deserialize(deserializer)?;
+
+    let valid_keys: HashSet<&str> = crate::ui::theming::palette::PaletteColor::ALL
+      .iter()
+      .map(|p| p.key())
+      .collect();
+
+    let mut palette = HashMap::new();
+    for (key, value) in raw.palette {
+      if !valid_keys.contains(key.as_str()) {
+        log::warn!("unknown palette key  key={key:?}");
+        continue;
+      }
+      let color = parse_color(&value).map_err(serde::de::Error::custom)?;
+      palette.insert(key, color);
+    }
+
+    Ok(Settings {
+      overrides: raw.overrides,
+      palette,
+    })
+  }
+}
+
+impl Serialize for Settings {
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: serde::Serializer,
+  {
+    use serde::ser::SerializeMap;
+
+    let mut map = serializer.serialize_map(None)?;
+    if !self.overrides.is_empty() {
+      map.serialize_entry("overrides", &self.overrides)?;
+    }
+    if !self.palette.is_empty() {
+      let palette_strings: HashMap<&str, String> = self
+        .palette
+        .iter()
+        .map(|(k, c)| (k.as_str(), color_to_string(*c)))
+        .collect();
+      map.serialize_entry("palette", &palette_strings)?;
+    }
+    map.end()
   }
 }
 
@@ -395,7 +464,37 @@ underline = true
   }
 
   mod settings {
+    use pretty_assertions::assert_eq;
+
     use super::*;
+
+    #[test]
+    fn it_accepts_all_11_palette_keys() {
+      let toml_str = r##"
+[colors.palette]
+accent = "#FF0000"
+border = "#FF0000"
+error = "#FF0000"
+primary = "#FF0000"
+"primary.dark" = "#FF0000"
+"primary.light" = "#FF0000"
+success = "#FF0000"
+text = "#FF0000"
+"text.dim" = "#FF0000"
+"text.muted" = "#FF0000"
+warning = "#FF0000"
+"##;
+
+      #[derive(Deserialize)]
+      struct TestConfig {
+        #[serde(default)]
+        colors: Settings,
+      }
+
+      let config: TestConfig = toml::from_str(toml_str).unwrap();
+
+      assert_eq!(config.colors.palette.len(), 11);
+    }
 
     #[test]
     fn it_defaults_to_empty() {
@@ -405,9 +504,33 @@ underline = true
     }
 
     #[test]
-    fn it_deserializes_from_config_section() {
+    fn it_deserializes_both_sections() {
       let toml_str = r##"
-[colors]
+[colors.palette]
+primary = "#9448C7"
+
+[colors.overrides]
+"status.done" = { fg = "#AABBCC", bold = true }
+"##;
+
+      #[derive(Deserialize)]
+      struct TestConfig {
+        #[serde(default)]
+        colors: Settings,
+      }
+
+      let config: TestConfig = toml::from_str(toml_str).unwrap();
+
+      assert_eq!(config.colors.palette.len(), 1);
+      assert_eq!(config.colors.overrides.len(), 1);
+      assert_eq!(config.colors.palette["primary"], Color::Rgb(148, 72, 199));
+      assert!(config.colors.overrides["status.done"].bold);
+    }
+
+    #[test]
+    fn it_deserializes_overrides_section() {
+      let toml_str = r##"
+[colors.overrides]
 emphasis = "#9448C7"
 "log.error" = "red"
 "##;
@@ -424,6 +547,81 @@ emphasis = "#9448C7"
 
       let entries: Vec<_> = config.colors.iter().collect();
       assert_eq!(entries.len(), 2);
+    }
+
+    #[test]
+    fn it_deserializes_palette_section() {
+      let toml_str = r##"
+[colors.palette]
+primary = "#9448C7"
+success = "#00FF88"
+"##;
+
+      #[derive(Deserialize)]
+      struct TestConfig {
+        #[serde(default)]
+        colors: Settings,
+      }
+
+      let config: TestConfig = toml::from_str(toml_str).unwrap();
+
+      assert!(!config.colors.is_empty());
+      assert_eq!(config.colors.palette.len(), 2);
+      assert_eq!(config.colors.palette["primary"], Color::Rgb(148, 72, 199));
+      assert_eq!(config.colors.palette["success"], Color::Rgb(0, 255, 136));
+    }
+
+    #[test]
+    fn it_is_empty_when_no_palette_or_overrides() {
+      let settings = Settings::default();
+
+      assert!(settings.is_empty());
+      assert_eq!(settings.palette.len(), 0);
+      assert_eq!(settings.overrides.len(), 0);
+    }
+
+    #[test]
+    fn it_roundtrips_through_serialization() {
+      let mut settings = Settings::default();
+      settings.palette.insert("primary".to_string(), Color::Rgb(148, 72, 199));
+      settings.overrides.insert(
+        "emphasis".to_string(),
+        ColorValue {
+          bg: None,
+          bold: true,
+          dim: false,
+          fg: Some(Color::Rgb(148, 72, 199)),
+          italic: false,
+          underline: false,
+        },
+      );
+
+      let toml_str = toml::to_string(&settings).unwrap();
+      let deserialized: Settings = toml::from_str(&toml_str).unwrap();
+
+      assert_eq!(deserialized.palette["primary"], Color::Rgb(148, 72, 199));
+      assert_eq!(deserialized.overrides["emphasis"].fg, Some(Color::Rgb(148, 72, 199)));
+      assert!(deserialized.overrides["emphasis"].bold);
+    }
+
+    #[test]
+    fn it_skips_unknown_palette_keys() {
+      let toml_str = r##"
+[colors.palette]
+primary = "#9448C7"
+nonexistent = "#FF0000"
+"##;
+
+      #[derive(Deserialize)]
+      struct TestConfig {
+        #[serde(default)]
+        colors: Settings,
+      }
+
+      let config: TestConfig = toml::from_str(toml_str).unwrap();
+
+      assert_eq!(config.colors.palette.len(), 1);
+      assert!(config.colors.palette.contains_key("primary"));
     }
   }
 
