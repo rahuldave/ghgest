@@ -12,8 +12,9 @@
   </div>
   <div class="term-body">
     <form method="post" action="/tasks">
+      <p class="visually-hidden">Fields marked with * are required.</p>
       <div class="form-group">
-        <label for="title">Title <span class="c-error">*</span></label>
+        <label for="title">Title <span class="c-error" aria-hidden="true">*</span></label>
         <input
           type="text"
           id="title"
@@ -21,6 +22,7 @@
           class="form-input{% if error.is_some() %} input-error{% endif %}"
           value="{{ title }}"
           placeholder="Task title"
+          aria-required="true"
         >
         {% if let Some(msg) = error %}
           <div class="form-error">{{ msg }}</div>
@@ -73,7 +75,7 @@
             <button type="button" class="rel-type-btn" data-rel="parent-of">parent of</button>
             <button type="button" class="rel-type-btn" data-rel="child-of">child of</button>
           </div>
-          <input type="text" class="form-input rel-search-input" placeholder="Search tasks and artifacts…">
+          <input type="text" class="form-input rel-search-input" placeholder="Search tasks and artifacts…" aria-label="Search tasks and artifacts">
           <div class="rel-results"></div>
           <div class="rel-pending"></div>
           <div class="rel-hidden-inputs"></div>

@@ -7,7 +7,7 @@
 <div class="section-heading">Search</div>
 
 <form action="/search" method="get" style="margin-bottom: 20px;">
-  <input type="text" name="q" class="search-input" placeholder="search tasks and artifacts…" value="{{ query }}" autofocus>
+  <input type="text" name="q" class="search-input" placeholder="search tasks and artifacts…" value="{{ query }}" autofocus aria-label="Search tasks and artifacts">
 </form>
 
 {% if !query.is_empty() %}
