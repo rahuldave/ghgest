@@ -15,8 +15,10 @@ impl Command {
     let project_dir = ctx.settings.storage().project_dir().display().to_string();
     let log_level = ctx.settings.log().level().unwrap_or("warn");
 
-    let mut view =
-      ConfigView::new(&project_dir, log_level, &ctx.theme).has_color_overrides(!ctx.settings.colors().is_empty());
+    let colors = ctx.settings.colors();
+    let mut view = ConfigView::new(&project_dir, log_level, &ctx.theme)
+      .palette_count(colors.palette.len())
+      .overrides_count(colors.overrides.len());
 
     if let Some(config_home) = dir_spec::config_home() {
       let global = config_home.join("gest/config.toml");

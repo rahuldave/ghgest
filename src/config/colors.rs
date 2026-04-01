@@ -21,11 +21,6 @@ pub struct Settings {
 }
 
 impl Settings {
-  /// Returns `true` if neither palette nor overrides are configured.
-  pub fn is_empty(&self) -> bool {
-    self.overrides.is_empty() && self.palette.is_empty()
-  }
-
   /// Iterates over all configured token override entries.
   pub fn iter(&self) -> impl Iterator<Item = (&String, &ColorValue)> {
     self.overrides.iter()
@@ -500,7 +495,8 @@ warning = "#FF0000"
     fn it_defaults_to_empty() {
       let settings = Settings::default();
 
-      assert!(settings.is_empty());
+      assert!(settings.palette.is_empty());
+      assert!(settings.overrides.is_empty());
     }
 
     #[test]
@@ -543,8 +539,6 @@ emphasis = "#9448C7"
 
       let config: TestConfig = toml::from_str(toml_str).unwrap();
 
-      assert!(!config.colors.is_empty());
-
       let entries: Vec<_> = config.colors.iter().collect();
       assert_eq!(entries.len(), 2);
     }
@@ -565,7 +559,6 @@ success = "#00FF88"
 
       let config: TestConfig = toml::from_str(toml_str).unwrap();
 
-      assert!(!config.colors.is_empty());
       assert_eq!(config.colors.palette.len(), 2);
       assert_eq!(config.colors.palette["primary"], Color::Rgb(148, 72, 199));
       assert_eq!(config.colors.palette["success"], Color::Rgb(0, 255, 136));
@@ -575,9 +568,8 @@ success = "#00FF88"
     fn it_is_empty_when_no_palette_or_overrides() {
       let settings = Settings::default();
 
-      assert!(settings.is_empty());
-      assert_eq!(settings.palette.len(), 0);
-      assert_eq!(settings.overrides.len(), 0);
+      assert!(settings.palette.is_empty());
+      assert!(settings.overrides.is_empty());
     }
 
     #[test]

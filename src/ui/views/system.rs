@@ -10,11 +10,12 @@ use crate::ui::{
 
 /// Renders the resolved configuration summary (paths, settings, color overrides).
 pub struct ConfigView<'a> {
-  project_dir: &'a str,
   global_config: Option<&'a str>,
-  has_color_overrides: bool,
   log_level: &'a str,
+  overrides_count: usize,
+  palette_count: usize,
   project_config: Option<&'a str>,
+  project_dir: &'a str,
   theme: &'a Theme,
 }
 
@@ -22,10 +23,11 @@ impl<'a> ConfigView<'a> {
   pub fn new(project_dir: &'a str, log_level: &'a str, theme: &'a Theme) -> Self {
     Self {
       global_config: None,
+      log_level,
+      overrides_count: 0,
+      palette_count: 0,
       project_config: None,
       project_dir,
-      log_level,
-      has_color_overrides: false,
       theme,
     }
   }
@@ -36,9 +38,15 @@ impl<'a> ConfigView<'a> {
     self
   }
 
-  /// Indicates whether custom color overrides are active.
-  pub fn has_color_overrides(mut self, has: bool) -> Self {
-    self.has_color_overrides = has;
+  /// Sets the number of active token overrides.
+  pub fn overrides_count(mut self, count: usize) -> Self {
+    self.overrides_count = count;
+    self
+  }
+
+  /// Sets the number of active palette overrides.
+  pub fn palette_count(mut self, count: usize) -> Self {
+    self.palette_count = count;
     self
   }
 
@@ -84,19 +92,36 @@ impl Display for ConfigView<'_> {
     )?;
 
     writeln!(f)?;
-    if self.has_color_overrides {
+    if self.palette_count > 0 {
+      let msg = format!("{} palette color(s) set", self.palette_count);
+      writeln!(
+        f,
+        "  {}  {}",
+        Label::new("palette", self.theme.config_label).pad_to(setting_label_width),
+        Value::new(&msg, self.theme.config_value),
+      )?;
+    } else {
+      writeln!(
+        f,
+        "  {}  {}",
+        Label::new("palette", self.theme.config_label).pad_to(setting_label_width),
+        "(using defaults)".paint(self.theme.config_no_overrides),
+      )?;
+    }
+    if self.overrides_count > 0 {
+      let msg = format!("{} token override(s) set", self.overrides_count);
       write!(
         f,
         "  {}  {}",
-        Label::new("colors", self.theme.config_label).pad_to(setting_label_width),
-        Value::new("(custom overrides present)", self.theme.config_value),
+        Label::new("overrides", self.theme.config_label).pad_to(setting_label_width),
+        Value::new(&msg, self.theme.config_value),
       )?;
     } else {
       write!(
         f,
         "  {}  {}",
-        Label::new("colors", self.theme.config_label).pad_to(setting_label_width),
-        "(no overrides \u{2014} using defaults)".paint(self.theme.config_no_overrides),
+        Label::new("overrides", self.theme.config_label).pad_to(setting_label_width),
+        "(none)".paint(self.theme.config_no_overrides),
       )?;
     }
 
@@ -200,13 +225,15 @@ mod tests {
       }
 
       #[test]
-      fn it_shows_no_overrides_by_default() {
+      fn it_shows_defaults_when_no_colors_configured() {
         let theme = theme();
         let view = ConfigView::new(".gest/", "warn", &theme);
         let rendered = format!("{view}");
 
-        assert!(rendered.contains("no overrides"));
+        assert!(rendered.contains("palette"));
         assert!(rendered.contains("using defaults"));
+        assert!(rendered.contains("overrides"));
+        assert!(rendered.contains("(none)"));
       }
 
       #[test]
@@ -219,13 +246,33 @@ mod tests {
       }
 
       #[test]
-      fn it_shows_overrides_when_present() {
+      fn it_shows_overrides_count_when_present() {
         let theme = theme();
-        let view = ConfigView::new(".gest/", "warn", &theme).has_color_overrides(true);
+        let view = ConfigView::new(".gest/", "warn", &theme).overrides_count(3);
         let rendered = format!("{view}");
 
-        assert!(rendered.contains("custom overrides present"));
-        assert!(!rendered.contains("no overrides"));
+        assert!(rendered.contains("3 token override(s) set"));
+      }
+
+      #[test]
+      fn it_shows_palette_and_overrides_separately() {
+        let theme = theme();
+        let view = ConfigView::new(".gest/", "warn", &theme)
+          .palette_count(2)
+          .overrides_count(5);
+        let rendered = format!("{view}");
+
+        assert!(rendered.contains("2 palette color(s) set"));
+        assert!(rendered.contains("5 token override(s) set"));
+      }
+
+      #[test]
+      fn it_shows_palette_count_when_present() {
+        let theme = theme();
+        let view = ConfigView::new(".gest/", "warn", &theme).palette_count(4);
+        let rendered = format!("{view}");
+
+        assert!(rendered.contains("4 palette color(s) set"));
       }
     }
   }
