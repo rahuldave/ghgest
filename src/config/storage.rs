@@ -20,6 +20,7 @@ pub struct Settings {
   artifact_dir: Option<PathBuf>,
   data_dir: Option<PathBuf>,
   iteration_dir: Option<PathBuf>,
+  state_dir: Option<PathBuf>,
   task_dir: Option<PathBuf>,
 }
 
@@ -47,6 +48,50 @@ impl Settings {
   /// Resolve the task directory for a given base data directory.
   pub(crate) fn resolve_task_dir(&self, data_dir: &Path) -> PathBuf {
     resolve_entity_dir(&super::env::GEST_TASK_DIR, self.task_dir.as_deref(), data_dir, "tasks")
+  }
+
+  /// Resolves the absolute path to the state directory for the given working directory.
+  ///
+  /// Checks `$GEST_STATE_DIR`, then falls back to the platform's global state home
+  /// with a path-derived hash. The state directory is always global (never in-repo).
+  pub fn resolve_state_dir(&self, cwd: &Path) -> Result<PathBuf, Error> {
+    if let Ok(path) = super::env::GEST_STATE_DIR.value() {
+      if path.is_absolute() && path.is_dir() {
+        log::debug!("$GEST_STATE_DIR is set");
+        log::trace!("state directory resolved to {}", path.display());
+        return Ok(path);
+      } else if path.is_dir() {
+        log::debug!("$GEST_STATE_DIR is set, but is not an absolute path");
+        log::warn!("$GEST_STATE_DIR must be an absolute path");
+        log::trace!("ignoring $GEST_STATE_DIR: {}", path.display());
+      } else if path.is_absolute() {
+        return Err(Error::NotADirectory(path));
+      }
+    }
+
+    if let Some(path) = &self.state_dir {
+      if path.is_absolute() && path.is_dir() {
+        log::debug!("config specifies storage.state_dir");
+        log::trace!("state directory resolved to {}", path.display());
+        return Ok(path.clone());
+      } else if path.is_dir() {
+        log::debug!("config specifies state_dir, but is not an absolute path");
+        log::warn!("storage.state_dir must be an absolute path");
+        log::trace!("ignoring storage.state_dir: {}", path.display());
+      } else if path.is_absolute() {
+        return Err(Error::NotADirectory(path.clone()));
+      }
+    }
+
+    let global_state_dir = dir_spec::state_home()
+      .map(|p| p.join("gest"))
+      .ok_or(Error::DirectoryNotFound("state"))?;
+
+    let global_project_state_dir = global_state_dir.join(path_hash(cwd));
+    log::debug!("no state directory override found");
+    log::trace!("state directory resolved to {}", global_project_state_dir.display());
+
+    Ok(global_project_state_dir)
   }
 
   /// Resolves the absolute path to the data directory for the given working directory.

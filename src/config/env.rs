@@ -16,6 +16,9 @@ pub static GEST_ARTIFACT_DIR: Envar<PathBuf> = Envar::on_demand("GEST_ARTIFACT_D
 /// Override path for the data storage directory.
 pub static GEST_DATA_DIR: Envar<PathBuf> = Envar::on_demand("GEST_DATA_DIR", || EnvarDef::Unset);
 
+/// Override path for the state storage directory.
+pub static GEST_STATE_DIR: Envar<PathBuf> = Envar::on_demand("GEST_STATE_DIR", || EnvarDef::Unset);
+
 /// Override path for the iteration storage directory.
 pub static GEST_ITERATION_DIR: Envar<PathBuf> = Envar::on_demand("GEST_ITERATION_DIR", || EnvarDef::Unset);
 

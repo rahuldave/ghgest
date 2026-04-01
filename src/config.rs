@@ -44,6 +44,8 @@ pub struct Settings {
   #[serde(skip)]
   resolved_iteration_dir: PathBuf,
   #[serde(skip)]
+  resolved_state_dir: PathBuf,
+  #[serde(skip)]
   resolved_task_dir: PathBuf,
 }
 
@@ -78,15 +80,27 @@ impl Settings {
     &self.serve
   }
 
+  /// The resolved state directory (event store, undo log).
+  pub fn state_dir(&self) -> &Path {
+    &self.resolved_state_dir
+  }
+
   /// Resolve storage paths from the working directory.
   ///
   /// Must be called before accessing `data_dir`, `artifact_dir`, `task_dir`,
   /// or `iteration_dir`. Resolves the base data directory and all per-entity
   /// directories according to env var / config / fallback precedence.
   pub fn resolve_storage(&mut self, cwd: PathBuf) -> Result<(), Error> {
+    self.resolved_state_dir = self.storage.resolve_state_dir(&cwd)?;
     let data_dir = self.storage.resolve_data_dir(cwd)?;
     self.resolve_storage_at(data_dir);
     Ok(())
+  }
+
+  /// Set the state directory path directly, skipping env-var/fallback discovery.
+  #[cfg(test)]
+  pub fn resolve_state_at(&mut self, state_dir: PathBuf) {
+    self.resolved_state_dir = state_dir;
   }
 
   /// Set storage paths for an already-known data directory, skipping discovery.

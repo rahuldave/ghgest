@@ -12,6 +12,7 @@ pub fn ensure_dirs(config: &Settings) -> super::Result<()> {
   fs::create_dir_all(config.artifact_dir().join("archive"))?;
   fs::create_dir_all(config.iteration_dir())?;
   fs::create_dir_all(config.iteration_dir().join("resolved"))?;
+  fs::create_dir_all(config.state_dir())?;
   fs::create_dir_all(config.task_dir())?;
   fs::create_dir_all(config.task_dir().join("resolved"))?;
   Ok(())
