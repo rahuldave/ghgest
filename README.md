@@ -3,7 +3,7 @@
 [![Build][build-badge]][build-link]
 [![Crates.io Version][crates-badge]][crates-link]
 [![GitHub Sponsors][sponsor-badge]][sponsor-link]
-[![Static Badge][discord-badge]][discord-link]
+[![Discord][discord-badge]][discord-link]
 
 Manage agent-generated artifacts and task backlogs alongside your project.
 
