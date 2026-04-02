@@ -11,7 +11,8 @@ use crate::{
 pub struct Command {
   /// Entity ID or unique prefix.
   pub id: String,
-  /// Tags to remove (space-separated).
+  /// Tags to remove (space or comma-separated).
+  #[arg(value_delimiter = ',')]
   pub tags: Vec<String>,
 }
 

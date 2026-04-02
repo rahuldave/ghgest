@@ -21,6 +21,22 @@ fn create_task_and_get_id(env: &GestCmd, title: &str) -> String {
 }
 
 #[test]
+fn it_comma_splits_tags_on_untag() {
+  let env = GestCmd::new();
+  let id = create_task_and_get_id(&env, "Comma untag target");
+
+  env.run(&["task", "tag", &id, "rust", "cli", "keep"]).success();
+
+  env.run(&["task", "untag", &id, "rust,cli"]).success();
+
+  env.run(&["task", "show", &id]).success().stdout(
+    predicate::str::contains("keep")
+      .and(predicate::str::contains("rust").not())
+      .and(predicate::str::contains("cli").not()),
+  );
+}
+
+#[test]
 fn it_untags_a_task() {
   let env = GestCmd::new();
   let id = create_task_and_get_id(&env, "Untag target");

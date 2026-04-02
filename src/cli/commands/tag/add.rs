@@ -11,7 +11,8 @@ use crate::{
 pub struct Command {
   /// Entity ID or unique prefix.
   pub id: String,
-  /// Tags to add (space-separated).
+  /// Tags to add (space or comma-separated).
+  #[arg(value_delimiter = ',')]
   pub tags: Vec<String>,
 }
 
