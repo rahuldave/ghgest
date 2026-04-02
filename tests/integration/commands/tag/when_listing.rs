@@ -54,3 +54,24 @@ fn it_lists_tags_after_tagging() {
     .stdout(predicate::str::contains("integration"))
     .stdout(predicate::str::contains("testing"));
 }
+
+#[test]
+fn it_renders_themed_table_with_heading_and_tag_prefix() {
+  let env = GestCmd::new();
+
+  env
+    .cmd()
+    .args(&["task", "create", "themed task", "--tags", "alpha,beta"])
+    .assert()
+    .success();
+
+  env
+    .cmd()
+    .args(&["tag", "list"])
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("tags"))
+    .stdout(predicate::str::contains("2 tags"))
+    .stdout(predicate::str::contains("#alpha"))
+    .stdout(predicate::str::contains("#beta"));
+}

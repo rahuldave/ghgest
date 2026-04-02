@@ -5,4 +5,5 @@ pub mod iteration;
 pub mod note;
 pub mod search;
 pub mod system;
+pub mod tag;
 pub mod task;

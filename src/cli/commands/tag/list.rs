@@ -4,7 +4,7 @@ use crate::{
   cli::{self, AppContext},
   model::EntityType,
   store,
-  ui::composites::empty_list::EmptyList,
+  ui::{composites::empty_list::EmptyList, views::tag::TagListView},
 };
 
 /// List all unique tags, optionally filtered by entity type.
@@ -31,9 +31,7 @@ impl Command {
       return Ok(());
     }
 
-    for tag in &tags {
-      println!("{tag}");
-    }
+    println!("{}", TagListView::new(tags, &ctx.theme));
 
     Ok(())
   }
