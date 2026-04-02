@@ -25,6 +25,9 @@ pub static GEST_LOG_LEVEL: Envar<String> = Envar::on_demand("GEST_LOG_LEVEL", ||
 /// Override path for the project-specific data directory.
 pub static GEST_PROJECT_DIR: Envar<PathBuf> = Envar::on_demand("GEST_PROJECT_DIR", || EnvarDef::Unset);
 
+/// The user's preferred pager program (`$PAGER`), falling back to `less`.
+pub static PAGER: Envar<String> = Envar::on_demand("PAGER", || EnvarDef::Unset);
+
 /// Override path for the state storage directory.
 pub static GEST_STATE_DIR: Envar<PathBuf> = Envar::on_demand("GEST_STATE_DIR", || EnvarDef::Unset);
 

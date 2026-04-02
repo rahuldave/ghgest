@@ -2,6 +2,7 @@ pub(crate) mod capture;
 pub mod editor;
 pub mod git;
 pub mod helpers;
+pub mod pager;
 
 mod commands;
 

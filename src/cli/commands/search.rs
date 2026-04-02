@@ -75,11 +75,13 @@ impl Command {
 
     let items = build_search_items(&ctx.settings, &results, &ctx.theme, self.expand);
 
-    if self.expand {
-      println!("{}", SearchExpandedView::new(&self.query, &items, &ctx.theme));
+    let output = if self.expand {
+      SearchExpandedView::new(&self.query, &items, &ctx.theme).to_string()
     } else {
-      println!("{}", SearchView::new(&self.query, &items, &ctx.theme));
-    }
+      SearchView::new(&self.query, &items, &ctx.theme).to_string()
+    };
+
+    cli::pager::page(&output)?;
 
     Ok(())
   }
