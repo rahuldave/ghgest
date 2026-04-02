@@ -1,9 +1,9 @@
 use clap::Args;
 
 use crate::{
+  action,
   cli::{self, AppContext},
-  model::EntityType,
-  store,
+  model::Iteration,
   ui::composites::success_message::SuccessMessage,
 };
 
@@ -20,13 +20,8 @@ pub struct Command {
 impl Command {
   /// Merge the provided tags into the iteration's existing tag set, deduplicating.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    let params = store::TagParams {
-      entity_type: EntityType::Iteration,
-      id_prefix: &self.id,
-      tags: &self.tags,
-    };
-    let result = store::tag_entity(&ctx.settings, &params)?;
-    let msg = format!("Tagged iteration {} with {}", result.id, self.tags.join(", "));
+    let iteration = action::tag::<Iteration>(&ctx.settings, &self.id, &self.tags)?;
+    let msg = format!("Tagged iteration {} with {}", iteration.id, self.tags.join(", "));
     println!("{}", SuccessMessage::new(&msg, &ctx.theme));
     Ok(())
   }
@@ -41,6 +36,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use super::*;
+    use crate::store;
 
     #[test]
     fn it_adds_tags() {

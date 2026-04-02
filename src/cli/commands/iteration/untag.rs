@@ -1,9 +1,9 @@
 use clap::Args;
 
 use crate::{
+  action,
   cli::{self, AppContext},
-  model::EntityType,
-  store,
+  model::Iteration,
   ui::composites::success_message::SuccessMessage,
 };
 
@@ -20,13 +20,8 @@ pub struct Command {
 impl Command {
   /// Remove the specified tags from the iteration's tag set.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    let params = store::TagParams {
-      entity_type: EntityType::Iteration,
-      id_prefix: &self.id,
-      tags: &self.tags,
-    };
-    let result = store::untag_entity(&ctx.settings, &params)?;
-    let msg = format!("Untagged iteration {} from {}", result.id, self.tags.join(", "));
+    let iteration = action::untag::<Iteration>(&ctx.settings, &self.id, &self.tags)?;
+    let msg = format!("Untagged iteration {} from {}", iteration.id, self.tags.join(", "));
     println!("{}", SuccessMessage::new(&msg, &ctx.theme));
     Ok(())
   }
@@ -41,6 +36,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use super::*;
+    use crate::store;
 
     #[test]
     fn it_handles_nonexistent_tags_gracefully() {

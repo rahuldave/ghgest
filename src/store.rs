@@ -11,7 +11,7 @@ pub mod note;
 mod orchestration;
 mod search;
 pub mod search_query;
-mod tag;
+pub(crate) mod tag;
 mod task;
 
 use std::io;

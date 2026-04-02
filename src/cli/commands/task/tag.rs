@@ -1,9 +1,9 @@
 use clap::Args;
 
 use crate::{
+  action,
   cli::{self, AppContext},
-  model::EntityType,
-  store,
+  model::Task,
   ui::composites::success_message::SuccessMessage,
 };
 
@@ -20,13 +20,8 @@ pub struct Command {
 impl Command {
   /// Merge the given tags into the task and persist.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    let params = store::TagParams {
-      entity_type: EntityType::Task,
-      id_prefix: &self.id,
-      tags: &self.tags,
-    };
-    let result = store::tag_entity(&ctx.settings, &params)?;
-    let msg = format!("Tagged task {} with {}", result.id, self.tags.join(", "));
+    let task = action::tag::<Task>(&ctx.settings, &self.id, &self.tags)?;
+    let msg = format!("Tagged task {} with {}", task.id, self.tags.join(", "));
     println!("{}", SuccessMessage::new(&msg, &ctx.theme));
     Ok(())
   }
@@ -41,6 +36,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use super::*;
+    use crate::store;
 
     #[test]
     fn it_adds_tags() {
