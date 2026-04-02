@@ -6,7 +6,12 @@ use std::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::{event::Event, id::Id, link::Link, note::Note};
+use super::{
+  event::{AuthorInfo, Event},
+  id::Id,
+  link::Link,
+  note::Note,
+};
 use crate::{
   action::{HasStatus, Linkable, Resolvable, Storable, Taggable},
   config::Settings,
@@ -172,6 +177,19 @@ impl Linkable for Task {
 
 impl HasStatus for Task {
   type Status = Status;
+
+  fn update_status(
+    config: &Settings,
+    id: &Id,
+    status: Self::Status,
+    author: Option<&AuthorInfo>,
+  ) -> store::Result<Self> {
+    let patch = TaskPatch {
+      status: Some(status),
+      ..Default::default()
+    };
+    store::update_task(config, id, patch, author)
+  }
 }
 
 #[cfg(test)]

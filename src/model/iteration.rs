@@ -6,7 +6,11 @@ use std::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::{event::Event, id::Id, link::Link};
+use super::{
+  event::{AuthorInfo, Event},
+  id::Id,
+  link::Link,
+};
 use crate::{
   action::{HasStatus, Linkable, Resolvable, Storable, Taggable},
   config::Settings,
@@ -161,6 +165,19 @@ impl Linkable for Iteration {
 
 impl HasStatus for Iteration {
   type Status = Status;
+
+  fn update_status(
+    config: &Settings,
+    id: &Id,
+    status: Self::Status,
+    author: Option<&AuthorInfo>,
+  ) -> store::Result<Self> {
+    let patch = IterationPatch {
+      status: Some(status),
+      ..Default::default()
+    };
+    store::update_iteration(config, id, patch, author)
+  }
 }
 
 #[cfg(test)]

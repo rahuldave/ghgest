@@ -1,8 +1,9 @@
 use clap::Args;
 
 use crate::{
+  action,
   cli::{self, AppContext},
-  model::{TaskPatch, event::AuthorInfo, note::AuthorType, task::Status},
+  model::{Task, event::AuthorInfo, note::AuthorType, task::Status},
   store,
   ui::views::task::TaskUpdateView,
 };
@@ -21,18 +22,6 @@ impl Command {
     let theme = &ctx.theme;
     let id = store::resolve_task_id(config, &self.id, true)?;
 
-    let patch = TaskPatch {
-      assigned_to: None,
-      description: None,
-      links: None,
-      metadata: None,
-      phase: None,
-      priority: None,
-      status: Some(Status::Cancelled),
-      tags: None,
-      title: None,
-    };
-
     let author = match crate::cli::git::resolve_author() {
       Some(a) => AuthorInfo {
         author: a.name,
@@ -45,7 +34,7 @@ impl Command {
         author_type: AuthorType::Human,
       },
     };
-    let task = store::update_task(config, &id, patch, Some(&author))?;
+    let task = action::set_status::<Task>(config, &id, Status::Cancelled, Some(&author))?;
     let id_str = task.id.to_string();
 
     let view = TaskUpdateView {

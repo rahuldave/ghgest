@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 
 use crate::{
   config::Settings,
-  model::{Id, link::Link},
+  model::{Id, event::AuthorInfo, link::Link},
   store,
 };
 
@@ -42,6 +42,17 @@ pub trait Linkable {
 ///
 /// Only implemented on entity types that have a status (Task, Iteration).
 /// Artifact does not have a status field.
-pub trait HasStatus {
+pub trait HasStatus: Sized {
   type Status;
+
+  /// Apply a status change via the entity's store update function.
+  ///
+  /// Each implementation delegates to its specific store update (e.g. `store::update_task`)
+  /// which handles lifecycle management such as file movement, timestamps, and event recording.
+  fn update_status(
+    config: &Settings,
+    id: &Id,
+    status: Self::Status,
+    author: Option<&AuthorInfo>,
+  ) -> store::Result<Self>;
 }
