@@ -10,6 +10,7 @@ pub(crate) mod meta_value;
 pub mod note;
 mod orchestration;
 mod search;
+pub mod search_query;
 mod task;
 
 use std::io;
