@@ -50,11 +50,14 @@ For **multi-issue**:
 5. For issues that affect CLI behavior (commands, flags, output format), include integration test acceptance criteria in
    the task description. Example: "Integration test verifies `gest task create --description` outputs the created task
    ID."
-6. Set execution fields on each task:
+6. Assign phases and priorities. A phase is a parallelization boundary: **every task in the same phase runs
+   concurrently in its own workspace**, so tasks within a phase must be fully independent. If task A blocks task B, they
+   **must** be in different phases (A in an earlier phase, B in a later one). Put tasks that share no dependencies in
+   the
+   same phase to maximize parallelism.
    - `GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task update <task-id> --phase <n>`
-     -- phase number for parallel grouping
    - `GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task update <task-id> --priority <0-4>`
-     -- priority within the phase
+     -- priority within the phase (used for sequential fallback ordering)
 7. Set blocking dependencies:
    `GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task link <task-id> blocked-by <other-task-id>`
 8. Create an iteration and add all tasks:
