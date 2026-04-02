@@ -1,4 +1,8 @@
-use std::{fmt::Display, io::IsTerminal, str::FromStr};
+use std::{
+  fmt::Display,
+  io::{IsTerminal, Read},
+  str::FromStr,
+};
 
 /// Build a `toml::Table` from `"key=value"` CLI strings.
 pub fn build_toml_metadata(pairs: &[String]) -> crate::cli::Result<toml::Table> {
@@ -64,6 +68,16 @@ pub fn read_from_editor(
     return Ok(value.to_string());
   }
 
+  if !std::io::stdin().is_terminal() {
+    let mut buf = String::new();
+    std::io::stdin()
+      .read_to_string(&mut buf)
+      .map_err(|e| crate::cli::Error::InvalidInput(e.to_string()))?;
+    if !buf.trim().is_empty() {
+      return Ok(buf);
+    }
+  }
+
   if std::io::stdin().is_terminal()
     && let Some(_editor) = crate::cli::editor::resolve_editor()
   {
@@ -71,7 +85,6 @@ pub fn read_from_editor(
     if content.trim().is_empty() {
       return Err(crate::cli::Error::InvalidInput(abort_message.into()));
     }
-    return Ok(content);
   }
 
   Ok(String::new())
