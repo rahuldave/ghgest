@@ -1,5 +1,8 @@
 //! Task management commands for creating, updating, listing, and linking tasks.
 
+mod block;
+mod cancel;
+mod complete;
 mod create;
 mod link;
 mod list;
@@ -23,6 +26,9 @@ pub struct Command {
 
 #[derive(Debug, Subcommand)]
 enum TaskCommand {
+  Block(block::Command),
+  Cancel(cancel::Command),
+  Complete(complete::Command),
   #[command(visible_alias = "new")]
   Create(create::Command),
   Link(link::Command),
@@ -42,6 +48,9 @@ impl Command {
   /// Route to the appropriate task subcommand.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
     match &self.command {
+      TaskCommand::Block(cmd) => cmd.call(ctx),
+      TaskCommand::Cancel(cmd) => cmd.call(ctx),
+      TaskCommand::Complete(cmd) => cmd.call(ctx),
       TaskCommand::Create(cmd) => cmd.call(ctx),
       TaskCommand::Link(cmd) => cmd.call(ctx),
       TaskCommand::List(cmd) => cmd.call(ctx),

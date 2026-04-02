@@ -1,3 +1,6 @@
+mod when_blocking;
+mod when_cancelling;
+mod when_completing;
 mod when_creating;
 mod when_creating_with_tag_flag;
 mod when_linking;
