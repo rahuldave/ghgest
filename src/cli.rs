@@ -142,10 +142,12 @@ enum Command {
   #[command(alias = "grep")]
   Search(commands::search::Command),
   SelfUpdate(commands::self_update::Command),
+  #[command(alias = "s")]
   Serve(commands::serve::Command),
   Tag(commands::tag::Command),
   #[command(alias = "t")]
   Task(commands::task::Command),
+  #[command(alias = "u")]
   Undo(commands::undo::Command),
   Version(commands::version::Command),
 }
