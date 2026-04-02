@@ -29,20 +29,21 @@ and iterations. If the prefix is ambiguous (matches multiple entity types), an e
 is returned with disambiguation guidance.
 
 ```text
-gest tag add <ID> <TAGS>...
+gest tag add <ID> [TAGS]...
 ```
 
 ### Arguments
 
-| Argument | Description                   |
-|----------|-------------------------------|
-| `ID`     | Entity ID or unique prefix    |
-| `TAGS`   | Tags to add (space-separated) |
+| Argument    | Description                            |
+|-------------|----------------------------------------|
+| `<ID>`      | Entity ID or unique prefix             |
+| `[TAGS]...` | Tags to add (space or comma-separated) |
 
 ### Examples
 
 ```sh
 gest tag add zyxw rust cli    # tag a task (or artifact/iteration) with "rust" and "cli"
+gest tag add zyxw rust,cli    # comma-separated form
 ```
 
 ---
@@ -52,15 +53,15 @@ gest tag add zyxw rust cli    # tag a task (or artifact/iteration) with "rust" a
 Remove one or more tags from an entity. Uses the same cross-entity resolution as `tag add`.
 
 ```text
-gest tag remove <ID> <TAGS>...
+gest tag remove <ID> [TAGS]...
 ```
 
 ### Arguments
 
-| Argument | Description                      |
-|----------|----------------------------------|
-| `ID`     | Entity ID or unique prefix       |
-| `TAGS`   | Tags to remove (space-separated) |
+| Argument    | Description                               |
+|-------------|-------------------------------------------|
+| `<ID>`      | Entity ID or unique prefix                |
+| `[TAGS]...` | Tags to remove (space or comma-separated) |
 
 ### Examples
 

@@ -64,6 +64,9 @@ Filters combine using these rules:
 | `-v, --verbose` | Increase verbosity (repeatable)     |
 | `-h, --help`    | Print help                          |
 
+When results are displayed on a terminal, output is piped through a pager (`$PAGER`, defaulting
+to `less -R`). Pager behavior is TTY-only — piped or redirected output is sent directly to stdout.
+
 ## Examples
 
 ```sh
@@ -84,6 +87,9 @@ gest search "tag:api -tag:wip"
 
 # Open tasks about migrations
 gest search "is:task status:open migration"
+
+# Filter to iterations
+gest search "is:iteration"
 
 # Artifacts of type "spec"
 gest search "type:spec"

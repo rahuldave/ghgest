@@ -1,5 +1,7 @@
 # gest undo
 
+Alias: `gest u`
+
 Undo the most recent mutating command(s) by restoring file snapshots.
 
 Every mutating CLI command (create, update, archive, link, etc.) is automatically recorded in a

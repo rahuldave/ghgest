@@ -11,22 +11,85 @@ gest iteration <COMMAND> [OPTIONS]
 
 ## Subcommands
 
-| Command                         | Description                            |
-|---------------------------------|----------------------------------------|
-| [`create`](#iteration-create)   | Create a new iteration                 |
-| [`list`](#iteration-list)       | List iterations with optional filters  |
-| [`show`](#iteration-show)       | Display an iteration's details         |
-| [`update`](#iteration-update)   | Update an iteration's fields           |
-| [`add`](#iteration-add)         | Add a task to an iteration             |
-| [`remove`](#iteration-remove)   | Remove a task from an iteration        |
-| [`graph`](#iteration-graph)     | Display the phased execution graph     |
-| [`tag`](#iteration-tag)         | Add tags to an iteration               |
-| [`untag`](#iteration-untag)     | Remove tags from an iteration          |
-| [`link`](#iteration-link)       | Create a relationship between entities |
-| [`meta`](#iteration-meta)       | Read or write metadata fields          |
-| [`next`](#iteration-next)       | Find or claim the next available task  |
-| [`status`](#iteration-status)   | Display aggregated iteration progress  |
-| [`advance`](#iteration-advance) | Advance to the next phase              |
+| Command                         | Aliases | Description                            |
+|---------------------------------|---------|----------------------------------------|
+| [`add`](#iteration-add)         |         | Add a task to an iteration             |
+| [`advance`](#iteration-advance) |         | Advance to the next phase              |
+| [`create`](#iteration-create)   | `new`   | Create a new iteration                 |
+| [`graph`](#iteration-graph)     |         | Display the phased execution graph     |
+| [`link`](#iteration-link)       |         | Create a relationship between entities |
+| [`list`](#iteration-list)       | `ls`    | List iterations with optional filters  |
+| [`meta`](#iteration-meta)       |         | Read or write metadata fields          |
+| [`next`](#iteration-next)       |         | Find or claim the next available task  |
+| [`remove`](#iteration-remove)   | `rm`    | Remove a task from an iteration        |
+| [`show`](#iteration-show)       | `view`  | Display an iteration's details         |
+| [`status`](#iteration-status)   |         | Display aggregated iteration progress  |
+| [`tag`](#iteration-tag)         |         | Add tags to an iteration               |
+| [`untag`](#iteration-untag)     |         | Remove tags from an iteration          |
+| [`update`](#iteration-update)   | `edit`  | Update an iteration's fields           |
+
+---
+
+## iteration add
+
+Add an existing task to an iteration.
+
+```text
+gest iteration add [OPTIONS] <ID> <TASK_ID>
+```
+
+### Arguments
+
+| Argument    | Description                     |
+|-------------|---------------------------------|
+| `<ID>`      | Iteration ID or unique prefix   |
+| `<TASK_ID>` | Task ID or unique prefix to add |
+
+### Options
+
+| Flag          | Description                                        |
+|---------------|----------------------------------------------------|
+| `-j, --json`  | Output the iteration as JSON after adding the task |
+| `-q, --quiet` | Output only the iteration ID                       |
+
+### Examples
+
+```sh
+gest iteration add iter123 task456
+```
+
+---
+
+## iteration advance
+
+Validate that the active phase is complete and advance to the next phase. All tasks in the
+current phase must be in a terminal state (done or cancelled) unless `--force` is used.
+
+```text
+gest iteration advance [OPTIONS] <ID>
+```
+
+### Arguments
+
+| Argument | Description                   |
+|----------|-------------------------------|
+| `<ID>`   | Iteration ID or unique prefix |
+
+### Options
+
+| Flag      | Description                                              |
+|-----------|----------------------------------------------------------|
+| `--force` | Advance even if the current phase has non-terminal tasks |
+
+### Examples
+
+```sh
+# Advance after all phase tasks are done
+gest iteration advance abc123
+
+# Force-advance past incomplete tasks
+gest iteration advance abc123 --force
+```
 
 ---
 
@@ -49,9 +112,11 @@ gest iteration create [OPTIONS] <TITLE>
 | Flag                              | Description                                                            |
 |-----------------------------------|------------------------------------------------------------------------|
 | `-d, --description <DESCRIPTION>` | Description text                                                       |
+| `-j, --json`                      | Output the created iteration as JSON                                   |
 | `-m, --metadata <METADATA>`       | Key=value metadata pair (repeatable, e.g. `-m key=value`)              |
+| `-q, --quiet`                     | Print only the iteration ID                                            |
 | `-s, --status <STATUS>`           | Initial status: `active`, `completed`, or `failed` (default: `active`) |
-| `--tags <TAGS>`                   | Comma-separated list of tags                                           |
+| `--tag <TAG>`                     | Tag (repeatable, or comma-separated)                                   |
 
 ### Examples
 
@@ -60,7 +125,67 @@ gest iteration create [OPTIONS] <TITLE>
 gest iteration create "Sprint 1"
 
 # Create with description and tags
-gest iteration create "Auth Refactor" -d "Rewrite authentication layer" --tags "backend,q2"
+gest iteration create "Auth Refactor" -d "Rewrite authentication layer" --tag "backend,q2"
+
+# Machine-readable output
+gest iteration create "Sprint 2" --json
+gest iteration create "Sprint 2" -q
+```
+
+---
+
+## iteration graph
+
+Display the phased execution graph for an iteration. This shows tasks grouped by phase
+with their statuses and dependencies.
+
+```text
+gest iteration graph <ID>
+```
+
+### Arguments
+
+| Argument | Description                   |
+|----------|-------------------------------|
+| `<ID>`   | Iteration ID or unique prefix |
+
+### Examples
+
+```sh
+gest iteration graph abc123
+```
+
+---
+
+## iteration link
+
+Create a relationship between an iteration and another entity.
+
+```text
+gest iteration link [OPTIONS] <ID> <REL> <TARGET_ID>
+```
+
+### Arguments
+
+| Argument      | Description                                                                      |
+|---------------|----------------------------------------------------------------------------------|
+| `<ID>`        | Iteration ID or unique prefix                                                    |
+| `<REL>`       | Relationship type: `blocked-by`, `blocks`, `child-of`, `parent-of`, `relates-to` |
+| `<TARGET_ID>` | Target iteration or artifact ID or unique prefix                                 |
+
+### Options
+
+| Flag          | Description                                        |
+|---------------|----------------------------------------------------|
+| `--artifact`  | Target is an artifact instead of an iteration      |
+| `-j, --json`  | Output the iteration as JSON after linking         |
+| `-q, --quiet` | Output only the iteration ID                       |
+
+### Examples
+
+```sh
+gest iteration link abc123 blocks def456
+gest iteration link abc123 relates-to art789 --artifact
 ```
 
 ---
@@ -93,214 +218,6 @@ gest iteration list -s active
 
 ---
 
-## iteration show
-
-Display an iteration's details, task counts, and phase summary.
-
-```text
-gest iteration show [OPTIONS] <ID>
-```
-
-### Arguments
-
-| Argument | Description                   |
-|----------|-------------------------------|
-| `<ID>`   | Iteration ID or unique prefix |
-
-### Options
-
-| Flag         | Description                      |
-|--------------|----------------------------------|
-| `-j, --json` | Output iteration details as JSON |
-
-### Examples
-
-```sh
-gest iteration show abc123
-gest iteration show abc123 --json
-```
-
----
-
-## iteration update
-
-Update an iteration's title, description, status, tags, or metadata.
-
-```text
-gest iteration update [OPTIONS] <ID>
-```
-
-### Arguments
-
-| Argument | Description                   |
-|----------|-------------------------------|
-| `<ID>`   | Iteration ID or unique prefix |
-
-### Options
-
-| Flag                              | Description                                                |
-|-----------------------------------|------------------------------------------------------------|
-| `-d, --description <DESCRIPTION>` | New description                                            |
-| `-m, --metadata <METADATA>`       | Key=value metadata pair, merged with existing (repeatable) |
-| `-s, --status <STATUS>`           | New status: `active`, `completed`, or `failed`             |
-| `--tags <TAGS>`                   | Replace all tags with this comma-separated list            |
-| `-t, --title <TITLE>`             | New title                                                  |
-
-### Examples
-
-```sh
-gest iteration update abc123 -s completed
-gest iteration update abc123 -t "Sprint 1 - Revised" -m goal="deliver auth"
-```
-
----
-
-## iteration add
-
-Add an existing task to an iteration.
-
-```text
-gest iteration add <ID> <TASK_ID>
-```
-
-### Arguments
-
-| Argument    | Description                     |
-|-------------|---------------------------------|
-| `<ID>`      | Iteration ID or unique prefix   |
-| `<TASK_ID>` | Task ID or unique prefix to add |
-
-### Examples
-
-```sh
-gest iteration add iter123 task456
-```
-
----
-
-## iteration remove
-
-Remove a task from an iteration.
-
-```text
-gest iteration remove <ID> <TASK_ID>
-```
-
-### Arguments
-
-| Argument    | Description                        |
-|-------------|------------------------------------|
-| `<ID>`      | Iteration ID or unique prefix      |
-| `<TASK_ID>` | Task ID or unique prefix to remove |
-
-### Examples
-
-```sh
-gest iteration remove iter123 task456
-```
-
----
-
-## iteration graph
-
-Display the phased execution graph for an iteration. This shows tasks grouped by phase
-with their statuses and dependencies.
-
-```text
-gest iteration graph <ID>
-```
-
-### Arguments
-
-| Argument | Description                   |
-|----------|-------------------------------|
-| `<ID>`   | Iteration ID or unique prefix |
-
-### Examples
-
-```sh
-gest iteration graph abc123
-```
-
----
-
-## iteration tag
-
-Add tags to an iteration.
-
-```text
-gest iteration tag <ID> [TAGS]...
-```
-
-### Arguments
-
-| Argument    | Description                   |
-|-------------|-------------------------------|
-| `<ID>`      | Iteration ID or unique prefix |
-| `[TAGS]...` | Tags to add (space-separated) |
-
-### Examples
-
-```sh
-gest iteration tag abc123 sprint-1 backend
-```
-
----
-
-## iteration untag
-
-Remove tags from an iteration.
-
-```text
-gest iteration untag <ID> [TAGS]...
-```
-
-### Arguments
-
-| Argument    | Description                      |
-|-------------|----------------------------------|
-| `<ID>`      | Iteration ID or unique prefix    |
-| `[TAGS]...` | Tags to remove (space-separated) |
-
-### Examples
-
-```sh
-gest iteration untag abc123 draft
-```
-
----
-
-## iteration link
-
-Create a relationship between an iteration and another entity.
-
-```text
-gest iteration link [OPTIONS] <ID> <REL> <TARGET_ID>
-```
-
-### Arguments
-
-| Argument      | Description                                                                      |
-|---------------|----------------------------------------------------------------------------------|
-| `<ID>`        | Iteration ID or unique prefix                                                    |
-| `<REL>`       | Relationship type: `blocked-by`, `blocks`, `child-of`, `parent-of`, `relates-to` |
-| `<TARGET_ID>` | Target iteration or artifact ID or unique prefix                                 |
-
-### Options
-
-| Flag         | Description                                   |
-|--------------|-----------------------------------------------|
-| `--artifact` | Target is an artifact instead of an iteration |
-
-### Examples
-
-```sh
-gest iteration link abc123 blocks def456
-gest iteration link abc123 relates-to art789 --artifact
-```
-
----
-
 ## iteration meta
 
 Read or write iteration metadata fields. Metadata uses dot-delimited key paths for nested values.
@@ -314,7 +231,7 @@ gest iteration meta <COMMAND>
 Retrieve a single metadata value.
 
 ```text
-gest iteration meta get <ID> <PATH>
+gest iteration meta get [OPTIONS] <ID> <PATH>
 ```
 
 | Argument | Description                                 |
@@ -322,12 +239,17 @@ gest iteration meta get <ID> <PATH>
 | `<ID>`   | Iteration ID or unique prefix               |
 | `<PATH>` | Dot-delimited key path (e.g. `outer.inner`) |
 
+| Flag     | Description                           |
+|----------|---------------------------------------|
+| `--json` | Output as a JSON object               |
+| `--raw`  | Output the bare value with no styling |
+
 ### meta set
 
 Set a metadata value. Strings, numbers, and booleans are auto-detected.
 
 ```text
-gest iteration meta set <ID> <PATH> <VALUE>
+gest iteration meta set [OPTIONS] <ID> <PATH> <VALUE>
 ```
 
 | Argument  | Description                                 |
@@ -336,11 +258,25 @@ gest iteration meta set <ID> <PATH> <VALUE>
 | `<PATH>`  | Dot-delimited key path (e.g. `outer.inner`) |
 | `<VALUE>` | Value to set                                |
 
+| Flag          | Description              |
+|---------------|--------------------------|
+| `-j, --json`  | Output as JSON           |
+| `-q, --quiet` | Print only the entity ID |
+
 ### Examples
 
 ```sh
+# Set a metadata field
 gest iteration meta set abc123 goal "Ship auth module"
+
+# Read it back
 gest iteration meta get abc123 goal
+
+# JSON output
+gest iteration meta get abc123 goal --json
+
+# Raw value (no styling)
+gest iteration meta get abc123 goal --raw
 ```
 
 ---
@@ -392,6 +328,65 @@ gest iteration next abc123 --claim --agent worker-1 --json
 
 ---
 
+## iteration remove
+
+Remove a task from an iteration.
+
+```text
+gest iteration remove [OPTIONS] <ID> <TASK_ID>
+```
+
+### Arguments
+
+| Argument    | Description                        |
+|-------------|------------------------------------|
+| `<ID>`      | Iteration ID or unique prefix      |
+| `<TASK_ID>` | Task ID or unique prefix to remove |
+
+### Options
+
+| Flag          | Description                                           |
+|---------------|-------------------------------------------------------|
+| `-j, --json`  | Output the iteration as JSON after removing the task  |
+| `-q, --quiet` | Output only the iteration ID                          |
+
+### Examples
+
+```sh
+gest iteration remove iter123 task456
+```
+
+---
+
+## iteration show
+
+Display an iteration's details, task counts, and phase summary.
+
+```text
+gest iteration show [OPTIONS] <ID>
+```
+
+### Arguments
+
+| Argument | Description                   |
+|----------|-------------------------------|
+| `<ID>`   | Iteration ID or unique prefix |
+
+### Options
+
+| Flag         | Description                      |
+|--------------|----------------------------------|
+| `-j, --json` | Output iteration details as JSON |
+
+### Examples
+
+```sh
+gest iteration show abc123
+gest iteration show abc123 --json
+```
+
+---
+
 ## iteration status
 
 Display aggregated progress for an iteration, including active phase, task counts,
@@ -422,13 +417,73 @@ gest iteration status abc123 --json
 
 ---
 
-## iteration advance
+## iteration tag
 
-Validate that the active phase is complete and advance to the next phase. All tasks in the
-current phase must be in a terminal state (done or cancelled) unless `--force` is used.
+Add tags to an iteration, deduplicating with any existing tags.
 
 ```text
-gest iteration advance [OPTIONS] <ID>
+gest iteration tag [OPTIONS] <ID> [TAGS]...
+```
+
+### Arguments
+
+| Argument    | Description                            |
+|-------------|----------------------------------------|
+| `<ID>`      | Iteration ID or unique prefix          |
+| `[TAGS]...` | Tags to add (space or comma-separated) |
+
+### Options
+
+| Flag          | Description                                |
+|---------------|--------------------------------------------|
+| `-j, --json`  | Output the iteration as JSON after tagging |
+| `-q, --quiet` | Output only the iteration ID               |
+
+### Examples
+
+```sh
+gest iteration tag abc123 sprint-1 backend
+gest iteration tag abc123 sprint-1,backend
+```
+
+---
+
+## iteration untag
+
+Remove tags from an iteration.
+
+```text
+gest iteration untag [OPTIONS] <ID> [TAGS]...
+```
+
+### Arguments
+
+| Argument    | Description                               |
+|-------------|-------------------------------------------|
+| `<ID>`      | Iteration ID or unique prefix             |
+| `[TAGS]...` | Tags to remove (space or comma-separated) |
+
+### Options
+
+| Flag          | Description                                  |
+|---------------|----------------------------------------------|
+| `-j, --json`  | Output the iteration as JSON after untagging |
+| `-q, --quiet` | Output only the iteration ID                 |
+
+### Examples
+
+```sh
+gest iteration untag abc123 draft
+```
+
+---
+
+## iteration update
+
+Update an iteration's title, description, status, tags, or metadata.
+
+```text
+gest iteration update [OPTIONS] <ID>
 ```
 
 ### Arguments
@@ -439,16 +494,22 @@ gest iteration advance [OPTIONS] <ID>
 
 ### Options
 
-| Flag      | Description                                              |
-|-----------|----------------------------------------------------------|
-| `--force` | Advance even if the current phase has non-terminal tasks |
+| Flag                              | Description                                                |
+|-----------------------------------|------------------------------------------------------------|
+| `-d, --description <DESCRIPTION>` | New description                                            |
+| `-j, --json`                      | Output as JSON                                             |
+| `-m, --metadata <METADATA>`       | Key=value metadata pair, merged with existing (repeatable) |
+| `-q, --quiet`                     | Print only the iteration ID                                |
+| `-s, --status <STATUS>`           | New status: `active`, `completed`, or `failed`             |
+| `--tag <TAG>`                     | Replace all tags (repeatable, or comma-separated)          |
+| `-t, --title <TITLE>`             | New title                                                  |
 
 ### Examples
 
 ```sh
-# Advance after all phase tasks are done
-gest iteration advance abc123
+gest iteration update abc123 -s completed
+gest iteration update abc123 -t "Sprint 1 - Revised" -m goal="deliver auth"
 
-# Force-advance past incomplete tasks
-gest iteration advance abc123 --force
+# Machine-readable output
+gest iteration update abc123 -s completed --json
 ```

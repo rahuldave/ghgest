@@ -1,5 +1,7 @@
 # gest serve
 
+Alias: `gest s`
+
 Start the built-in web dashboard for browsing and managing your project's tasks, artifacts, and iterations. While
 agents interact with gest through the CLI and `--json` output, the dashboard gives humans a visual overview of
 everything that's happening — especially useful when multiple agents are working in parallel across an iteration.
