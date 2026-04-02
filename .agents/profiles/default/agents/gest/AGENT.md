@@ -131,6 +131,15 @@ GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task update <
 Setting status to `done` or `cancelled` automatically archives the task. Setting an archived task's status to `open` or
 `in-progress` automatically unarchives it.
 
+### Shortcuts
+
+```sh
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task complete <id>                        # mark done
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task cancel <id>                          # mark cancelled
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task block <id> <target-id>               # task blocks target
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task block <id> <target-id> --artifact    # task blocks artifact
+```
+
 ### Task Fields
 
 - `priority` -- P0-P4 where P0 is highest priority (optional)
