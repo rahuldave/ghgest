@@ -23,12 +23,16 @@ pub struct Command {
 #[derive(Debug, Subcommand)]
 enum ArtifactCommand {
   Archive(archive::Command),
+  #[command(visible_alias = "new")]
   Create(create::Command),
+  #[command(visible_alias = "ls")]
   List(list::Command),
   Meta(meta::Command),
+  #[command(visible_alias = "view")]
   Show(show::Command),
   Tag(tag::Command),
   Untag(untag::Command),
+  #[command(visible_alias = "edit")]
   Update(update::Command),
 }
 

@@ -50,16 +50,21 @@ impl Command {
 enum IterationCommand {
   Add(add::Command),
   Advance(advance::Command),
+  #[command(visible_alias = "new")]
   Create(create::Command),
   Graph(graph::Command),
   Link(link::Command),
+  #[command(visible_alias = "ls")]
   List(list::Command),
   Meta(meta::Command),
   Next(next::Command),
+  #[command(visible_alias = "rm")]
   Remove(remove::Command),
+  #[command(visible_alias = "view")]
   Show(show::Command),
   Status(status::Command),
   Tag(tag::Command),
   Untag(untag::Command),
+  #[command(visible_alias = "edit")]
   Update(update::Command),
 }

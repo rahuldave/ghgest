@@ -132,15 +132,19 @@ impl Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+  #[command(alias = "a")]
   Artifact(commands::artifact::Command),
   Config(commands::config::Command),
   Generate(commands::generate::Command),
   Init(commands::init::Command),
+  #[command(alias = "i")]
   Iteration(commands::iteration::Command),
+  #[command(alias = "grep")]
   Search(commands::search::Command),
   SelfUpdate(commands::self_update::Command),
   Serve(commands::serve::Command),
   Tag(commands::tag::Command),
+  #[command(alias = "t")]
   Task(commands::task::Command),
   Undo(commands::undo::Command),
   Version(commands::version::Command),
