@@ -37,6 +37,21 @@ pub struct Event {
   pub kind: EventKind,
 }
 
+impl Event {
+  /// Create a new event from author info and kind, with a fresh ID and current timestamp.
+  pub fn new(author: &AuthorInfo, kind: EventKind) -> Self {
+    Self {
+      author: author.author.clone(),
+      author_email: author.author_email.clone(),
+      author_type: author.author_type.clone(),
+      created_at: Utc::now(),
+      description: None,
+      id: Id::new(),
+      kind,
+    }
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;

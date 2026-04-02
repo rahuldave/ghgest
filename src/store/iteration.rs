@@ -4,7 +4,7 @@ use chrono::Utc;
 
 use super::{
   fs::{ensure_dirs, move_entity_file, next_id, resolve_id},
-  helpers::{load_entities_from_dirs, read_entity_file},
+  helpers::{load_entities_from_dirs, persist_entity_update, read_entity_file},
 };
 use crate::{
   config::Settings,
@@ -175,18 +175,13 @@ pub fn update_iteration(
     && let Some(ref new_status) = patch.status
     && *new_status != iteration.status
   {
-    iteration.events.push(Event {
-      author: author.author.clone(),
-      author_email: author.author_email.clone(),
-      author_type: author.author_type.clone(),
-      created_at: Utc::now(),
-      description: None,
-      id: Id::new(),
-      kind: EventKind::StatusChange {
+    iteration.events.push(Event::new(
+      author,
+      EventKind::StatusChange {
         from: iteration.status.as_str().to_string(),
         to: new_status.as_str().to_string(),
       },
-    });
+    ));
   }
 
   if let Some(description) = patch.description {
@@ -207,27 +202,23 @@ pub fn update_iteration(
 
   iteration.updated_at = Utc::now();
 
-  if iteration.status.is_terminal() && !was_resolved {
+  let is_terminal = iteration.status.is_terminal();
+  if is_terminal && !was_resolved {
     iteration.completed_at = Some(iteration.updated_at);
-    let content = toml::to_string(&iteration)?;
-    move_entity_file(
-      config,
-      &content,
-      &config.storage().iteration_dir().join(format!("resolved/{id}.toml")),
-      &config.storage().iteration_dir().join(format!("{id}.toml")),
-    )?;
-  } else if !iteration.status.is_terminal() && was_resolved {
+  } else if !is_terminal && was_resolved {
     iteration.completed_at = None;
-    let content = toml::to_string(&iteration)?;
-    move_entity_file(
-      config,
-      &content,
-      &config.storage().iteration_dir().join(format!("{id}.toml")),
-      &config.storage().iteration_dir().join(format!("resolved/{id}.toml")),
-    )?;
-  } else {
-    write_iteration(config, &iteration)?;
   }
+
+  let content = toml::to_string(&iteration)?;
+  persist_entity_update(
+    config,
+    config.storage().iteration_dir(),
+    id,
+    is_terminal,
+    was_resolved,
+    &content,
+    || write_iteration(config, &iteration),
+  )?;
 
   Ok(iteration)
 }

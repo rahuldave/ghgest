@@ -4,7 +4,7 @@ use chrono::Utc;
 
 use super::{
   fs::{ensure_dirs, move_entity_file, next_id, resolve_id},
-  helpers::{load_entities_from_dirs, read_entity_file},
+  helpers::{load_entities_from_dirs, persist_entity_update, read_entity_file},
 };
 use crate::{
   config::Settings,
@@ -229,57 +229,40 @@ pub fn update_task(config: &Settings, id: &Id, patch: TaskPatch, author: Option<
   let was_resolved = is_task_resolved(config, id);
 
   if let Some(author) = author {
-    let now = Utc::now();
-
     if let Some(ref new_status) = patch.status
       && *new_status != task.status
     {
-      task.events.push(Event {
-        author: author.author.clone(),
-        author_email: author.author_email.clone(),
-        author_type: author.author_type.clone(),
-        created_at: now,
-        description: None,
-        id: Id::new(),
-        kind: EventKind::StatusChange {
+      task.events.push(Event::new(
+        author,
+        EventKind::StatusChange {
           from: task.status.as_str().to_string(),
           to: new_status.as_str().to_string(),
         },
-      });
+      ));
     }
 
     if let Some(ref new_phase) = patch.phase
       && *new_phase != task.phase
     {
-      task.events.push(Event {
-        author: author.author.clone(),
-        author_email: author.author_email.clone(),
-        author_type: author.author_type.clone(),
-        created_at: now,
-        description: None,
-        id: Id::new(),
-        kind: EventKind::PhaseChange {
+      task.events.push(Event::new(
+        author,
+        EventKind::PhaseChange {
           from: task.phase,
           to: *new_phase,
         },
-      });
+      ));
     }
 
     if let Some(ref new_priority) = patch.priority
       && *new_priority != task.priority
     {
-      task.events.push(Event {
-        author: author.author.clone(),
-        author_email: author.author_email.clone(),
-        author_type: author.author_type.clone(),
-        created_at: now,
-        description: None,
-        id: Id::new(),
-        kind: EventKind::PriorityChange {
+      task.events.push(Event::new(
+        author,
+        EventKind::PriorityChange {
           from: task.priority,
           to: *new_priority,
         },
-      });
+      ));
     }
   }
 
@@ -310,27 +293,23 @@ pub fn update_task(config: &Settings, id: &Id, patch: TaskPatch, author: Option<
 
   task.updated_at = Utc::now();
 
-  if task.status.is_terminal() && !was_resolved {
+  let is_terminal = task.status.is_terminal();
+  if is_terminal && !was_resolved {
     task.resolved_at = Some(task.updated_at);
-    let content = toml::to_string(&task)?;
-    move_entity_file(
-      config,
-      &content,
-      &config.storage().task_dir().join(format!("resolved/{id}.toml")),
-      &config.storage().task_dir().join(format!("{id}.toml")),
-    )?;
-  } else if !task.status.is_terminal() && was_resolved {
+  } else if !is_terminal && was_resolved {
     task.resolved_at = None;
-    let content = toml::to_string(&task)?;
-    move_entity_file(
-      config,
-      &content,
-      &config.storage().task_dir().join(format!("{id}.toml")),
-      &config.storage().task_dir().join(format!("resolved/{id}.toml")),
-    )?;
-  } else {
-    write_task(config, &task)?;
   }
+
+  let content = toml::to_string(&task)?;
+  persist_entity_update(
+    config,
+    config.storage().task_dir(),
+    id,
+    is_terminal,
+    was_resolved,
+    &content,
+    || write_task(config, &task),
+  )?;
 
   Ok(task)
 }

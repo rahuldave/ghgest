@@ -1,6 +1,7 @@
 use std::{fs, path::Path};
 
-use super::fs::read_dir_files;
+use super::fs::{move_entity_file, read_dir_files};
+use crate::{config::Settings, model::Id};
 
 /// Load entities from one or two directories, parsing each file with the provided closure.
 ///
@@ -58,4 +59,32 @@ pub fn read_entity_file<T>(
   log::trace!("reading {entity_label} from {}", path.display());
   let content = fs::read_to_string(path)?;
   parse(&content)
+}
+
+/// Persist an entity after an update, handling the resolve/unresolve/in-place toggle.
+///
+/// - **Resolve**: `is_terminal && !was_resolved` → move to `resolved/` subdirectory
+/// - **Unresolve**: `!is_terminal && was_resolved` → move back to active directory
+/// - **In-place**: no lifecycle change → delegate to `write_in_place`
+pub fn persist_entity_update(
+  config: &Settings,
+  entity_dir: &Path,
+  id: &Id,
+  is_terminal: bool,
+  was_resolved: bool,
+  content: &str,
+  write_in_place: impl FnOnce() -> super::Result<()>,
+) -> super::Result<()> {
+  if is_terminal && !was_resolved {
+    let dest = entity_dir.join(format!("resolved/{id}.toml"));
+    let cleanup = entity_dir.join(format!("{id}.toml"));
+    move_entity_file(config, content, &dest, &cleanup)?;
+  } else if !is_terminal && was_resolved {
+    let dest = entity_dir.join(format!("{id}.toml"));
+    let cleanup = entity_dir.join(format!("resolved/{id}.toml"));
+    move_entity_file(config, content, &dest, &cleanup)?;
+  } else {
+    write_in_place()?;
+  }
+  Ok(())
 }
