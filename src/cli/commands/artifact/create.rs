@@ -13,6 +13,9 @@ pub struct Command {
   /// Body content as an inline string (skips editor and stdin).
   #[arg(short, long)]
   pub body: Option<String>,
+  /// Add the artifact to an iteration (ID or prefix).
+  #[arg(short, long)]
+  pub iteration: Option<String>,
   /// Output the created artifact as JSON.
   #[arg(short, long, conflicts_with = "quiet")]
   pub json: bool,
@@ -70,6 +73,13 @@ impl Command {
 
     let artifact = store::create_artifact(config, new)?;
 
+    // Process --iteration flag
+    if let Some(ref iter_prefix) = self.iteration {
+      let iter_id = store::resolve_iteration_id(config, iter_prefix, false)?;
+      let artifact_ref = format!("artifacts/{}", artifact.id);
+      store::add_iteration_task(config, &iter_id, &artifact_ref)?;
+    }
+
     if self.json {
       let json = serde_json::to_string_pretty(&artifact)?;
       println!("{json}");
@@ -123,6 +133,7 @@ mod tests {
 
       let cmd = Command {
         body: None,
+        iteration: None,
         json: false,
         kind: None,
         metadata: vec![],
@@ -147,6 +158,7 @@ mod tests {
 
       let cmd = Command {
         body: Some("# Content\n\nSome body text.".to_string()),
+        iteration: None,
         json: false,
         kind: Some("spec".to_string()),
         metadata: vec!["version=1".to_string()],
@@ -176,6 +188,7 @@ mod tests {
 
       let cmd = Command {
         body: None,
+        iteration: None,
         json: false,
         kind: None,
         metadata: vec![],
@@ -200,6 +213,7 @@ mod tests {
 
       let cmd = Command {
         body: Some("No heading here".to_string()),
+        iteration: None,
         json: false,
         kind: None,
         metadata: vec![],
@@ -222,6 +236,7 @@ mod tests {
 
       let cmd = Command {
         body: Some("# Auto Title\n\nBody text.".to_string()),
+        iteration: None,
         json: false,
         kind: None,
         metadata: vec![],

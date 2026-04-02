@@ -1,8 +1,9 @@
 use clap::Args;
 
 use crate::{
+  action,
   cli::{self, AppContext},
-  model::{NewTask, task::Status},
+  model::{NewTask, Task, link::RelationshipType, task::Status},
   store,
   ui::views::task::TaskCreateView,
 };
@@ -18,9 +19,15 @@ pub struct Command {
   /// Description text (opens `$EDITOR` if omitted and stdin is a terminal).
   #[arg(short, long)]
   pub description: Option<String>,
+  /// Add the task to an iteration (ID or prefix).
+  #[arg(short, long)]
+  pub iteration: Option<String>,
   /// Output the created task as JSON.
   #[arg(short, long, conflicts_with = "quiet")]
   pub json: bool,
+  /// Create a link on the new task (repeatable, format: `<rel>:<target_id>`).
+  #[arg(short, long)]
+  pub link: Vec<String>,
   /// Key=value metadata pair (repeatable, e.g. `-m key=value`).
   #[arg(short, long)]
   pub metadata: Vec<String>,
@@ -72,6 +79,34 @@ impl Command {
     };
 
     let task = store::create_task(config, new)?;
+    let task_id_str = task.id.to_string();
+
+    // Process --link flags
+    for link_arg in &self.link {
+      let (rel_str, target_id) = link_arg.split_once(':').ok_or_else(|| {
+        cli::Error::InvalidInput(format!(
+          "Invalid --link format '{link_arg}', expected <rel>:<target_id>"
+        ))
+      })?;
+      let rel: RelationshipType = rel_str.parse().map_err(|e: String| cli::Error::InvalidInput(e))?;
+      let is_artifact = store::resolve_artifact_id(config, target_id, true).is_ok()
+        && store::resolve_task_id(config, target_id, true).is_err();
+      action::link::link::<Task>(config, &task_id_str, target_id, &rel, is_artifact)?;
+    }
+
+    // Process --iteration flag
+    if let Some(ref iter_prefix) = self.iteration {
+      let iter_id = store::resolve_iteration_id(config, iter_prefix, false)?;
+      let task_ref = format!("tasks/{}", task.id);
+      store::add_iteration_task(config, &iter_id, &task_ref)?;
+    }
+
+    // Re-read task if links were added (so JSON output includes them)
+    let task = if !self.link.is_empty() {
+      store::read_task(config, &task.id)?
+    } else {
+      task
+    };
 
     if self.json {
       let json = serde_json::to_string_pretty(&task)?;
@@ -117,7 +152,9 @@ mod tests {
         title: "Full Task".to_string(),
         assigned_to: Some("agent-1".to_string()),
         description: Some("A description".to_string()),
+        iteration: None,
         json: false,
+        link: vec![],
         metadata: vec!["custom=high".to_string()],
         phase: Some(1),
         priority: Some(2),
@@ -154,7 +191,9 @@ mod tests {
         title: "My Task".to_string(),
         assigned_to: None,
         description: None,
+        iteration: None,
         json: false,
+        link: vec![],
         metadata: vec![],
         phase: None,
         priority: None,
@@ -183,7 +222,9 @@ mod tests {
         title: "Cancelled Task".to_string(),
         assigned_to: None,
         description: Some("Cancelled".to_string()),
+        iteration: None,
         json: false,
+        link: vec![],
         metadata: vec![],
         phase: None,
         priority: None,
@@ -217,7 +258,9 @@ mod tests {
         title: "Done Task".to_string(),
         assigned_to: None,
         description: Some("Already done".to_string()),
+        iteration: None,
         json: false,
+        link: vec![],
         metadata: vec![],
         phase: None,
         priority: None,

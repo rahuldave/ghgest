@@ -1,5 +1,6 @@
 mod when_archiving;
 mod when_creating;
+mod when_creating_with_iteration_flag;
 mod when_listing;
 mod when_listing_all;
 mod when_managing_metadata;
