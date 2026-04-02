@@ -14,7 +14,7 @@ pub struct Command {
   /// Note ID or unique prefix.
   pub note_id: String,
   /// Output as JSON.
-  #[arg(long)]
+  #[arg(long, short = 'j')]
   pub json: bool,
 }
 

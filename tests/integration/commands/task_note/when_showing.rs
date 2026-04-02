@@ -39,6 +39,20 @@ fn add_note_and_get_id(env: &GestCmd, task_id: &str, body: &str) -> String {
 }
 
 #[test]
+fn it_shows_a_note_as_json_with_short_flag() {
+  let env = GestCmd::new();
+  let task_id = create_task_id(&env);
+  let note_id = add_note_and_get_id(&env, &task_id, "Short flag observation");
+
+  env
+    .cmd()
+    .args(["task", "note", "show", &task_id, &note_id, "-j"])
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("Short flag observation"));
+}
+
+#[test]
 fn it_shows_a_note() {
   let env = GestCmd::new();
   let task_id = create_task_id(&env);

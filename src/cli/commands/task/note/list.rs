@@ -12,7 +12,7 @@ pub struct Command {
   /// Task ID or unique prefix.
   pub id: String,
   /// Output as JSON.
-  #[arg(long)]
+  #[arg(long, short = 'j')]
   pub json: bool,
 }
 
