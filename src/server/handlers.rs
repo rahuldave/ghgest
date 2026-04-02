@@ -1061,24 +1061,19 @@ pub async fn task_update(State(state): State<ServerState>, Path(id_str): Path<St
     form.priority.trim().parse().ok()
   };
 
+  let links = parse_form_links(&form.link_rels, &form.link_refs);
+
   let patch = TaskPatch {
     title: Some(title),
     description: Some(form.description),
+    links: Some(links),
     tags: Some(tags),
     priority: Some(priority),
     ..Default::default()
   };
 
-  let links = parse_form_links(&form.link_rels, &form.link_refs);
-
   match store::update_task(&state.settings, &id, patch, None) {
-    Ok(mut task) => {
-      task.links = links;
-      if let Err(e) = store::write_task(&state.settings, &task) {
-        log::error!("failed to write task links {id}: {e}");
-      }
-      Redirect::to(&format!("/tasks/{}", task.id)).into_response()
-    }
+    Ok(task) => Redirect::to(&format!("/tasks/{}", task.id)).into_response(),
     Err(e) => {
       log::error!("failed to update task {id}: {e}");
       (StatusCode::INTERNAL_SERVER_ERROR, error_html(&e)).into_response()

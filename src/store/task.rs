@@ -272,6 +272,9 @@ pub fn update_task(config: &Settings, id: &Id, patch: TaskPatch, author: Option<
   if let Some(description) = patch.description {
     task.description = description;
   }
+  if let Some(links) = patch.links {
+    task.links = links;
+  }
   if let Some(metadata) = patch.metadata {
     task.metadata = metadata;
   }

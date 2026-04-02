@@ -59,6 +59,7 @@ impl Command {
     let patch = TaskPatch {
       assigned_to: self.assigned_to.as_ref().map(|v| Some(v.clone())),
       description,
+      links: None,
       metadata,
       phase: self.phase.map(Some),
       priority: self.priority.map(Some),

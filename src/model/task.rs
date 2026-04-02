@@ -116,6 +116,7 @@ pub struct TaskFilter {
 pub struct TaskPatch {
   pub assigned_to: Option<Option<String>>,
   pub description: Option<String>,
+  pub links: Option<Vec<Link>>,
   pub metadata: Option<toml::Table>,
   pub phase: Option<Option<u16>>,
   pub priority: Option<Option<u8>>,
