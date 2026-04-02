@@ -12,6 +12,12 @@ use crate::{
 pub struct Command {
   /// Artifact ID or unique prefix.
   pub id: String,
+  /// Output the artifact as JSON after untagging.
+  #[arg(short, long, conflicts_with = "quiet")]
+  pub json: bool,
+  /// Output only the artifact ID.
+  #[arg(short, long, conflicts_with = "json")]
+  pub quiet: bool,
   /// Tags to remove (space or comma-separated).
   #[arg(value_delimiter = ',')]
   pub tags: Vec<String>,
@@ -21,8 +27,15 @@ impl Command {
   /// Remove the given tags from the artifact's tag list and persist.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
     let artifact = action::untag::<Artifact>(&ctx.settings, &self.id, &self.tags)?;
-    let msg = format!("Untagged artifact {} from {}", artifact.id, self.tags.join(", "));
-    println!("{}", SuccessMessage::new(&msg, &ctx.theme));
+
+    if self.json {
+      println!("{}", serde_json::to_string_pretty(&artifact)?);
+    } else if self.quiet {
+      println!("{}", artifact.id);
+    } else {
+      let msg = format!("Untagged artifact {} from {}", artifact.id, self.tags.join(", "));
+      println!("{}", SuccessMessage::new(&msg, &ctx.theme));
+    }
     Ok(())
   }
 }
@@ -48,6 +61,8 @@ mod tests {
 
       let cmd = Command {
         id: "zyxw".to_string(),
+        json: false,
+        quiet: false,
         tags: vec!["nonexistent".to_string()],
       };
       cmd.call(&ctx).unwrap();
@@ -67,6 +82,8 @@ mod tests {
 
       let cmd = Command {
         id: "zyxw".to_string(),
+        json: false,
+        quiet: false,
         tags: vec!["spec".to_string(), "backend".to_string()],
       };
       cmd.call(&ctx).unwrap();

@@ -12,6 +12,12 @@ use crate::{
 pub struct Command {
   /// Artifact ID or unique prefix.
   pub id: String,
+  /// Output the artifact as JSON after tagging.
+  #[arg(short, long, conflicts_with = "quiet")]
+  pub json: bool,
+  /// Output only the artifact ID.
+  #[arg(short, long, conflicts_with = "json")]
+  pub quiet: bool,
   /// Tags to add (space or comma-separated).
   #[arg(value_delimiter = ',')]
   pub tags: Vec<String>,
@@ -21,8 +27,15 @@ impl Command {
   /// Merge the given tags into the artifact's tag list, deduplicate, and persist.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
     let artifact = action::tag::<Artifact>(&ctx.settings, &self.id, &self.tags)?;
-    let msg = format!("Tagged artifact {} with {}", artifact.id, self.tags.join(", "));
-    println!("{}", SuccessMessage::new(&msg, &ctx.theme));
+
+    if self.json {
+      println!("{}", serde_json::to_string_pretty(&artifact)?);
+    } else if self.quiet {
+      println!("{}", artifact.id);
+    } else {
+      let msg = format!("Tagged artifact {} with {}", artifact.id, self.tags.join(", "));
+      println!("{}", SuccessMessage::new(&msg, &ctx.theme));
+    }
     Ok(())
   }
 }
@@ -47,6 +60,8 @@ mod tests {
 
       let cmd = Command {
         id: "zyxw".to_string(),
+        json: false,
+        quiet: false,
         tags: vec!["spec".to_string(), "backend".to_string()],
       };
       cmd.call(&ctx).unwrap();
@@ -66,6 +81,8 @@ mod tests {
 
       let cmd = Command {
         id: "zyxw".to_string(),
+        json: false,
+        quiet: false,
         tags: vec!["spec".to_string(), "backend".to_string()],
       };
       cmd.call(&ctx).unwrap();

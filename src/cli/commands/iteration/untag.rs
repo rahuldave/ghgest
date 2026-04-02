@@ -12,6 +12,12 @@ use crate::{
 pub struct Command {
   /// Iteration ID or unique prefix.
   pub id: String,
+  /// Output the iteration as JSON after untagging.
+  #[arg(short, long, conflicts_with = "quiet")]
+  pub json: bool,
+  /// Output only the iteration ID.
+  #[arg(short, long, conflicts_with = "json")]
+  pub quiet: bool,
   /// Tags to remove (space or comma-separated).
   #[arg(value_delimiter = ',')]
   pub tags: Vec<String>,
@@ -21,8 +27,15 @@ impl Command {
   /// Remove the specified tags from the iteration's tag set.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
     let iteration = action::untag::<Iteration>(&ctx.settings, &self.id, &self.tags)?;
-    let msg = format!("Untagged iteration {} from {}", iteration.id, self.tags.join(", "));
-    println!("{}", SuccessMessage::new(&msg, &ctx.theme));
+
+    if self.json {
+      println!("{}", serde_json::to_string_pretty(&iteration)?);
+    } else if self.quiet {
+      println!("{}", iteration.id);
+    } else {
+      let msg = format!("Untagged iteration {} from {}", iteration.id, self.tags.join(", "));
+      println!("{}", SuccessMessage::new(&msg, &ctx.theme));
+    }
     Ok(())
   }
 }
@@ -48,6 +61,8 @@ mod tests {
 
       let cmd = Command {
         id: "zyxw".to_string(),
+        json: false,
+        quiet: false,
         tags: vec!["nonexistent".to_string()],
       };
       cmd.call(&ctx).unwrap();
@@ -66,6 +81,8 @@ mod tests {
 
       let cmd = Command {
         id: "zyxw".to_string(),
+        json: false,
+        quiet: false,
         tags: vec!["sprint".to_string(), "q1".to_string()],
       };
       cmd.call(&ctx).unwrap();

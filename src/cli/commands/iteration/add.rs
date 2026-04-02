@@ -11,6 +11,12 @@ use crate::{
 pub struct Command {
   /// Iteration ID or unique prefix.
   pub id: String,
+  /// Output the iteration as JSON after adding the task.
+  #[arg(short, long, conflicts_with = "quiet")]
+  pub json: bool,
+  /// Output only the iteration ID.
+  #[arg(short, long, conflicts_with = "json")]
+  pub quiet: bool,
   /// Task ID or unique prefix to add.
   pub task_id: String,
 }
@@ -26,8 +32,15 @@ impl Command {
     let task_ref = format!("tasks/{task_id}");
     store::add_iteration_task(config, &iteration_id, &task_ref)?;
 
-    let msg = format!("Added task {} to iteration {}", task_id, iteration_id);
-    println!("{}", SuccessMessage::new(&msg, theme));
+    if self.json {
+      let iteration = store::read_iteration(config, &iteration_id)?;
+      println!("{}", serde_json::to_string_pretty(&iteration)?);
+    } else if self.quiet {
+      println!("{iteration_id}");
+    } else {
+      let msg = format!("Added task {} to iteration {}", task_id, iteration_id);
+      println!("{}", SuccessMessage::new(&msg, theme));
+    }
     Ok(())
   }
 }
@@ -53,6 +66,8 @@ mod tests {
 
       let cmd = Command {
         id: "zyxw".to_string(),
+        json: false,
+        quiet: false,
         task_id: "kkkk".to_string(),
       };
       cmd.call(&ctx).unwrap();
@@ -72,6 +87,8 @@ mod tests {
 
       let cmd = Command {
         id: "zyxw".to_string(),
+        json: false,
+        quiet: false,
         task_id: "kkkk".to_string(),
       };
       cmd.call(&ctx).unwrap();

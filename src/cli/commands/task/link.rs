@@ -4,22 +4,29 @@ use crate::{
   action,
   cli::{self, AppContext},
   model::{Task, link::RelationshipType},
+  store,
   ui::composites::success_message::SuccessMessage,
 };
 
 /// Create a relationship between a task and another task or artifact.
 #[derive(Debug, Args)]
 pub struct Command {
+  /// Target is an artifact instead of a task (no reciprocal link is created).
+  #[arg(long)]
+  pub artifact: bool,
   /// Source task ID or unique prefix.
   pub id: String,
+  /// Output the task as JSON after linking.
+  #[arg(short, long, conflicts_with = "quiet")]
+  pub json: bool,
+  /// Output only the task ID.
+  #[arg(short, long, conflicts_with = "json")]
+  pub quiet: bool,
   /// Relationship type (e.g. blocks, blocked-by, relates-to).
   #[arg(value_enum)]
   pub rel: RelationshipType,
   /// Target task or artifact ID or unique prefix.
   pub target_id: String,
-  /// Target is an artifact instead of a task (no reciprocal link is created).
-  #[arg(long)]
-  pub artifact: bool,
 }
 
 impl Command {
@@ -30,8 +37,15 @@ impl Command {
 
     let (id, target_id) = action::link::link::<Task>(config, &self.id, &self.target_id, &self.rel, self.artifact)?;
 
-    let msg = format!("Linked {} --{}--\u{003e} {}", id.short(), self.rel, target_id.short());
-    println!("{}", SuccessMessage::new(&msg, theme));
+    if self.json {
+      let task = store::read_task(config, &id)?;
+      println!("{}", serde_json::to_string_pretty(&task)?);
+    } else if self.quiet {
+      println!("{id}");
+    } else {
+      let msg = format!("Linked {} --{}--\u{003e} {}", id.short(), self.rel, target_id.short());
+      println!("{}", SuccessMessage::new(&msg, theme));
+    }
     Ok(())
   }
 }
@@ -62,18 +76,22 @@ mod tests {
       store::write_task(&ctx.settings, &target2).unwrap();
 
       let cmd1 = Command {
+        artifact: false,
         id: "zyxw".to_string(),
+        json: false,
+        quiet: false,
         rel: RelationshipType::Blocks,
         target_id: "kkkk".to_string(),
-        artifact: false,
       };
       cmd1.call(&ctx).unwrap();
 
       let cmd2 = Command {
+        artifact: false,
         id: "zyxw".to_string(),
+        json: false,
+        quiet: false,
         rel: RelationshipType::RelatesTo,
         target_id: "nnnn".to_string(),
-        artifact: false,
       };
       cmd2.call(&ctx).unwrap();
 
@@ -92,10 +110,12 @@ mod tests {
       store::write_artifact(&ctx.settings, &target).unwrap();
 
       let cmd = Command {
+        artifact: true,
         id: "zyxw".to_string(),
+        json: false,
+        quiet: false,
         rel: RelationshipType::RelatesTo,
         target_id: "kkkk".to_string(),
-        artifact: true,
       };
       cmd.call(&ctx).unwrap();
 
@@ -114,10 +134,12 @@ mod tests {
       store::write_task(&ctx.settings, &target).unwrap();
 
       let cmd = Command {
+        artifact: false,
         id: "zyxw".to_string(),
+        json: false,
+        quiet: false,
         rel: RelationshipType::Blocks,
         target_id: "kkkk".to_string(),
-        artifact: false,
       };
       cmd.call(&ctx).unwrap();
 

@@ -4,22 +4,29 @@ use crate::{
   action,
   cli::{self, AppContext},
   model::{Iteration, link::RelationshipType},
+  store,
   ui::composites::success_message::SuccessMessage,
 };
 
 /// Create a relationship between an iteration and another entity.
 #[derive(Debug, Args)]
 pub struct Command {
+  /// Target is an artifact instead of an iteration.
+  #[arg(long)]
+  pub artifact: bool,
   /// Iteration ID or unique prefix.
   pub id: String,
+  /// Output the iteration as JSON after linking.
+  #[arg(short, long, conflicts_with = "quiet")]
+  pub json: bool,
+  /// Output only the iteration ID.
+  #[arg(short, long, conflicts_with = "json")]
+  pub quiet: bool,
   /// Relationship type (e.g. blocks, blocked-by, relates-to).
   #[arg(value_enum)]
   pub rel: RelationshipType,
   /// Target iteration or artifact ID or unique prefix.
   pub target_id: String,
-  /// Target is an artifact instead of an iteration.
-  #[arg(long)]
-  pub artifact: bool,
 }
 
 impl Command {
@@ -30,8 +37,15 @@ impl Command {
 
     let (id, target_id) = action::link::link::<Iteration>(config, &self.id, &self.target_id, &self.rel, self.artifact)?;
 
-    let msg = format!("Linked {} --{}--\u{003e} {}", id, self.rel, target_id);
-    println!("{}", SuccessMessage::new(&msg, theme));
+    if self.json {
+      let iteration = store::read_iteration(config, &id)?;
+      println!("{}", serde_json::to_string_pretty(&iteration)?);
+    } else if self.quiet {
+      println!("{id}");
+    } else {
+      let msg = format!("Linked {} --{}--\u{003e} {}", id, self.rel, target_id);
+      println!("{}", SuccessMessage::new(&msg, theme));
+    }
     Ok(())
   }
 }
@@ -59,10 +73,12 @@ mod tests {
       store::write_artifact(&ctx.settings, &target).unwrap();
 
       let cmd = Command {
+        artifact: true,
         id: "zyxw".to_string(),
+        json: false,
+        quiet: false,
         rel: RelationshipType::RelatesTo,
         target_id: "kkkk".to_string(),
-        artifact: true,
       };
       cmd.call(&ctx).unwrap();
 
@@ -81,10 +97,12 @@ mod tests {
       store::write_iteration(&ctx.settings, &target).unwrap();
 
       let cmd = Command {
+        artifact: false,
         id: "zyxw".to_string(),
+        json: false,
+        quiet: false,
         rel: RelationshipType::RelatesTo,
         target_id: "kkkk".to_string(),
-        artifact: false,
       };
       cmd.call(&ctx).unwrap();
 
