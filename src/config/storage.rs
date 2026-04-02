@@ -105,38 +105,30 @@ impl Settings {
   /// `<data_dir>/<path_hash(cwd)>`.
   pub fn resolve_project_dir(&self, cwd: &Path) -> Result<PathBuf, Error> {
     if let Ok(path) = super::env::GEST_PROJECT_DIR.value() {
-      if path.is_absolute() && path.is_dir() {
-        log::debug!("$GEST_PROJECT_DIR is set");
-        log::trace!("project directory resolved to {}", path.display());
-        return Ok(path);
-      } else if path.is_absolute() && !path.exists() {
-        log::debug!("$GEST_PROJECT_DIR is set to a non-existent path");
-        log::trace!("project directory resolved to {}", path.display());
-        return Ok(path);
-      } else if path.is_dir() {
+      if !path.is_absolute() {
         log::debug!("$GEST_PROJECT_DIR is set, but is not an absolute path");
         log::warn!("$GEST_PROJECT_DIR must be an absolute path");
         log::trace!("ignoring $GEST_PROJECT_DIR: {}", path.display());
-      } else if path.is_absolute() {
+      } else if path.is_file() {
         return Err(Error::NotADirectory(path));
+      } else {
+        log::debug!("$GEST_PROJECT_DIR is set");
+        log::trace!("project directory resolved to {}", path.display());
+        return Ok(path);
       }
     }
 
     if let Some(path) = &self.project_dir {
-      if path.is_absolute() && path.is_dir() {
-        log::debug!("config specifies storage.project_dir");
-        log::trace!("project directory resolved to {}", path.display());
-        return Ok(path.clone());
-      } else if path.is_absolute() && !path.exists() {
-        log::debug!("config specifies storage.project_dir as a non-existent path");
-        log::trace!("project directory resolved to {}", path.display());
-        return Ok(path.clone());
-      } else if path.is_dir() {
+      if !path.is_absolute() {
         log::debug!("config specifies project_dir, but is not an absolute path");
         log::warn!("storage.project_dir must be an absolute path");
         log::trace!("ignoring storage.project_dir: {}", path.display());
-      } else if path.is_absolute() {
+      } else if path.is_file() {
         return Err(Error::NotADirectory(path.clone()));
+      } else {
+        log::debug!("config specifies storage.project_dir");
+        log::trace!("project directory resolved to {}", path.display());
+        return Ok(path.clone());
       }
     }
 
@@ -399,6 +391,18 @@ mod tests {
           assert_eq!(
             settings.resolve_project_dir(&std::env::current_dir().unwrap()).unwrap(),
             tmp.path().to_path_buf()
+          );
+        })
+      }
+
+      #[test]
+      fn it_accepts_non_existent_absolute_path_from_env() {
+        with_var("GEST_PROJECT_DIR", Some("/tmp/gest-nonexistent-project-dir"), || {
+          let settings = Settings::default();
+
+          assert_eq!(
+            settings.resolve_project_dir(&std::env::current_dir().unwrap()).unwrap(),
+            PathBuf::from("/tmp/gest-nonexistent-project-dir")
           );
         })
       }
