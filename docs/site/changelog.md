@@ -2,6 +2,53 @@
 
 What's new in gest — told version by version.
 
+## v0.4.2
+
+<span style="opacity: 0.5">2026-04-02</span>
+
+### Ergonomics Everywhere
+
+This release is all about reducing friction. Nearly every common workflow got shorter.
+
+**Command aliases** let you move faster: `gest t` instead of `gest task`, `gest a` for `gest artifact`,
+`gest i` for `gest iteration`, `gest grep` for `gest search`. Subcommands gained natural aliases too —
+`new`, `ls`, `view`, `edit`, and `rm` all work where you'd expect. Top-level `u` and `s` shortcuts
+round out `undo` and `serve`.
+
+**Lifecycle shortcuts** — `task complete`, `task cancel`, and `task block` — handle the most common
+status transitions in a single command instead of `task update --status`.
+
+**Tags got simpler.** A unified `--tag` flag works on both create and update commands, and tag/untag
+commands accept comma-separated values (`gest task tag <id> rust,cli`) so you can apply multiple tags
+in one shot.
+
+### Machine-Readable Output
+
+Every mutation command now accepts `--json` for structured output and `-q` for bare IDs — making gest
+a first-class citizen in shell pipelines and automation scripts. `meta get` gained `--json` and `--raw`
+variants for programmatic value access.
+
+### Batch and Pipeline Support
+
+The new `--batch` flag reads NDJSON from stdin to create multiple tasks or artifacts in a single
+invocation. Body and description fields can also be piped from stdin implicitly, so `echo "notes" |
+gest task create "my task"` just works.
+
+Create commands gained `-i`/`--iteration` to add the new entity to an iteration inline, and `task
+create` supports `-l`/`--link` for creating relationships at creation time — no follow-up commands
+needed.
+
+### Search Paging
+
+Search output is now paged through `$PAGER` (falling back to `less -R`) when stdout is a terminal.
+Piped and redirected output bypasses the pager automatically.
+
+### Under the Hood
+
+Entity operations are now backed by generic trait-based action functions, and catch-all error variants
+have been replaced with domain-specific types that produce clearer diagnostics. Tag list tables now
+render with proper theme formatting.
+
 ## v0.4.1
 
 <span style="opacity: 0.5">2026-04-01</span>

@@ -7,6 +7,36 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [v0.4.2] - 2026-04-02
+
+### Added
+
+- Command aliases for faster navigation: top-level shortcuts (`a`, `t`, `i`, `grep`), subcommand
+  aliases (`new`, `ls`, `view`, `edit`, `rm`), and single-letter aliases (`u` for undo, `s` for
+  serve)
+- `task complete`, `task cancel`, and `task block` shortcut commands for common lifecycle transitions
+- `--json` and `-q` output flags on all mutation commands (create, update, status, tag, untag, link,
+  meta set, note) for machine-readable and script-friendly output
+- `--json` and `--raw` flags on `meta get` for structured and raw value output
+- `--batch` flag on create commands for NDJSON bulk creation of tasks and artifacts via stdin
+- `-i`/`--iteration` flag on create commands to add new entities to an iteration inline
+- `-l`/`--link` flag on `task create` for inline link creation (e.g. `--link blocks:abc`)
+- Implicit stdin support for body and description fields — pipe content directly without flags
+- Unified `--tag` flag on create and update commands and comma-separated positional tags on tag/untag
+  commands (e.g. `gest task tag <id> rust,cli`)
+- Search output is now paged through `$PAGER` (falling back to `less -R`) when stdout is a terminal
+- `-j` short flag for `--json` on `task note list` and `task note show`
+
+### Changed
+
+- Consolidated entity operations behind generic trait-based action functions, reducing duplication
+  across task, artifact, and iteration command handlers
+- Replaced catch-all error variants with domain-specific error types for clearer diagnostics
+
+### Fixed
+
+- Tag list table now renders with themed formatting
+
 ## [v0.4.1] - 2026-04-01
 
 ### Added
@@ -227,7 +257,7 @@ Initial release
 [#23]: https://github.com/aaronmallen/gest/issues/23
 [#24]: https://github.com/aaronmallen/gest/issues/24
 
-[Unreleased]: https://github.com/aaronmallen/gest/compare/0.4.1...main
+[Unreleased]: https://github.com/aaronmallen/gest/compare/0.4.2...main
 [v0.2.0]: https://github.com/aaronmallen/gest/compare/0.1.0...0.2.0
 [v0.2.1]: https://github.com/aaronmallen/gest/compare/0.2.0...0.2.1
 [v0.2.2]: https://github.com/aaronmallen/gest/compare/0.2.1...0.2.2
@@ -240,3 +270,4 @@ Initial release
 [v0.3.5]: https://github.com/aaronmallen/gest/compare/0.3.4...0.3.5
 [v0.4.0]: https://github.com/aaronmallen/gest/compare/0.3.5...0.4.0
 [v0.4.1]: https://github.com/aaronmallen/gest/compare/0.4.0...0.4.1
+[v0.4.2]: https://github.com/aaronmallen/gest/compare/0.4.1...0.4.2
