@@ -26,7 +26,9 @@ pub struct Command {
 impl Command {
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
     if self.claim && self.agent.is_none() {
-      return Err(cli::Error::generic("--agent is required when --claim is used"));
+      return Err(cli::Error::InvalidInput(
+        "--agent is required when --claim is used".into(),
+      ));
     }
 
     let config = &ctx.settings;
@@ -35,7 +37,7 @@ impl Command {
 
     let task = match store::next_available_task(config, &id)? {
       Some(t) => t,
-      None => return Err(cli::Error::no_result("no available tasks")),
+      None => return Err(cli::Error::NoResult("no available tasks".into())),
     };
 
     let task = if self.claim {

@@ -208,7 +208,7 @@ pub fn set_dot_path<T: MetaTable>(table: &mut T, path: &str, value: &str) -> sup
   let segments: Vec<&str> = path.split('.').collect();
 
   if segments.len() > MAX_DEPTH {
-    return Err(super::Error::generic(format!(
+    return Err(super::Error::InvalidFormat(format!(
       "key path exceeds maximum depth of {MAX_DEPTH} segments"
     )));
   }

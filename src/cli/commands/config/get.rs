@@ -24,14 +24,14 @@ impl Command {
 /// Walk the serialized settings tree using dot-separated path segments.
 fn resolve_key(settings: &Settings, key: &str) -> cli::Result<String> {
   let json =
-    serde_json::to_value(settings).map_err(|e| cli::Error::generic(format!("Failed to serialize config: {e}")))?;
+    serde_json::to_value(settings).map_err(|e| cli::Error::Runtime(format!("Failed to serialize config: {e}")))?;
   let mut current = &json;
 
   for segment in key.split('.') {
     match current.get(segment) {
       Some(v) => current = v,
       None => {
-        return Err(cli::Error::generic(format!("Unknown config key: '{key}'")));
+        return Err(cli::Error::NotFound(format!("Unknown config key: '{key}'")));
       }
     }
   }

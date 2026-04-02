@@ -39,14 +39,14 @@ impl Command {
       let content = std::fs::read_to_string(&config_path)?;
       content
         .parse::<Value>()
-        .map_err(|e| cli::Error::generic(format!("Failed to parse config: {e}")))?
+        .map_err(|e| cli::Error::Runtime(format!("Failed to parse config: {e}")))?
     } else {
       Value::Table(Table::new())
     };
 
     let table = toml_value
       .as_table_mut()
-      .ok_or_else(|| cli::Error::generic("Config root is not a TOML table"))?;
+      .ok_or_else(|| cli::Error::InvalidInput("Config root is not a TOML table".into()))?;
     store::meta::set_dot_path(table, &self.key, &self.value)?;
 
     if let Some(parent) = config_path.parent() {
@@ -54,7 +54,7 @@ impl Command {
     }
 
     let content =
-      toml::to_string_pretty(&toml_value).map_err(|e| cli::Error::generic(format!("Failed to serialize: {e}")))?;
+      toml::to_string_pretty(&toml_value).map_err(|e| cli::Error::Runtime(format!("Failed to serialize: {e}")))?;
     std::fs::write(&config_path, content)?;
 
     let scope_label = match scope {
@@ -97,7 +97,9 @@ fn resolve_config_path(scope: &Scope) -> cli::Result<PathBuf> {
         }
         return Ok(config_dir.join("config.toml"));
       }
-      Err(cli::Error::generic("Unable to determine global config directory"))
+      Err(cli::Error::Runtime(
+        "Unable to determine global config directory".into(),
+      ))
     }
     Scope::Project => {
       let cwd = std::env::current_dir()?;

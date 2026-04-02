@@ -148,11 +148,11 @@ pub fn write_artifact(config: &Settings, artifact: &Artifact) -> super::Result<(
 fn parse_artifact_file(content: &str) -> super::Result<Artifact> {
   let content = content
     .strip_prefix("---\n")
-    .ok_or_else(|| Error::generic("Artifact file missing opening frontmatter delimiter"))?;
+    .ok_or_else(|| Error::InvalidFormat("Artifact file missing opening frontmatter delimiter".into()))?;
 
   let end = content
     .find("\n---\n")
-    .ok_or_else(|| Error::generic("Artifact file missing closing frontmatter delimiter"))?;
+    .ok_or_else(|| Error::InvalidFormat("Artifact file missing closing frontmatter delimiter".into()))?;
 
   let yaml = &content[..end];
   let rest = &content[end + 5..];

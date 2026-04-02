@@ -33,7 +33,7 @@ impl Command {
     let config = &ctx.settings;
     let theme = &ctx.theme;
     let status = match &self.status {
-      Some(s) => s.parse::<Status>().map_err(cli::Error::generic)?,
+      Some(s) => s.parse::<Status>().map_err(cli::Error::InvalidInput)?,
       None => Status::Active,
     };
 

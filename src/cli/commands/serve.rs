@@ -33,13 +33,13 @@ impl Command {
       settings: ctx.settings.clone(),
     };
 
-    let rt = tokio::runtime::Runtime::new().map_err(|e| cli::Error::generic(e.to_string()))?;
+    let rt = tokio::runtime::Runtime::new().map_err(|e| cli::Error::Runtime(e.to_string()))?;
     rt.block_on(async {
       let app = crate::server::router(state);
       let addr = std::net::SocketAddr::from((bind_address, port));
       let listener = tokio::net::TcpListener::bind(addr)
         .await
-        .map_err(|e| cli::Error::generic(e.to_string()))?;
+        .map_err(|e| cli::Error::Runtime(e.to_string()))?;
 
       let url = format!("http://{bind_address}:{port}");
       let msg = SuccessMessage::new(format!("listening on {url}"), &ctx.theme);
@@ -51,7 +51,7 @@ impl Command {
 
       axum::serve(listener, app)
         .await
-        .map_err(|e| cli::Error::generic(e.to_string()))
+        .map_err(|e| cli::Error::Runtime(e.to_string()))
     })
   }
 }

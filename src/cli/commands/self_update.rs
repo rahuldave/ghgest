@@ -27,13 +27,13 @@ impl Command {
       .repo_owner(REPO_OWNER)
       .repo_name(REPO_NAME)
       .build()
-      .map_err(|e| cli::Error::generic(e.to_string()))?
+      .map_err(|e| cli::Error::Runtime(e.to_string()))?
       .fetch()
-      .map_err(|e| cli::Error::generic(e.to_string()))?;
+      .map_err(|e| cli::Error::Runtime(e.to_string()))?;
 
     let latest = releases
       .first()
-      .ok_or_else(|| cli::Error::generic("no releases found on GitHub"))?;
+      .ok_or_else(|| cli::Error::Runtime("no releases found on GitHub".into()))?;
 
     let target_version = self.target.as_deref().unwrap_or(&latest.version);
 
@@ -66,9 +66,9 @@ impl Command {
       .current_version(CURRENT_VERSION)
       .no_confirm(true)
       .build()
-      .map_err(|e| cli::Error::generic(e.to_string()))?
+      .map_err(|e| cli::Error::Runtime(e.to_string()))?
       .update()
-      .map_err(|e| cli::Error::generic(e.to_string()))?;
+      .map_err(|e| cli::Error::Runtime(e.to_string()))?;
 
     let msg = format!("Updated to version {}", status.version());
     println!("{}", SuccessMessage::new(&msg, &ctx.theme));

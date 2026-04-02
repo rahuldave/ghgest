@@ -53,7 +53,7 @@ pub fn read_entity_file<T>(
     log::debug!("reading {secondary_log_label} {entity_label} {id}");
     secondary
   } else {
-    return Err(super::Error::generic(format!("{entity_label} not found: '{id}'")));
+    return Err(super::Error::NotFound(format!("{entity_label} not found: '{id}'")));
   };
 
   log::trace!("reading {entity_label} from {}", path.display());

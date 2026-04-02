@@ -32,7 +32,7 @@ impl Command {
       .iter()
       .find(|n| n.id.to_string().starts_with(&self.note_id))
       .ok_or_else(|| {
-        cli::Error::generic(format!(
+        cli::Error::NotFound(format!(
           "Note matching '{}' not found on task {}",
           self.note_id, task_id
         ))
@@ -46,7 +46,7 @@ impl Command {
     };
 
     if body.trim().is_empty() {
-      return Err(cli::Error::generic("Aborting: empty note body"));
+      return Err(cli::Error::InvalidInput("Aborting: empty note body".into()));
     }
 
     let patch = NotePatch {

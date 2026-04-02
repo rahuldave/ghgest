@@ -23,7 +23,7 @@ impl Command {
 
     let root = toml::Value::Table(iteration.metadata);
     let value = store::meta::resolve_dot_path(&root, &self.path)
-      .ok_or_else(|| cli::Error::generic(format!("Metadata key not found: '{}'", self.path)))?;
+      .ok_or_else(|| cli::Error::NotFound(format!("Metadata key not found: '{}'", self.path)))?;
 
     store::meta::print_toml_value(value);
     Ok(())

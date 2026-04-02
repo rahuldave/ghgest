@@ -90,12 +90,12 @@ pub(crate) fn resolve_id(
   include_secondary: bool,
   hint: &str,
 ) -> super::Result<Id> {
-  Id::validate_prefix(prefix).map_err(Error::generic)?;
+  Id::validate_prefix(prefix).map_err(Error::InvalidId)?;
 
   match collect_prefix_matches(primary_dir, extension, prefix)? {
-    PrefixMatch::Unique(id) => return id.parse().map_err(|e: String| Error::generic(e)),
+    PrefixMatch::Unique(id) => return id.parse().map_err(|e: String| Error::InvalidId(e)),
     PrefixMatch::Ambiguous(a, b) => {
-      return Err(Error::generic(format!(
+      return Err(Error::AmbiguousId(format!(
         "Ambiguous ID prefix '{prefix}', matches: {a}, {b}"
       )));
     }
@@ -104,9 +104,9 @@ pub(crate) fn resolve_id(
 
   if include_secondary && let Some(secondary) = secondary_dir {
     match collect_prefix_matches(secondary, extension, prefix)? {
-      PrefixMatch::Unique(id) => return id.parse().map_err(|e: String| Error::generic(e)),
+      PrefixMatch::Unique(id) => return id.parse().map_err(|e: String| Error::InvalidId(e)),
       PrefixMatch::Ambiguous(a, b) => {
-        return Err(Error::generic(format!(
+        return Err(Error::AmbiguousId(format!(
           "Ambiguous ID prefix '{prefix}', matches: {a}, {b}"
         )));
       }
@@ -118,7 +118,7 @@ pub(crate) fn resolve_id(
   if !include_secondary {
     msg.push_str(" (try --all)");
   }
-  Err(Error::generic(msg))
+  Err(Error::NotFound(msg))
 }
 
 /// Generate a new [`Id`] that does not collide (by short prefix) with any
@@ -156,9 +156,7 @@ pub(crate) fn next_id(config: &Settings) -> super::Result<Id> {
     }
   }
 
-  Err(super::Error::generic(format!(
-    "failed to generate a unique ID after {MAX_ID_ATTEMPTS} attempts"
-  )))
+  Err(super::Error::IdExhausted(MAX_ID_ATTEMPTS))
 }
 
 /// Check whether any file in `dir` with the given extension has a stem starting with `prefix`.

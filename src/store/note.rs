@@ -30,7 +30,7 @@ pub fn delete_note(config: &Settings, task_id: &Id, note_id: &Id) -> super::Resu
   let len_before = task.notes.len();
   task.notes.retain(|n| n.id != *note_id);
   if task.notes.len() == len_before {
-    return Err(super::Error::generic(format!(
+    return Err(super::Error::NotFound(format!(
       "Note {note_id} not found on task {task_id}"
     )));
   }
@@ -55,7 +55,7 @@ pub fn read_note(config: &Settings, task_id: &Id, note_id: &Id) -> super::Result
     .notes
     .into_iter()
     .find(|n| n.id == *note_id)
-    .ok_or_else(|| super::Error::generic(format!("Note {note_id} not found on task {task_id}")))
+    .ok_or_else(|| super::Error::NotFound(format!("Note {note_id} not found on task {task_id}")))
 }
 
 /// Update an existing note on a task.
@@ -65,7 +65,7 @@ pub fn update_note(config: &Settings, task_id: &Id, note_id: &Id, patch: NotePat
     .notes
     .iter_mut()
     .find(|n| n.id == *note_id)
-    .ok_or_else(|| super::Error::generic(format!("Note {note_id} not found on task {task_id}")))?;
+    .ok_or_else(|| super::Error::NotFound(format!("Note {note_id} not found on task {task_id}")))?;
 
   if let Some(body) = patch.body {
     note.body = body;

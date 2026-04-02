@@ -29,14 +29,15 @@ impl Command {
 
     let body = crate::cli::helpers::read_from_editor(self.body.as_deref(), ".md", "Aborting: empty note body")?;
     if body.trim().is_empty() {
-      return Err(cli::Error::generic("Aborting: empty note body"));
+      return Err(cli::Error::InvalidInput("Aborting: empty note body".into()));
     }
 
     let (author, author_email, author_type) = if let Some(agent_name) = &self.agent {
       (agent_name.clone(), None, AuthorType::Agent)
     } else {
-      let git_author = crate::cli::git::resolve_author()
-        .ok_or_else(|| cli::Error::generic("Could not resolve git user.name; use --agent for agent attribution"))?;
+      let git_author = crate::cli::git::resolve_author().ok_or_else(|| {
+        cli::Error::InvalidInput("Could not resolve git user.name; use --agent for agent attribution".into())
+      })?;
       (git_author.name, git_author.email, AuthorType::Human)
     };
 

@@ -21,7 +21,7 @@ impl Command {
   /// Reverse the N most recent non-undone transactions by restoring file snapshots.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
     let store = EventStore::open(ctx.settings.storage().state_dir())
-      .map_err(|e| cli::Error::generic(format!("failed to open event store: {e}")))?;
+      .map_err(|e| cli::Error::EventStore(format!("failed to open event store: {e}")))?;
 
     let project_id = capture::project_id(&ctx.settings);
     let project_dir = ctx.settings.storage().project_dir();
@@ -30,7 +30,7 @@ impl Command {
     for _ in 0..self.steps {
       let tx = store
         .latest_undoable(&project_id)
-        .map_err(|e| cli::Error::generic(format!("failed to query event store: {e}")))?;
+        .map_err(|e| cli::Error::EventStore(format!("failed to query event store: {e}")))?;
 
       let Some(tx) = tx else {
         break;
@@ -40,7 +40,7 @@ impl Command {
 
       store
         .mark_undone(&tx.id)
-        .map_err(|e| cli::Error::generic(format!("failed to mark transaction undone: {e}")))?;
+        .map_err(|e| cli::Error::EventStore(format!("failed to mark transaction undone: {e}")))?;
 
       let file_count = tx.events.len();
       let files_word = if file_count == 1 { "file" } else { "files" };
@@ -52,7 +52,7 @@ impl Command {
     }
 
     if undone == 0 {
-      return Err(cli::Error::no_result("Nothing to undo"));
+      return Err(cli::Error::NoResult("Nothing to undo".into()));
     }
 
     Ok(())

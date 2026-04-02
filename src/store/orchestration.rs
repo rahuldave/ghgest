@@ -57,7 +57,7 @@ pub fn advance_phase(config: &Settings, id: &Id, force: bool) -> super::Result<A
 
   let from_phase = match active {
     Some(p) => p,
-    None => return Err(super::Error::generic("no active phase to advance")),
+    None => return Err(super::Error::PhaseAdvance("no active phase to advance".into())),
   };
 
   let remaining = tasks
@@ -66,7 +66,7 @@ pub fn advance_phase(config: &Settings, id: &Id, force: bool) -> super::Result<A
     .count();
 
   if remaining > 0 && !force {
-    return Err(super::Error::generic(format!(
+    return Err(super::Error::PhaseAdvance(format!(
       "phase {from_phase} has {remaining} non-terminal task(s); use force to advance anyway"
     )));
   }

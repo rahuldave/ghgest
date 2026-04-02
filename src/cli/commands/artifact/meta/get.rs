@@ -23,7 +23,7 @@ impl Command {
 
     let root = yaml_serde::Value::Mapping(artifact.metadata);
     let value = store::artifact_meta::resolve_dot_path(&root, &self.path)
-      .ok_or_else(|| cli::Error::generic(format!("Metadata key not found: '{}'", self.path)))?;
+      .ok_or_else(|| cli::Error::NotFound(format!("Metadata key not found: '{}'", self.path)))?;
 
     store::artifact_meta::print_yaml_value(value);
     Ok(())

@@ -49,8 +49,9 @@ impl Command {
     let title = if let Some(ref t) = self.title {
       t.clone()
     } else {
-      extract_title(&body)
-        .ok_or_else(|| cli::Error::generic("No title found: body has no `# ` heading and no --title provided"))?
+      extract_title(&body).ok_or_else(|| {
+        cli::Error::InvalidInput("No title found: body has no `# ` heading and no --title provided".into())
+      })?
     };
 
     let new = NewArtifact {

@@ -31,22 +31,25 @@ pub struct ResolvedEntity {
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
   #[error("{0}")]
-  Generic(String),
+  AmbiguousId(String),
+  #[error("failed to generate a unique ID after {0} attempts")]
+  IdExhausted(usize),
+  #[error("{0}")]
+  InvalidFormat(String),
+  #[error("{0}")]
+  InvalidId(String),
   #[error(transparent)]
   Io(#[from] io::Error),
+  #[error("{0}")]
+  NotFound(String),
+  #[error("{0}")]
+  PhaseAdvance(String),
   #[error(transparent)]
   TomlDe(#[from] toml::de::Error),
   #[error(transparent)]
   TomlSer(#[from] toml::ser::Error),
   #[error(transparent)]
   Yaml(#[from] yaml_serde::Error),
-}
-
-impl Error {
-  /// Construct a free-form error from any string-like message.
-  pub fn generic(msg: impl Into<String>) -> Self {
-    Self::Generic(msg.into())
-  }
 }
 
 /// Convenience alias for store operations.
@@ -133,7 +136,7 @@ pub fn list_tags(
 ///
 /// Resolved/archived entities are always included in the search.
 pub fn resolve_any_id(config: &Settings, prefix: &str) -> Result<ResolvedEntity> {
-  Id::validate_prefix(prefix).map_err(Error::generic)?;
+  Id::validate_prefix(prefix).map_err(Error::InvalidId)?;
 
   let mut matches: Vec<(EntityType, Id)> = Vec::new();
 
@@ -148,7 +151,7 @@ pub fn resolve_any_id(config: &Settings, prefix: &str) -> Result<ResolvedEntity>
   }
 
   match matches.len() {
-    0 => Err(Error::generic(format!("No entity found matching '{prefix}'"))),
+    0 => Err(Error::NotFound(format!("No entity found matching '{prefix}'"))),
     1 => {
       let (entity_type, id) = matches.remove(0);
       Ok(ResolvedEntity {
@@ -158,7 +161,7 @@ pub fn resolve_any_id(config: &Settings, prefix: &str) -> Result<ResolvedEntity>
     }
     _ => {
       let types: Vec<String> = matches.iter().map(|(et, id)| format!("{et} ({id})")).collect();
-      Err(Error::generic(format!(
+      Err(Error::AmbiguousId(format!(
         "Ambiguous ID prefix '{prefix}' matches multiple entity types: {}",
         types.join(", ")
       )))

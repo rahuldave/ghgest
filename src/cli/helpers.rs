@@ -42,7 +42,10 @@ where
   T::Err: Display,
 {
   raw
-    .map(|s| s.parse::<T>().map_err(|e| crate::cli::Error::generic(e.to_string())))
+    .map(|s| {
+      s.parse::<T>()
+        .map_err(|e| crate::cli::Error::InvalidInput(e.to_string()))
+    })
     .transpose()
 }
 
@@ -66,7 +69,7 @@ pub fn read_from_editor(
   {
     let content = crate::cli::editor::edit_temp(None, file_extension)?;
     if content.trim().is_empty() {
-      return Err(crate::cli::Error::generic(abort_message));
+      return Err(crate::cli::Error::InvalidInput(abort_message.into()));
     }
     return Ok(content);
   }
@@ -82,7 +85,7 @@ pub fn split_key_value_pairs(pairs: &[String]) -> crate::cli::Result<Vec<(String
       pair
         .split_once('=')
         .map(|(k, v)| (k.to_string(), v.to_string()))
-        .ok_or_else(|| crate::cli::Error::generic(format!("Invalid metadata format '{pair}', expected key=value")))
+        .ok_or_else(|| crate::cli::Error::InvalidInput(format!("Invalid metadata format '{pair}', expected key=value")))
     })
     .collect()
 }

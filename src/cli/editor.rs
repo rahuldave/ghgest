@@ -18,7 +18,7 @@ pub fn edit_temp(initial_content: Option<&str>, suffix: &str) -> crate::cli::Res
 /// Open the user's preferred editor (`$VISUAL` or `$EDITOR`) on the given path.
 pub fn open_editor(path: &Path) -> crate::cli::Result<()> {
   let editor =
-    resolve_editor().ok_or_else(|| crate::cli::Error::generic("No editor configured ($VISUAL or $EDITOR)"))?;
+    resolve_editor().ok_or_else(|| crate::cli::Error::Editor("No editor configured ($VISUAL or $EDITOR)".into()))?;
   open_editor_with(&editor, path)
 }
 
@@ -33,14 +33,14 @@ pub fn resolve_editor() -> Option<String> {
 
 fn open_editor_with(editor: &str, path: &Path) -> crate::cli::Result<()> {
   let parts = shell_words::split(editor)
-    .map_err(|e| crate::cli::Error::generic(format!("Failed to parse editor command: {e}")))?;
+    .map_err(|e| crate::cli::Error::Editor(format!("Failed to parse editor command: {e}")))?;
   let (program, args) = parts
     .split_first()
-    .ok_or_else(|| crate::cli::Error::generic("Editor command is empty"))?;
+    .ok_or_else(|| crate::cli::Error::Editor("Editor command is empty".into()))?;
   let status = Command::new(program).args(args).arg(path).status()?;
 
   if !status.success() {
-    return Err(crate::cli::Error::generic(format!(
+    return Err(crate::cli::Error::Editor(format!(
       "Editor '{}' exited with {}",
       editor,
       status
