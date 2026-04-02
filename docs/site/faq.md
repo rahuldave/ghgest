@@ -16,7 +16,8 @@ Gest is designed for fast, local, developer-centric tracking -- not team-wide pr
 - **Parallel execution.** Phased iterations with dependency tracking let agents work concurrently across workspaces.
 - **Built-in web dashboard.** `gest serve` gives you a visual overview, kanban boards, and full-text search
   — no external tools needed.
-- **Scriptable.** JSON output (`--json`) on search and list commands makes it easy to integrate with other tools.
+- **Scriptable.** JSON output (`--json`) and quiet mode (`-q`) on all commands make it easy to integrate with other
+  tools.
 
 Gest complements issue trackers rather than replacing them. Use `gest` for in-flight
 development work and promote items to GitHub Issues when they need broader visibility.
@@ -104,6 +105,29 @@ Useful flags:
 - `--json` / `-j` -- emit results as JSON for scripting.
 - `--all` / `-a` -- include archived and resolved items (excluded by default).
 
+## Are there shortcuts for common task operations?
+
+Yes. Gest provides shortcut commands for frequent status changes:
+
+- `gest task complete <id>` — mark a task as done (shortcut for `task update <id> --status done`)
+- `gest task cancel <id>` — cancel a task (shortcut for `task update <id> --status cancelled`)
+- `gest task block <id> <other-id>` — mark one task as blocking another
+  (shortcut for `task link <id> blocks <other-id>`)
+
+All shortcuts support `--json` and `-q` for machine-readable output.
+
+## How do I get machine-readable output?
+
+Most commands support `--json` for structured JSON output. Mutation commands also support `-q` / `--quiet` to print
+only the entity ID, which is useful for scripting:
+
+```sh
+task_id=$(gest task create "My task" -q)
+gest task complete "$task_id" -q
+```
+
+Read commands like `meta get` support `--json` and `--raw` (bare value, no styling).
+
 ## Can multiple people use gest on the same project?
 
 Yes, if you use a local store (`gest init --local`) and commit the `.gest/` directory. Each
@@ -157,5 +181,5 @@ cargo install gest
 Or use the install script with a pinned version:
 
 ```sh
-GEST_VERSION=0.3.0 curl -fsSL https://gest.aaronmallen.dev/install | sh
+GEST_VERSION=0.x.x curl -fsSL https://gest.aaronmallen.dev/install | sh
 ```
