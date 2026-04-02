@@ -142,6 +142,18 @@ pub struct TaskListParams {
 
 // ── Free functions ────────────────────────────────────────────────────────────
 
+/// Return an `Html` error response with the message HTML-escaped to prevent XSS.
+fn error_html(e: &impl std::fmt::Display) -> Html<String> {
+  let msg = e.to_string();
+  let escaped = msg
+    .replace('&', "&amp;")
+    .replace('<', "&lt;")
+    .replace('>', "&gt;")
+    .replace('"', "&quot;")
+    .replace('\'', "&#x27;");
+  Html(format!("<p>error: {escaped}</p>"))
+}
+
 /// Generate a Gravatar URL from an email address using SHA-256.
 fn gravatar_url(email: Option<&str>) -> String {
   use sha2::{Digest, Sha256};
@@ -247,7 +259,7 @@ pub async fn artifact_archive(State(state): State<ServerState>, Path(id_str): Pa
     Ok(()) => Redirect::to("/artifacts").into_response(),
     Err(e) => {
       log::error!("failed to archive artifact {resolved}: {e}");
-      (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response()
+      (StatusCode::INTERNAL_SERVER_ERROR, error_html(&e)).into_response()
     }
   }
 }
@@ -290,7 +302,7 @@ pub async fn artifact_create(State(state): State<ServerState>, Form(form): Form<
     Ok(artifact) => Redirect::to(&format!("/artifacts/{}", artifact.id)).into_response(),
     Err(e) => {
       log::error!("failed to create artifact: {e}");
-      (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response()
+      (StatusCode::INTERNAL_SERVER_ERROR, error_html(&e)).into_response()
     }
   }
 }
@@ -349,7 +361,7 @@ pub async fn artifact_edit_form(State(state): State<ServerState>, Path(id_str): 
     Ok(a) => a,
     Err(e) => {
       log::error!("failed to read artifact {resolved}: {e}");
-      return (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response();
+      return (StatusCode::INTERNAL_SERVER_ERROR, error_html(&e)).into_response();
     }
   };
 
@@ -425,7 +437,7 @@ pub async fn artifact_update(
       Ok(a) => a,
       Err(e) => {
         log::error!("failed to read artifact {resolved}: {e}");
-        return (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response();
+        return (StatusCode::INTERNAL_SERVER_ERROR, error_html(&e)).into_response();
       }
     };
 
@@ -464,7 +476,7 @@ pub async fn artifact_update(
     Ok(_) => Redirect::to(&format!("/artifacts/{}", resolved)).into_response(),
     Err(e) => {
       log::error!("failed to update artifact {resolved}: {e}");
-      (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response()
+      (StatusCode::INTERNAL_SERVER_ERROR, error_html(&e)).into_response()
     }
   }
 }
@@ -518,7 +530,7 @@ pub async fn iteration_board(State(state): State<ServerState>, Path(id_str): Pat
     Ok(it) => it,
     Err(e) => {
       log::error!("failed to read iteration {id}: {e}");
-      return (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response();
+      return (StatusCode::INTERNAL_SERVER_ERROR, error_html(&e)).into_response();
     }
   };
 
@@ -560,7 +572,7 @@ pub async fn iteration_detail(State(state): State<ServerState>, Path(id_str): Pa
     Ok(it) => it,
     Err(e) => {
       log::error!("failed to read iteration {id}: {e}");
-      return (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response();
+      return (StatusCode::INTERNAL_SERVER_ERROR, error_html(&e)).into_response();
     }
   };
 
@@ -671,7 +683,7 @@ pub async fn note_add(
     Ok(_) => Redirect::to(&format!("/tasks/{id}")).into_response(),
     Err(e) => {
       log::error!("failed to add note: {e}");
-      (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response()
+      (StatusCode::INTERNAL_SERVER_ERROR, error_html(&e)).into_response()
     }
   }
 }
@@ -762,7 +774,7 @@ pub async fn task_create(State(state): State<ServerState>, body: Bytes) -> Respo
     Ok(task) => Redirect::to(&format!("/tasks/{}", task.id)).into_response(),
     Err(e) => {
       log::error!("failed to create task: {e}");
-      (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response()
+      (StatusCode::INTERNAL_SERVER_ERROR, error_html(&e)).into_response()
     }
   }
 }
@@ -792,7 +804,7 @@ pub async fn task_detail(State(state): State<ServerState>, Path(id_str): Path<St
     Ok(t) => t,
     Err(e) => {
       log::error!("failed to read task {id}: {e}");
-      return (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response();
+      return (StatusCode::INTERNAL_SERVER_ERROR, error_html(&e)).into_response();
     }
   };
 
@@ -914,7 +926,7 @@ pub async fn task_edit_form(State(state): State<ServerState>, Path(id_str): Path
     Ok(t) => t,
     Err(e) => {
       log::error!("failed to read task {id}: {e}");
-      return (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response();
+      return (StatusCode::INTERNAL_SERVER_ERROR, error_html(&e)).into_response();
     }
   };
 
@@ -944,7 +956,7 @@ pub async fn task_list(State(state): State<ServerState>, Query(params): Query<Ta
     Ok(t) => t,
     Err(e) => {
       log::error!("failed to list tasks: {e}");
-      return (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response();
+      return (StatusCode::INTERNAL_SERVER_ERROR, error_html(&e)).into_response();
     }
   };
 
@@ -1012,7 +1024,7 @@ pub async fn task_update(State(state): State<ServerState>, Path(id_str): Path<St
       Ok(t) => t,
       Err(e) => {
         log::error!("failed to read task {id}: {e}");
-        return (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response();
+        return (StatusCode::INTERNAL_SERVER_ERROR, error_html(&e)).into_response();
       }
     };
 
@@ -1060,7 +1072,7 @@ pub async fn task_update(State(state): State<ServerState>, Path(id_str): Path<St
     }
     Err(e) => {
       log::error!("failed to update task {id}: {e}");
-      (StatusCode::INTERNAL_SERVER_ERROR, Html(format!("<p>error: {e}</p>"))).into_response()
+      (StatusCode::INTERNAL_SERVER_ERROR, error_html(&e)).into_response()
     }
   }
 }
