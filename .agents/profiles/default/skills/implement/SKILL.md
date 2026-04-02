@@ -69,7 +69,7 @@ Invoke `/commit` to create the commit. Reference the issue in the commit footer 
 Mark the task as done:
 
 ```sh
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task update <id> --status done
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task complete <id>
 ```
 
 Then check if the task links to a spec artifact (look for artifact links in the task's `links` field). If it does, query
