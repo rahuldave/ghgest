@@ -1,10 +1,9 @@
-use chrono::Utc;
 use clap::Args;
 
 use crate::{
+  action,
   cli::{self, AppContext},
-  model::link::{Link, RelationshipType},
-  store,
+  model::{Iteration, link::RelationshipType},
   ui::composites::success_message::SuccessMessage,
 };
 
@@ -28,37 +27,8 @@ impl Command {
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
     let config = &ctx.settings;
     let theme = &ctx.theme;
-    let id = store::resolve_iteration_id(config, &self.id, false)?;
 
-    let target_id = if self.artifact {
-      store::resolve_artifact_id(config, &self.target_id, true)?
-    } else {
-      store::resolve_iteration_id(config, &self.target_id, true)?
-    };
-
-    let ref_path = if self.artifact {
-      format!("artifacts/{target_id}")
-    } else {
-      format!("iterations/{target_id}")
-    };
-
-    let mut iteration = store::read_iteration(config, &id)?;
-    iteration.links.push(Link {
-      ref_: ref_path,
-      rel: self.rel.clone(),
-    });
-    iteration.updated_at = Utc::now();
-    store::write_iteration(config, &iteration)?;
-
-    if !self.artifact {
-      let mut target = store::read_iteration(config, &target_id)?;
-      target.links.push(Link {
-        ref_: format!("iterations/{id}"),
-        rel: self.rel.inverse(),
-      });
-      target.updated_at = Utc::now();
-      store::write_iteration(config, &target)?;
-    }
+    let (id, target_id) = action::link::link::<Iteration>(config, &self.id, &self.target_id, &self.rel, self.artifact)?;
 
     let msg = format!("Linked {} --{}--\u{003e} {}", id, self.rel, target_id);
     println!("{}", SuccessMessage::new(&msg, theme));
@@ -69,7 +39,10 @@ impl Command {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::test_helpers::{make_test_artifact, make_test_context, make_test_iteration};
+  use crate::{
+    store,
+    test_helpers::{make_test_artifact, make_test_context, make_test_iteration},
+  };
 
   mod call {
     use pretty_assertions::assert_eq;

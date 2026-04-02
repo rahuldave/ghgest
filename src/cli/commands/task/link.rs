@@ -1,10 +1,9 @@
-use chrono::Utc;
 use clap::Args;
 
 use crate::{
+  action,
   cli::{self, AppContext},
-  model::link::{Link, RelationshipType},
-  store,
+  model::{Task, link::RelationshipType},
   ui::composites::success_message::SuccessMessage,
 };
 
@@ -28,37 +27,8 @@ impl Command {
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
     let config = &ctx.settings;
     let theme = &ctx.theme;
-    let id = store::resolve_task_id(config, &self.id, false)?;
 
-    let target_id = if self.artifact {
-      store::resolve_artifact_id(config, &self.target_id, true)?
-    } else {
-      store::resolve_task_id(config, &self.target_id, true)?
-    };
-
-    let ref_path = if self.artifact {
-      format!("artifacts/{target_id}")
-    } else {
-      format!("tasks/{target_id}")
-    };
-
-    let mut task = store::read_task(config, &id)?;
-    task.links.push(Link {
-      ref_: ref_path,
-      rel: self.rel.clone(),
-    });
-    task.updated_at = Utc::now();
-    store::write_task(config, &task)?;
-
-    if !self.artifact {
-      let mut target_task = store::read_task(config, &target_id)?;
-      target_task.links.push(Link {
-        ref_: format!("tasks/{id}"),
-        rel: self.rel.inverse(),
-      });
-      target_task.updated_at = Utc::now();
-      store::write_task(config, &target_task)?;
-    }
+    let (id, target_id) = action::link::link::<Task>(config, &self.id, &self.target_id, &self.rel, self.artifact)?;
 
     let msg = format!("Linked {} --{}--\u{003e} {}", id.short(), self.rel, target_id.short());
     println!("{}", SuccessMessage::new(&msg, theme));
@@ -71,7 +41,10 @@ mod tests {
   use tempfile::TempDir;
 
   use super::*;
-  use crate::test_helpers::{make_test_artifact, make_test_context, make_test_task};
+  use crate::{
+    store,
+    test_helpers::{make_test_artifact, make_test_context, make_test_task},
+  };
 
   mod call {
     use pretty_assertions::assert_eq;

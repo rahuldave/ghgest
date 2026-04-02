@@ -1,5 +1,6 @@
 //! Action abstraction layer providing entity traits for generic operations.
 
+pub mod link;
 mod tag;
 mod traits;
 mod untag;
