@@ -177,28 +177,6 @@ impl Command {
   }
 }
 
-/// Record filesystem changes to the event store after a command runs.
-///
-/// Opens the event store, begins a transaction, records any changed files,
-/// and rolls back the transaction if nothing actually changed.
-fn record_snapshot(
-  settings: &config::Settings,
-  snapshot: &capture::Snapshot,
-) -> std::result::Result<(), crate::event_store::Error> {
-  let store = crate::event_store::EventStore::open(settings.storage().state_dir())?;
-  let project_id = capture::project_id(settings);
-  let command = capture::command_string();
-  let tx_id = store.begin_transaction(&project_id, &command)?;
-
-  let had_changes = snapshot.record_changes(settings.storage().project_dir(), &store, &tx_id)?;
-  if !had_changes {
-    // No file changes — remove the empty transaction.
-    store.rollback_transaction(&tx_id)?;
-  }
-
-  Ok(())
-}
-
 /// Entry point for the CLI: loads configuration then parses and dispatches the command.
 pub fn run() -> Result<()> {
   let verbosity = pre_parse_verbosity();
@@ -254,6 +232,28 @@ fn long_about() -> String {
 /// Quick pre-parse of verbosity from `std::env::args` so logging is active before full clap parse.
 fn pre_parse_verbosity() -> u8 {
   count_verbosity_flags(std::env::args().skip(1))
+}
+
+/// Record filesystem changes to the event store after a command runs.
+///
+/// Opens the event store, begins a transaction, records any changed files,
+/// and rolls back the transaction if nothing actually changed.
+fn record_snapshot(
+  settings: &config::Settings,
+  snapshot: &capture::Snapshot,
+) -> std::result::Result<(), crate::event_store::Error> {
+  let store = crate::event_store::EventStore::open(settings.storage().state_dir())?;
+  let project_id = capture::project_id(settings);
+  let command = capture::command_string();
+  let tx_id = store.begin_transaction(&project_id, &command)?;
+
+  let had_changes = snapshot.record_changes(settings.storage().project_dir(), &store, &tx_id)?;
+  if !had_changes {
+    // No file changes — remove the empty transaction.
+    store.rollback_transaction(&tx_id)?;
+  }
+
+  Ok(())
 }
 
 #[cfg(test)]

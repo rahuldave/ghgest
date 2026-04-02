@@ -5,8 +5,6 @@ use serde::Serialize;
 /// Maximum number of dot-delimited segments allowed in a key path.
 const MAX_DEPTH: usize = 32;
 
-// ── Traits ──────────────────────────────────────────────────────────────────────────────────────
-
 /// Abstraction over a map-like container (TOML `Table` or YAML `Mapping`).
 pub trait MetaTable: Sized {
   /// The value type stored in this table.
@@ -45,8 +43,6 @@ pub trait MetaValue: Clone + Serialize + std::fmt::Debug {
   /// Print this value to stdout in a human-friendly format.
   fn print(&self);
 }
-
-// ── TOML implementation ─────────────────────────────────────────────────────────────────────────
 
 impl MetaTable for toml::value::Table {
   type Value = toml::Value;
@@ -117,8 +113,6 @@ impl MetaValue for toml::Value {
     }
   }
 }
-
-// ── YAML implementation ─────────────────────────────────────────────────────────────────────────
 
 impl MetaTable for yaml_serde::Mapping {
   type Value = yaml_serde::Value;
@@ -193,8 +187,6 @@ impl MetaValue for yaml_serde::Value {
     }
   }
 }
-
-// ── Generic functions ───────────────────────────────────────────────────────────────────────────
 
 /// Walk a dot-delimited path through nested tables, returning a reference to the leaf value.
 pub fn resolve_dot_path<'a, V: MetaValue>(root: &'a V, path: &str) -> Option<&'a V> {

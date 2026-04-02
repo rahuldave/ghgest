@@ -180,6 +180,7 @@ fn serialize_artifact(artifact: &Artifact) -> super::Result<String> {
 
 #[cfg(test)]
 mod tests {
+  use super::parse_artifact_file as parse_artifact;
   use crate::{
     config::Settings,
     model::{Artifact, ArtifactFilter},
@@ -314,7 +315,7 @@ mod tests {
       crate::store::write_artifact(&make_config(dir.path()), &artifact).unwrap();
 
       let content = std::fs::read_to_string(dir.path().join("artifacts/zyxwvutsrqponmlkzyxwvutsrqponmlk.md")).unwrap();
-      let parsed = super::super::parse_artifact_file(&content).unwrap();
+      let parsed = super::parse_artifact(&content).unwrap();
 
       assert_eq!(parsed.title, "Test Artifact");
       assert_eq!(parsed.body, "Body text here");

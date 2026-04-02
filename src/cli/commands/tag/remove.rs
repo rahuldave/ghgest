@@ -21,7 +21,7 @@ impl Command {
     let resolved = store::resolve_any_id(&ctx.settings, &self.id)?;
 
     match resolved.entity_type {
-      EntityType::Task => super::super::tags::untag_entity(
+      EntityType::Task => crate::cli::commands::tags::untag_entity(
         ctx,
         &self.id,
         &self.tags,
@@ -32,7 +32,7 @@ impl Command {
         |t, ts| t.updated_at = ts,
         store::write_task,
       ),
-      EntityType::Artifact => super::super::tags::untag_entity(
+      EntityType::Artifact => crate::cli::commands::tags::untag_entity(
         ctx,
         &self.id,
         &self.tags,
@@ -43,7 +43,7 @@ impl Command {
         |a, ts| a.updated_at = ts,
         store::write_artifact,
       ),
-      EntityType::Iteration => super::super::tags::untag_entity(
+      EntityType::Iteration => crate::cli::commands::tags::untag_entity(
         ctx,
         &self.id,
         &self.tags,

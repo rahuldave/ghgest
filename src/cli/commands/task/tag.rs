@@ -18,7 +18,7 @@ pub struct Command {
 impl Command {
   /// Merge the given tags into the task and persist.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    super::super::tags::tag_entity(
+    crate::cli::commands::tags::tag_entity(
       ctx,
       &self.id,
       &self.tags,

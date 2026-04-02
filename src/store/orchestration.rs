@@ -281,7 +281,7 @@ mod tests {
       // Active phase is 2 (phase 1 is all terminal). But phase 2 has non-terminal tasks,
       // so we need to check what advance_phase does when active phase itself is not done.
       // Actually, active_phase = 2, and remaining in phase 2 = 1, so without force it errors.
-      let err = super::super::advance_phase(&make_config(dir.path()), &iter_id, false);
+      let err = crate::store::advance_phase(&make_config(dir.path()), &iter_id, false);
       assert!(err.is_err());
     }
 
@@ -296,7 +296,7 @@ mod tests {
       t2.status = TaskStatus::Open;
       let iter_id = setup_iteration(dir.path(), "zyxwvutsrqponmlkzyxwvutsrqponmlk", &[t1, t2]);
 
-      let result = super::super::advance_phase(&make_config(dir.path()), &iter_id, true).unwrap();
+      let result = crate::store::advance_phase(&make_config(dir.path()), &iter_id, true).unwrap();
       assert!(result.forced);
       assert_eq!(result.from_phase, 1);
       assert_eq!(result.to_phase, Some(2));
@@ -311,7 +311,7 @@ mod tests {
       let iter_id = setup_iteration(dir.path(), "zyxwvutsrqponmlkzyxwvutsrqponmlk", &[t1]);
 
       // All done, no active phase, so advance_phase should error
-      let err = super::super::advance_phase(&make_config(dir.path()), &iter_id, false);
+      let err = crate::store::advance_phase(&make_config(dir.path()), &iter_id, false);
       assert!(err.is_err());
     }
 
@@ -327,7 +327,7 @@ mod tests {
       let iter_id = setup_iteration(dir.path(), "zyxwvutsrqponmlkzyxwvutsrqponmlk", &[t1, t2]);
 
       // active phase is 1, remaining = 1, so force required
-      let result = super::super::advance_phase(&make_config(dir.path()), &iter_id, true).unwrap();
+      let result = crate::store::advance_phase(&make_config(dir.path()), &iter_id, true).unwrap();
       assert_eq!(result.from_phase, 1);
       assert_eq!(result.to_phase, Some(2));
       assert_eq!(result.active_tasks, 1);
@@ -347,7 +347,7 @@ mod tests {
       let t1 = make_task("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
       crate::store::write_task(&config, &t1).unwrap();
 
-      let claimed = super::super::claim_task(&config, &t1.id, "agent-42").unwrap();
+      let claimed = crate::store::claim_task(&config, &t1.id, "agent-42").unwrap();
       assert_eq!(claimed.status, TaskStatus::InProgress);
       assert_eq!(claimed.assigned_to, Some("agent-42".to_string()));
     }
@@ -373,7 +373,7 @@ mod tests {
       t3.status = TaskStatus::Open;
       let iter_id = setup_iteration(dir.path(), "zyxwvutsrqponmlkzyxwvutsrqponmlk", &[t1, t2, t3]);
 
-      let status = super::super::iteration_status(&make_config(dir.path()), &iter_id).unwrap();
+      let status = crate::store::iteration_status(&make_config(dir.path()), &iter_id).unwrap();
       assert_eq!(status.active_phase, Some(1));
       assert_eq!(status.total_phases, 2);
       assert_eq!(status.phase_progress.done, 1);
@@ -389,7 +389,7 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let iter_id = setup_iteration(dir.path(), "zyxwvutsrqponmlkzyxwvutsrqponmlk", &[]);
 
-      let status = super::super::iteration_status(&make_config(dir.path()), &iter_id).unwrap();
+      let status = crate::store::iteration_status(&make_config(dir.path()), &iter_id).unwrap();
       assert_eq!(status.active_phase, None);
       assert_eq!(status.total_phases, 0);
       assert_eq!(status.overall_progress.total, 0);
@@ -415,7 +415,7 @@ mod tests {
       t2.created_at = now - Duration::hours(1);
       let iter_id = setup_iteration(dir.path(), "zyxwvutsrqponmlkzyxwvutsrqponmlk", &[t1, t2.clone()]);
 
-      let result = super::super::next_available_task(&make_config(dir.path()), &iter_id)
+      let result = crate::store::next_available_task(&make_config(dir.path()), &iter_id)
         .unwrap()
         .unwrap();
       assert_eq!(result.id, t2.id);
@@ -433,7 +433,7 @@ mod tests {
       t2.priority = Some(2);
       let iter_id = setup_iteration(dir.path(), "zyxwvutsrqponmlkzyxwvutsrqponmlk", &[t1, t2.clone()]);
 
-      let result = super::super::next_available_task(&make_config(dir.path()), &iter_id)
+      let result = crate::store::next_available_task(&make_config(dir.path()), &iter_id)
         .unwrap()
         .unwrap();
       assert_eq!(result.id, t2.id);
@@ -468,7 +468,7 @@ mod tests {
       }
       crate::store::write_iteration(&config, &iteration).unwrap();
 
-      let result = super::super::next_available_task(&config, &iteration.id)
+      let result = crate::store::next_available_task(&config, &iteration.id)
         .unwrap()
         .unwrap();
       assert_eq!(result.id, t2.id);
@@ -485,7 +485,7 @@ mod tests {
       t2.priority = Some(0); // Higher priority but in later phase
       let iter_id = setup_iteration(dir.path(), "zyxwvutsrqponmlkzyxwvutsrqponmlk", &[t1.clone(), t2]);
 
-      let result = super::super::next_available_task(&make_config(dir.path()), &iter_id)
+      let result = crate::store::next_available_task(&make_config(dir.path()), &iter_id)
         .unwrap()
         .unwrap();
       assert_eq!(result.id, t1.id);
@@ -496,7 +496,7 @@ mod tests {
       let dir = tempfile::tempdir().unwrap();
       let iter_id = setup_iteration(dir.path(), "zyxwvutsrqponmlkzyxwvutsrqponmlk", &[]);
 
-      let result = super::super::next_available_task(&make_config(dir.path()), &iter_id).unwrap();
+      let result = crate::store::next_available_task(&make_config(dir.path()), &iter_id).unwrap();
       assert_eq!(result, None);
     }
 
@@ -514,7 +514,7 @@ mod tests {
       t2.created_at = now;
       let iter_id = setup_iteration(dir.path(), "zyxwvutsrqponmlkzyxwvutsrqponmlk", &[t1, t2.clone()]);
 
-      let result = super::super::next_available_task(&make_config(dir.path()), &iter_id)
+      let result = crate::store::next_available_task(&make_config(dir.path()), &iter_id)
         .unwrap()
         .unwrap();
       assert_eq!(result.id, t2.id);

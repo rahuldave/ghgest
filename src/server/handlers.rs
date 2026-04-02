@@ -32,8 +32,6 @@ use crate::{
   store,
 };
 
-// ── Type declarations ─────────────────────────────────────────────────────────
-
 /// A single search result for the JSON API.
 #[derive(serde::Serialize)]
 pub struct ApiSearchResult {
@@ -140,8 +138,6 @@ pub struct TaskListParams {
   pub status: Option<String>,
 }
 
-// ── Free functions ────────────────────────────────────────────────────────────
-
 /// Return an `Html` error response with the message HTML-escaped to prevent XSS.
 fn error_html(e: &impl std::fmt::Display) -> Html<String> {
   let msg = e.to_string();
@@ -190,8 +186,6 @@ fn render_markdown(input: &str) -> String {
   html::push_html(&mut html_output, parser);
   html_output
 }
-
-// ── Handlers ──────────────────────────────────────────────────────────────────
 
 /// POST /api/render-markdown — render Markdown to HTML.
 pub async fn api_render_markdown(Json(payload): Json<RenderMarkdownBody>) -> Response {

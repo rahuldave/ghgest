@@ -18,7 +18,7 @@ pub struct Command {
 impl Command {
   /// Remove the specified tags from the iteration's tag set.
   pub fn call(&self, ctx: &AppContext) -> cli::Result<()> {
-    super::super::tags::untag_entity(
+    crate::cli::commands::tags::untag_entity(
       ctx,
       &self.id,
       &self.tags,

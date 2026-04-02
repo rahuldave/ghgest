@@ -117,10 +117,6 @@ pub fn search(config: &Settings, query: &str, show_all: bool) -> super::Result<S
   })
 }
 
-// ---------------------------------------------------------------------------
-// Filter helpers
-// ---------------------------------------------------------------------------
-
 /// Discriminant for filter kinds (used to check presence without matching values).
 enum FilterKind {
   Status,
@@ -273,10 +269,6 @@ fn matches_type_exclude(_parsed: &ParsedQuery) -> bool {
   true
 }
 
-// ---------------------------------------------------------------------------
-// Free-text matching helpers
-// ---------------------------------------------------------------------------
-
 fn matches_text(task: &Task, text_lower: &str) -> bool {
   if text_lower.is_empty() {
     return true;
@@ -408,7 +400,7 @@ mod tests {
       )
       .unwrap();
 
-      let results = super::super::search(
+      let results = crate::store::search(
         &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
         "secret",
         false,
@@ -429,7 +421,7 @@ mod tests {
       )
       .unwrap();
 
-      let results = super::super::search(
+      let results = crate::store::search(
         &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
         "refactor",
         false,
@@ -450,7 +442,7 @@ mod tests {
       )
       .unwrap();
 
-      let results = super::super::search(
+      let results = crate::store::search(
         &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
         "tag:release",
         false,
@@ -470,7 +462,7 @@ mod tests {
       )
       .unwrap();
 
-      let results = super::super::search(
+      let results = crate::store::search(
         &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
         "sprint",
         false,
@@ -486,7 +478,7 @@ mod tests {
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Important Feature");
       crate::store::write_task(&crate::test_helpers::make_test_config(dir.path().to_path_buf()), &task).unwrap();
 
-      let results = super::super::search(
+      let results = crate::store::search(
         &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
         "important",
         false,
@@ -502,7 +494,7 @@ mod tests {
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "UPPERCASE Title");
       crate::store::write_task(&crate::test_helpers::make_test_config(dir.path().to_path_buf()), &task).unwrap();
 
-      let results = super::super::search(
+      let results = crate::store::search(
         &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
         "uppercase",
         false,
@@ -517,7 +509,7 @@ mod tests {
       let task = make_test_task("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Some Task");
       crate::store::write_task(&crate::test_helpers::make_test_config(dir.path().to_path_buf()), &task).unwrap();
 
-      let results = super::super::search(
+      let results = crate::store::search(
         &crate::test_helpers::make_test_config(dir.path().to_path_buf()),
         "nonexistent",
         false,
@@ -537,7 +529,7 @@ mod tests {
       let artifact = make_test_artifact("llllllllllllllllllllllllllllllll", "My Artifact", "body");
       crate::store::write_artifact(&cfg, &artifact).unwrap();
 
-      let results = super::super::search(&cfg, "-is:artifact My", false).unwrap();
+      let results = crate::store::search(&cfg, "-is:artifact My", false).unwrap();
 
       assert_eq!(results.tasks.len(), 1);
       assert_eq!(results.artifacts.len(), 0);
@@ -553,7 +545,7 @@ mod tests {
       let task2 = make_test_task("nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn", "Other Task");
       crate::store::write_task(&cfg, &task2).unwrap();
 
-      let results = super::super::search(&cfg, "-tag:wip Task", false).unwrap();
+      let results = crate::store::search(&cfg, "-tag:wip Task", false).unwrap();
 
       assert_eq!(results.tasks.len(), 1);
       assert_eq!(results.tasks[0].title, "Other Task");
@@ -570,7 +562,7 @@ mod tests {
       artifact2.kind = Some("rfc".to_string());
       crate::store::write_artifact(&cfg, &artifact2).unwrap();
 
-      let results = super::super::search(&cfg, "type:spec", false).unwrap();
+      let results = crate::store::search(&cfg, "type:spec", false).unwrap();
 
       assert_eq!(results.artifacts.len(), 1);
       assert_eq!(results.artifacts[0].title, "My Spec");
@@ -587,7 +579,7 @@ mod tests {
       task2.status = crate::model::task::Status::Done;
       crate::store::write_task(&cfg, &task2).unwrap();
 
-      let results = super::super::search(&cfg, "status:open", false).unwrap();
+      let results = crate::store::search(&cfg, "status:open", false).unwrap();
 
       assert_eq!(results.tasks.len(), 1);
       assert_eq!(results.tasks[0].title, "Open Task");
@@ -604,7 +596,7 @@ mod tests {
       let artifact = make_test_artifact("llllllllllllllllllllllllllllllll", "My Artifact", "body");
       crate::store::write_artifact(&cfg, &artifact).unwrap();
 
-      let results = super::super::search(&cfg, "is:task My", false).unwrap();
+      let results = crate::store::search(&cfg, "is:task My", false).unwrap();
 
       assert_eq!(results.tasks.len(), 1);
       assert_eq!(results.artifacts.len(), 0);
@@ -623,7 +615,7 @@ mod tests {
       iteration.description = "body".to_string();
       crate::store::write_iteration(&cfg, &iteration).unwrap();
 
-      let results = super::super::search(&cfg, "is:task is:artifact My", false).unwrap();
+      let results = crate::store::search(&cfg, "is:task is:artifact My", false).unwrap();
 
       assert_eq!(results.tasks.len(), 1);
       assert_eq!(results.artifacts.len(), 1);
@@ -643,7 +635,7 @@ mod tests {
       let task3 = make_test_task("pppppppppppppppppppppppppppppppp", "Task C");
       crate::store::write_task(&cfg, &task3).unwrap();
 
-      let results = super::super::search(&cfg, "tag:alpha tag:beta", false).unwrap();
+      let results = crate::store::search(&cfg, "tag:alpha tag:beta", false).unwrap();
 
       assert_eq!(results.tasks.len(), 2);
     }
@@ -661,7 +653,7 @@ mod tests {
       task2.status = crate::model::task::Status::Done;
       crate::store::write_task(&cfg, &task2).unwrap();
 
-      let results = super::super::search(&cfg, "is:task tag:urgent status:open", false).unwrap();
+      let results = crate::store::search(&cfg, "is:task tag:urgent status:open", false).unwrap();
 
       assert_eq!(results.tasks.len(), 1);
       assert_eq!(results.tasks[0].title, "Tagged Open");
@@ -679,7 +671,7 @@ mod tests {
       iteration.description = "".to_string();
       crate::store::write_iteration(&cfg, &iteration).unwrap();
 
-      let results = super::super::search(&cfg, "Shared", false).unwrap();
+      let results = crate::store::search(&cfg, "Shared", false).unwrap();
 
       assert_eq!(results.tasks.len(), 1);
       assert_eq!(results.artifacts.len(), 1);

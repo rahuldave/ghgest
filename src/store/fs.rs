@@ -193,6 +193,8 @@ fn collect_prefix_matches(dir: &Path, extension: &str, prefix: &str) -> super::R
 
 #[cfg(test)]
 mod tests {
+  use super::next_id as generate_id;
+
   mod ensure_dirs {
     use crate::config::Settings;
 
@@ -245,7 +247,7 @@ mod tests {
       // Generate many IDs — none should share the task's 8-char short prefix
       let task_short = task.id.short();
       for _ in 0..50 {
-        let id = super::super::next_id(&config).unwrap();
+        let id = super::generate_id(&config).unwrap();
         assert_ne!(
           id.short(),
           task_short,
@@ -267,7 +269,7 @@ mod tests {
       // No generated ID should share the artifact's short prefix
       let artifact_short = artifact.id.short();
       for _ in 0..50 {
-        let id = super::super::next_id(&config).unwrap();
+        let id = super::generate_id(&config).unwrap();
         assert_ne!(id.short(), artifact_short);
       }
     }
@@ -278,7 +280,7 @@ mod tests {
       let config = make_config(dir.path());
       crate::store::ensure_dirs(&config).unwrap();
 
-      let id = super::super::next_id(&config).unwrap();
+      let id = super::generate_id(&config).unwrap();
       assert_eq!(id.to_string().len(), 32);
     }
   }

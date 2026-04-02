@@ -11,11 +11,8 @@ use super::{assets, handlers, state::ServerState};
 pub fn router(state: ServerState) -> Router {
   Router::new()
     .route("/", get(handlers::dashboard))
-    .route("/tasks", get(handlers::task_list).post(handlers::task_create))
-    .route("/tasks/new", get(handlers::task_create_form))
-    .route("/tasks/{id}/edit", get(handlers::task_edit_form))
-    .route("/tasks/{id}", get(handlers::task_detail).post(handlers::task_update))
-    .route("/tasks/{id}/notes", post(handlers::note_add))
+    .route("/api/render-markdown", post(handlers::api_render_markdown))
+    .route("/api/search", get(handlers::api_search))
     .route(
       "/artifacts",
       get(handlers::artifact_list).post(handlers::artifact_create),
@@ -25,15 +22,18 @@ pub fn router(state: ServerState) -> Router {
       "/artifacts/{id}",
       get(handlers::artifact_detail).post(handlers::artifact_update),
     )
-    .route("/artifacts/{id}/edit", get(handlers::artifact_edit_form))
     .route("/artifacts/{id}/archive", post(handlers::artifact_archive))
+    .route("/artifacts/{id}/edit", get(handlers::artifact_edit_form))
     .route("/iterations", get(handlers::iteration_list))
     .route("/iterations/{id}", get(handlers::iteration_detail))
     .route("/iterations/{id}/board", get(handlers::iteration_board))
     .route("/search", get(handlers::search))
-    .route("/api/search", get(handlers::api_search))
-    .route("/api/render-markdown", post(handlers::api_render_markdown))
     .route("/static/{*path}", get(assets::serve))
+    .route("/tasks", get(handlers::task_list).post(handlers::task_create))
+    .route("/tasks/new", get(handlers::task_create_form))
+    .route("/tasks/{id}", get(handlers::task_detail).post(handlers::task_update))
+    .route("/tasks/{id}/edit", get(handlers::task_edit_form))
+    .route("/tasks/{id}/notes", post(handlers::note_add))
     .fallback(handlers::not_found)
     .with_state(state)
 }
