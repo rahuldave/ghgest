@@ -283,12 +283,7 @@ pub async fn artifact_create(State(state): State<ServerState>, Form(form): Form<
     if k.is_empty() { None } else { Some(k) }
   };
 
-  let tags: Vec<String> = form
-    .tags
-    .split(',')
-    .map(|t| t.trim().to_string())
-    .filter(|t| !t.is_empty())
-    .collect();
+  let tags = crate::model::parse_tags(&form.tags);
 
   let new = NewArtifact {
     body: form.body,
@@ -457,12 +452,7 @@ pub async fn artifact_update(
     if k.is_empty() { None } else { Some(k) }
   };
 
-  let tags: Vec<String> = form
-    .tags
-    .split(',')
-    .map(|t| t.trim().to_string())
-    .filter(|t| !t.is_empty())
-    .collect();
+  let tags = crate::model::parse_tags(&form.tags);
 
   let patch = ArtifactPatch {
     body: Some(form.body),
@@ -755,12 +745,7 @@ pub async fn task_create(State(state): State<ServerState>, body: Bytes) -> Respo
     .into_response();
   }
 
-  let tags: Vec<String> = form
-    .tags
-    .split(',')
-    .map(|s| s.trim().to_string())
-    .filter(|s| !s.is_empty())
-    .collect();
+  let tags = crate::model::parse_tags(&form.tags);
 
   let priority: Option<u8> = if form.priority.trim().is_empty() {
     None
@@ -1048,12 +1033,7 @@ pub async fn task_update(State(state): State<ServerState>, Path(id_str): Path<St
     .into_response();
   }
 
-  let tags: Vec<String> = form
-    .tags
-    .split(',')
-    .map(|s| s.trim().to_string())
-    .filter(|s| !s.is_empty())
-    .collect();
+  let tags = crate::model::parse_tags(&form.tags);
 
   let priority: Option<u8> = if form.priority.trim().is_empty() {
     None

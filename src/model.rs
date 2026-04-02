@@ -37,6 +37,14 @@ impl fmt::Display for EntityType {
   }
 }
 
+/// Split a comma-separated string into trimmed, non-empty tag strings.
+pub fn parse_tags(s: &str) -> Vec<String> {
+  s.split(',')
+    .map(|s| s.trim().to_string())
+    .filter(|s| !s.is_empty())
+    .collect()
+}
+
 /// Backward-compatible deserializer for `Option<DateTime<Utc>>` fields.
 ///
 /// Accepts RFC 3339 strings, legacy empty strings (treated as `None`), and native TOML datetimes.

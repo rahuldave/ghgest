@@ -48,10 +48,7 @@ where
 
 /// Split a comma-separated string into trimmed, non-empty tag strings.
 pub fn parse_tags(s: &str) -> Vec<String> {
-  s.split(',')
-    .map(|s| s.trim().to_string())
-    .filter(|s| !s.is_empty())
-    .collect()
+  crate::model::parse_tags(s)
 }
 
 /// Open `$EDITOR` with a temporary file and return the content, or fall back to an empty string.
