@@ -15,27 +15,27 @@ gest serve [OPTIONS]
 
 ## Options
 
-| Flag | Description |
-| --- | --- |
+| Flag                   | Description                                                |
+|------------------------|------------------------------------------------------------|
 | `-b, --bind <ADDRESS>` | Address to bind to (overrides config, default `127.0.0.1`) |
-| `--port <PORT>` | Port to listen on (overrides config, default `2300`) |
-| `--no-open` | Do not automatically open the browser |
-| `-v, --verbose` | Increase verbosity (repeatable) |
-| `-h, --help` | Print help |
+| `--port <PORT>`        | Port to listen on (overrides config, default `2300`)       |
+| `--no-open`            | Do not automatically open the browser                      |
+| `-v, --verbose`        | Increase verbosity (repeatable)                            |
+| `-h, --help`           | Print help                                                 |
 
 ## Views
 
-| Path | Description |
-| --- | --- |
-| `/` | Dashboard with entity counts and status breakdown |
-| `/tasks` | Task list with status, priority, tags, and blocking info |
-| `/tasks/:id` | Task detail with description, links, and metadata |
-| `/artifacts` | Artifact list with kind, tags, and archive status |
-| `/artifacts/:id` | Artifact detail with rendered Markdown body |
-| `/iterations` | Iteration list with status and phase count |
-| `/iterations/:id` | Iteration detail with tasks grouped by phase |
-| `/iterations/:id/board` | Kanban board with columns mapped to task status |
-| `/search?q=...` | Full-text search across tasks and artifacts |
+| Path                    | Description                                              |
+|-------------------------|----------------------------------------------------------|
+| `/`                     | Dashboard with entity counts and status breakdown        |
+| `/tasks`                | Task list with status, priority, tags, and blocking info |
+| `/tasks/:id`            | Task detail with description, links, and metadata        |
+| `/artifacts`            | Artifact list with kind, tags, and archive status        |
+| `/artifacts/:id`        | Artifact detail with rendered Markdown body              |
+| `/iterations`           | Iteration list with status and phase count               |
+| `/iterations/:id`       | Iteration detail with tasks grouped by phase             |
+| `/iterations/:id/board` | Kanban board with columns mapped to task status          |
+| `/search?q=...`         | Full-text search across tasks and artifacts              |
 
 ## Configuration
 

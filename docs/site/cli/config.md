@@ -11,11 +11,11 @@ gest config <COMMAND> [OPTIONS]
 
 ## Subcommands
 
-| Command | Description |
-| --- | --- |
-| [`get`](#config-get) | Retrieve a single configuration value |
-| [`set`](#config-set) | Persist a configuration value |
-| [`show`](#config-show) | Display the merged configuration |
+| Command                | Description                           |
+|------------------------|---------------------------------------|
+| [`get`](#config-get)   | Retrieve a single configuration value |
+| [`set`](#config-set)   | Persist a configuration value         |
+| [`show`](#config-show) | Display the merged configuration      |
 
 ---
 
@@ -29,9 +29,9 @@ gest config get <KEY>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<KEY>` | Dot-delimited config key (e.g. `storage.project_dir`) |
+| Argument | Description                                           |
+|----------|-------------------------------------------------------|
+| `<KEY>`  | Dot-delimited config key (e.g. `storage.project_dir`) |
 
 ### Examples
 
@@ -53,15 +53,15 @@ gest config set [OPTIONS] <KEY> <VALUE>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<KEY>` | Dot-delimited config key (e.g. `log.level`) |
-| `<VALUE>` | Value to assign |
+| Argument  | Description                                 |
+|-----------|---------------------------------------------|
+| `<KEY>`   | Dot-delimited config key (e.g. `log.level`) |
+| `<VALUE>` | Value to assign                             |
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
+| Flag           | Description                                                           |
+|----------------|-----------------------------------------------------------------------|
 | `-g, --global` | Write to the global (user-level) config instead of the project config |
 
 ### Examples

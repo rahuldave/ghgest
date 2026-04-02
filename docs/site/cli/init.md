@@ -14,11 +14,11 @@ gest init [OPTIONS]
 
 ## Options
 
-| Flag | Description |
-| --- | --- |
-| `--local` | Initialize a `.gest` directory in the current project instead of the global data directory |
-| `-v, --verbose` | Increase verbosity (repeatable) |
-| `-h, --help` | Print help |
+| Flag            | Description                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------|
+| `--local`       | Initialize a `.gest` directory in the current project instead of the global data directory |
+| `-v, --verbose` | Increase verbosity (repeatable)                                                            |
+| `-h, --help`    | Print help                                                                                 |
 
 ## Examples
 

@@ -11,17 +11,98 @@ gest task <COMMAND> [OPTIONS]
 
 ## Subcommands
 
-| Command | Description |
-| --- | --- |
-| [`create`](#task-create) | Create a new task |
-| [`list`](#task-list) | List tasks with optional filters |
-| [`show`](#task-show) | Display a task's full details |
-| [`update`](#task-update) | Update a task's fields |
-| [`tag`](#task-tag) | Add tags to a task |
-| [`untag`](#task-untag) | Remove tags from a task |
-| [`link`](#task-link) | Create a relationship between entities |
-| [`meta`](#task-meta) | Read or write metadata fields |
-| [`note`](#task-note) | Manage notes on a task |
+| Command                      | Description                                                         |
+|------------------------------|---------------------------------------------------------------------|
+| [`block`](#task-block)       | Shortcut for `task link <id> blocks <target>`                       |
+| [`cancel`](#task-cancel)     | Cancel a task (shortcut for `task update <id> --status cancelled`)  |
+| [`complete`](#task-complete) | Mark a task as done (shortcut for `task update <id> --status done`) |
+| [`create`](#task-create)     | Create a new task                                                   |
+| [`list`](#task-list)         | List tasks with optional filters                                    |
+| [`show`](#task-show)         | Display a task's full details                                       |
+| [`update`](#task-update)     | Update a task's fields                                              |
+| [`tag`](#task-tag)           | Add tags to a task                                                  |
+| [`untag`](#task-untag)       | Remove tags from a task                                             |
+| [`link`](#task-link)         | Create a relationship between entities                              |
+| [`meta`](#task-meta)         | Read or write metadata fields                                       |
+| [`note`](#task-note)         | Manage notes on a task                                              |
+
+---
+
+## task block
+
+Shortcut for `task link <id> blocks <target>`. Creates a blocking relationship between two
+tasks (or a task and an artifact).
+
+```text
+gest task block [OPTIONS] <ID> <BLOCKING_ID>
+```
+
+### Arguments
+
+| Argument        | Description                                                          |
+|-----------------|----------------------------------------------------------------------|
+| `<ID>`          | Source task ID or unique prefix (the task that blocks)               |
+| `<BLOCKING_ID>` | Target task or artifact ID or unique prefix (the task being blocked) |
+
+### Options
+
+| Flag         | Description                                                             |
+|--------------|-------------------------------------------------------------------------|
+| `--artifact` | Target is an artifact instead of a task (no reciprocal link is created) |
+
+### Examples
+
+```sh
+# Task abc123 blocks task def456
+gest task block abc123 def456
+
+# Task blocks an artifact
+gest task block abc123 art789 --artifact
+```
+
+---
+
+## task cancel
+
+Cancel a task. Shortcut for `task update <id> --status cancelled`.
+
+```text
+gest task cancel <ID>
+```
+
+### Arguments
+
+| Argument | Description              |
+|----------|--------------------------|
+| `<ID>`   | Task ID or unique prefix |
+
+### Examples
+
+```sh
+gest task cancel abc123
+```
+
+---
+
+## task complete
+
+Mark a task as done. Shortcut for `task update <id> --status done`.
+
+```text
+gest task complete <ID>
+```
+
+### Arguments
+
+| Argument | Description              |
+|----------|--------------------------|
+| `<ID>`   | Task ID or unique prefix |
+
+### Examples
+
+```sh
+gest task complete abc123
+```
 
 ---
 
@@ -35,21 +116,21 @@ gest task create [OPTIONS] <TITLE>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<TITLE>` | Task title |
+| Argument  | Description |
+|-----------|-------------|
+| `<TITLE>` | Task title  |
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
-| `--assigned-to <ASSIGNED_TO>` | Actor assigned to this task |
-| `-d, --description <DESCRIPTION>` | Description text (opens `$EDITOR` if omitted and stdin is a terminal) |
-| `-m, --metadata <METADATA>` | Key=value metadata pair (repeatable, e.g. `-m key=value`) |
-| `--phase <PHASE>` | Execution phase for parallel grouping |
-| `-p, --priority <PRIORITY>` | Priority level (0-4, where 0 is highest) |
-| `-s, --status <STATUS>` | Initial status: `open`, `in-progress`, `done`, or `cancelled` (default: `open`) |
-| `--tags <TAGS>` | Comma-separated list of tags |
+| Flag                              | Description                                                                     |
+|-----------------------------------|---------------------------------------------------------------------------------|
+| `--assigned-to <ASSIGNED_TO>`     | Actor assigned to this task                                                     |
+| `-d, --description <DESCRIPTION>` | Description text (opens `$EDITOR` if omitted and stdin is a terminal)           |
+| `-m, --metadata <METADATA>`       | Key=value metadata pair (repeatable, e.g. `-m key=value`)                       |
+| `--phase <PHASE>`                 | Execution phase for parallel grouping                                           |
+| `-p, --priority <PRIORITY>`       | Priority level (0-4, where 0 is highest)                                        |
+| `-s, --status <STATUS>`           | Initial status: `open`, `in-progress`, `done`, or `cancelled` (default: `open`) |
+| `--tags <TAGS>`                   | Comma-separated list of tags                                                    |
 
 ### Examples
 
@@ -76,12 +157,12 @@ gest task list [OPTIONS]
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
-| `-a, --all` | Include resolved (done/cancelled) tasks |
-| `-j, --json` | Output task list as JSON |
+| Flag                    | Description                                                     |
+|-------------------------|-----------------------------------------------------------------|
+| `-a, --all`             | Include resolved (done/cancelled) tasks                         |
+| `-j, --json`            | Output task list as JSON                                        |
 | `-s, --status <STATUS>` | Filter by status: `open`, `in-progress`, `done`, or `cancelled` |
-| `--tag <TAG>` | Filter by tag |
+| `--tag <TAG>`           | Filter by tag                                                   |
 
 ### Examples
 
@@ -111,14 +192,14 @@ gest task show [OPTIONS] <ID>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Task ID or unique prefix |
+| Argument | Description              |
+|----------|--------------------------|
+| `<ID>`   | Task ID or unique prefix |
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
+| Flag         | Description                 |
+|--------------|-----------------------------|
 | `-j, --json` | Output task details as JSON |
 
 ### Examples
@@ -146,22 +227,22 @@ gest task update [OPTIONS] <ID>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Task ID or unique prefix |
+| Argument | Description              |
+|----------|--------------------------|
+| `<ID>`   | Task ID or unique prefix |
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
-| `--assigned-to <ASSIGNED_TO>` | Actor assigned to this task |
-| `-d, --description <DESCRIPTION>` | New description text |
-| `-m, --metadata <METADATA>` | Key=value metadata pair, merged with existing (repeatable) |
-| `--phase <PHASE>` | Execution phase for parallel grouping |
-| `-p, --priority <PRIORITY>` | Priority level (0-4, where 0 is highest) |
-| `-s, --status <STATUS>` | New status (done/cancelled auto-resolves; open/in-progress un-resolves) |
-| `--tags <TAGS>` | Replace all tags with this comma-separated list |
-| `-t, --title <TITLE>` | New title |
+| Flag                              | Description                                                             |
+|-----------------------------------|-------------------------------------------------------------------------|
+| `--assigned-to <ASSIGNED_TO>`     | Actor assigned to this task                                             |
+| `-d, --description <DESCRIPTION>` | New description text                                                    |
+| `-m, --metadata <METADATA>`       | Key=value metadata pair, merged with existing (repeatable)              |
+| `--phase <PHASE>`                 | Execution phase for parallel grouping                                   |
+| `-p, --priority <PRIORITY>`       | Priority level (0-4, where 0 is highest)                                |
+| `-s, --status <STATUS>`           | New status (done/cancelled auto-resolves; open/in-progress un-resolves) |
+| `--tags <TAGS>`                   | Replace all tags with this comma-separated list                         |
+| `-t, --title <TITLE>`             | New title                                                               |
 
 ### Examples
 
@@ -188,9 +269,9 @@ gest task tag <ID> [TAGS]...
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Task ID or unique prefix |
+| Argument    | Description                   |
+|-------------|-------------------------------|
+| `<ID>`      | Task ID or unique prefix      |
 | `[TAGS]...` | Tags to add (space-separated) |
 
 ### Examples
@@ -211,9 +292,9 @@ gest task untag <ID> [TAGS]...
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Task ID or unique prefix |
+| Argument    | Description                      |
+|-------------|----------------------------------|
+| `<ID>`      | Task ID or unique prefix         |
 | `[TAGS]...` | Tags to remove (space-separated) |
 
 ### Examples
@@ -234,16 +315,16 @@ gest task link [OPTIONS] <ID> <REL> <TARGET_ID>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Source task ID or unique prefix |
-| `<REL>` | Relationship type: `blocked-by`, `blocks`, `child-of`, `parent-of`, `relates-to` |
-| `<TARGET_ID>` | Target task or artifact ID or unique prefix |
+| Argument      | Description                                                                      |
+|---------------|----------------------------------------------------------------------------------|
+| `<ID>`        | Source task ID or unique prefix                                                  |
+| `<REL>`       | Relationship type: `blocked-by`, `blocks`, `child-of`, `parent-of`, `relates-to` |
+| `<TARGET_ID>` | Target task or artifact ID or unique prefix                                      |
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
+| Flag         | Description                                                             |
+|--------------|-------------------------------------------------------------------------|
 | `--artifact` | Target is an artifact instead of a task (no reciprocal link is created) |
 
 ### Examples
@@ -274,9 +355,9 @@ Retrieve a single metadata value.
 gest task meta get <ID> <PATH>
 ```
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Task ID or unique prefix |
+| Argument | Description                                 |
+|----------|---------------------------------------------|
+| `<ID>`   | Task ID or unique prefix                    |
 | `<PATH>` | Dot-delimited key path (e.g. `outer.inner`) |
 
 ### meta set
@@ -287,11 +368,11 @@ Set a metadata value. Strings, numbers, and booleans are auto-detected.
 gest task meta set <ID> <PATH> <VALUE>
 ```
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Task ID or unique prefix |
-| `<PATH>` | Dot-delimited key path (e.g. `outer.inner`) |
-| `<VALUE>` | Value to set |
+| Argument  | Description                                 |
+|-----------|---------------------------------------------|
+| `<ID>`    | Task ID or unique prefix                    |
+| `<PATH>`  | Dot-delimited key path (e.g. `outer.inner`) |
+| `<VALUE>` | Value to set                                |
 
 ### Examples
 
@@ -322,14 +403,14 @@ Add a note to a task. Author defaults to `git config user.name` / `user.email`.
 gest task note add [OPTIONS] <ID>
 ```
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Task ID or unique prefix |
+| Argument | Description              |
+|----------|--------------------------|
+| `<ID>`   | Task ID or unique prefix |
 
-| Flag | Description |
-| --- | --- |
-| `-b, --body <BODY>` | Note body text (opens `$EDITOR` if omitted and stdin is a terminal) |
-| `--agent <NAME>` | Agent name for attribution (mutually exclusive with git-derived authorship) |
+| Flag                | Description                                                                 |
+|---------------------|-----------------------------------------------------------------------------|
+| `-b, --body <BODY>` | Note body text (opens `$EDITOR` if omitted and stdin is a terminal)         |
+| `--agent <NAME>`    | Agent name for attribution (mutually exclusive with git-derived authorship) |
 
 ### note list
 
@@ -339,12 +420,12 @@ List all notes on a task.
 gest task note list [OPTIONS] <ID>
 ```
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Task ID or unique prefix |
+| Argument | Description              |
+|----------|--------------------------|
+| `<ID>`   | Task ID or unique prefix |
 
-| Flag | Description |
-| --- | --- |
+| Flag     | Description    |
+|----------|----------------|
 | `--json` | Output as JSON |
 
 ### note show
@@ -355,13 +436,13 @@ Show a single note with full attribution and rendered markdown body.
 gest task note show [OPTIONS] <TASK_ID> <NOTE_ID>
 ```
 
-| Argument | Description |
-| --- | --- |
+| Argument    | Description              |
+|-------------|--------------------------|
 | `<TASK_ID>` | Task ID or unique prefix |
 | `<NOTE_ID>` | Note ID or unique prefix |
 
-| Flag | Description |
-| --- | --- |
+| Flag     | Description    |
+|----------|----------------|
 | `--json` | Output as JSON |
 
 ### note update
@@ -372,13 +453,13 @@ Update a note's body.
 gest task note update [OPTIONS] <TASK_ID> <NOTE_ID>
 ```
 
-| Argument | Description |
-| --- | --- |
+| Argument    | Description              |
+|-------------|--------------------------|
 | `<TASK_ID>` | Task ID or unique prefix |
 | `<NOTE_ID>` | Note ID or unique prefix |
 
-| Flag | Description |
-| --- | --- |
+| Flag                | Description                                                                   |
+|---------------------|-------------------------------------------------------------------------------|
 | `-b, --body <BODY>` | New body text (opens `$EDITOR` pre-filled if omitted and stdin is a terminal) |
 
 ### note delete
@@ -389,8 +470,8 @@ Delete a note from a task.
 gest task note delete <TASK_ID> <NOTE_ID>
 ```
 
-| Argument | Description |
-| --- | --- |
+| Argument    | Description              |
+|-------------|--------------------------|
 | `<TASK_ID>` | Task ID or unique prefix |
 | `<NOTE_ID>` | Note ID or unique prefix |
 

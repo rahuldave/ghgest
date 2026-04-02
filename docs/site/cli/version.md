@@ -10,10 +10,10 @@ gest version
 
 ## Options
 
-| Flag | Description |
-| --- | --- |
+| Flag            | Description                     |
+|-----------------|---------------------------------|
 | `-v, --verbose` | Increase verbosity (repeatable) |
-| `-h, --help` | Print help |
+| `-h, --help`    | Print help                      |
 
 ## Examples
 

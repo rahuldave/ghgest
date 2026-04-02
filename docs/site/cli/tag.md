@@ -14,11 +14,11 @@ gest tag <COMMAND> [OPTIONS]
 
 ## Subcommands
 
-| Command | Description |
-| --- | --- |
-| [`add`](#tag-add) | Add tags to any entity by ID prefix |
-| [`remove`](#tag-remove) | Remove tags from any entity by ID prefix |
-| [`list`](#tag-list) | List all unique tags, optionally filtered by entity type |
+| Command                 | Description                                              |
+|-------------------------|----------------------------------------------------------|
+| [`add`](#tag-add)       | Add tags to any entity by ID prefix                      |
+| [`remove`](#tag-remove) | Remove tags from any entity by ID prefix                 |
+| [`list`](#tag-list)     | List all unique tags, optionally filtered by entity type |
 
 ---
 
@@ -34,10 +34,10 @@ gest tag add <ID> <TAGS>...
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `ID` | Entity ID or unique prefix |
-| `TAGS` | Tags to add (space-separated) |
+| Argument | Description                   |
+|----------|-------------------------------|
+| `ID`     | Entity ID or unique prefix    |
+| `TAGS`   | Tags to add (space-separated) |
 
 ### Examples
 
@@ -57,10 +57,10 @@ gest tag remove <ID> <TAGS>...
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `ID` | Entity ID or unique prefix |
-| `TAGS` | Tags to remove (space-separated) |
+| Argument | Description                      |
+|----------|----------------------------------|
+| `ID`     | Entity ID or unique prefix       |
+| `TAGS`   | Tags to remove (space-separated) |
 
 ### Examples
 
@@ -81,10 +81,10 @@ gest tag list [OPTIONS]
 
 ### Options
 
-| Option | Description |
-| --- | --- |
-| `--task` | Show only tags from tasks |
-| `--artifact` | Show only tags from artifacts |
+| Option        | Description                    |
+|---------------|--------------------------------|
+| `--task`      | Show only tags from tasks      |
+| `--artifact`  | Show only tags from artifacts  |
 | `--iteration` | Show only tags from iterations |
 
 Flags can be combined — `--task --artifact` shows tags from both tasks and artifacts.

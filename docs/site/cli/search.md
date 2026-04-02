@@ -11,8 +11,8 @@ gest search [OPTIONS] <QUERY>
 
 ## Arguments
 
-| Argument | Description |
-| --- | --- |
+| Argument  | Description                                                                        |
+|-----------|------------------------------------------------------------------------------------|
 | `<QUERY>` | Text and filter expressions matched against titles, descriptions, and body content |
 
 ## Query Syntax
@@ -23,12 +23,12 @@ specific fields.
 
 ### Filter Prefixes
 
-| Prefix | Description | Example |
-| --- | --- | --- |
-| `is:` | Filter by entity type (`task`, `artifact`, `iteration`) | `is:task` |
-| `tag:` | Filter by tag name | `tag:urgent` |
-| `status:` | Filter by status | `status:open` |
-| `type:` | Filter by artifact kind | `type:spec` |
+| Prefix    | Description                                             | Example       |
+|-----------|---------------------------------------------------------|---------------|
+| `is:`     | Filter by entity type (`task`, `artifact`, `iteration`) | `is:task`     |
+| `tag:`    | Filter by tag name                                      | `tag:urgent`  |
+| `status:` | Filter by status                                        | `status:open` |
+| `type:`   | Filter by artifact kind                                 | `type:spec`   |
 
 Both prefixes and values are **case-insensitive** -- `IS:Task`, `is:task`, and `Is:TASK` all behave the same.
 
@@ -56,13 +56,13 @@ Filters combine using these rules:
 
 ## Options
 
-| Flag | Description |
-| --- | --- |
-| `-a, --all` | Include archived and resolved items |
-| `-e, --expand` | Show full detail for each result |
-| `-j, --json` | Emit results as JSON |
-| `-v, --verbose` | Increase verbosity (repeatable) |
-| `-h, --help` | Print help |
+| Flag            | Description                         |
+|-----------------|-------------------------------------|
+| `-a, --all`     | Include archived and resolved items |
+| `-e, --expand`  | Show full detail for each result    |
+| `-j, --json`    | Emit results as JSON                |
+| `-v, --verbose` | Increase verbosity (repeatable)     |
+| `-h, --help`    | Print help                          |
 
 ## Examples
 

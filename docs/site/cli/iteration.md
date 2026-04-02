@@ -11,22 +11,22 @@ gest iteration <COMMAND> [OPTIONS]
 
 ## Subcommands
 
-| Command | Description |
-| --- | --- |
-| [`create`](#iteration-create) | Create a new iteration |
-| [`list`](#iteration-list) | List iterations with optional filters |
-| [`show`](#iteration-show) | Display an iteration's details |
-| [`update`](#iteration-update) | Update an iteration's fields |
-| [`add`](#iteration-add) | Add a task to an iteration |
-| [`remove`](#iteration-remove) | Remove a task from an iteration |
-| [`graph`](#iteration-graph) | Display the phased execution graph |
-| [`tag`](#iteration-tag) | Add tags to an iteration |
-| [`untag`](#iteration-untag) | Remove tags from an iteration |
-| [`link`](#iteration-link) | Create a relationship between entities |
-| [`meta`](#iteration-meta) | Read or write metadata fields |
-| [`next`](#iteration-next) | Find or claim the next available task |
-| [`status`](#iteration-status) | Display aggregated iteration progress |
-| [`advance`](#iteration-advance) | Advance to the next phase |
+| Command                         | Description                            |
+|---------------------------------|----------------------------------------|
+| [`create`](#iteration-create)   | Create a new iteration                 |
+| [`list`](#iteration-list)       | List iterations with optional filters  |
+| [`show`](#iteration-show)       | Display an iteration's details         |
+| [`update`](#iteration-update)   | Update an iteration's fields           |
+| [`add`](#iteration-add)         | Add a task to an iteration             |
+| [`remove`](#iteration-remove)   | Remove a task from an iteration        |
+| [`graph`](#iteration-graph)     | Display the phased execution graph     |
+| [`tag`](#iteration-tag)         | Add tags to an iteration               |
+| [`untag`](#iteration-untag)     | Remove tags from an iteration          |
+| [`link`](#iteration-link)       | Create a relationship between entities |
+| [`meta`](#iteration-meta)       | Read or write metadata fields          |
+| [`next`](#iteration-next)       | Find or claim the next available task  |
+| [`status`](#iteration-status)   | Display aggregated iteration progress  |
+| [`advance`](#iteration-advance) | Advance to the next phase              |
 
 ---
 
@@ -40,18 +40,18 @@ gest iteration create [OPTIONS] <TITLE>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
+| Argument  | Description     |
+|-----------|-----------------|
 | `<TITLE>` | Iteration title |
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
-| `-d, --description <DESCRIPTION>` | Description text |
-| `-m, --metadata <METADATA>` | Key=value metadata pair (repeatable, e.g. `-m key=value`) |
-| `-s, --status <STATUS>` | Initial status: `active`, `completed`, or `failed` (default: `active`) |
-| `--tags <TAGS>` | Comma-separated list of tags |
+| Flag                              | Description                                                            |
+|-----------------------------------|------------------------------------------------------------------------|
+| `-d, --description <DESCRIPTION>` | Description text                                                       |
+| `-m, --metadata <METADATA>`       | Key=value metadata pair (repeatable, e.g. `-m key=value`)              |
+| `-s, --status <STATUS>`           | Initial status: `active`, `completed`, or `failed` (default: `active`) |
+| `--tags <TAGS>`                   | Comma-separated list of tags                                           |
 
 ### Examples
 
@@ -75,13 +75,13 @@ gest iteration list [OPTIONS]
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
-| `-a, --all` | Include resolved (completed/failed) iterations |
-| `--has-available` | Only show iterations with at least one claimable task |
-| `-j, --json` | Output iteration list as JSON |
-| `-s, --status <STATUS>` | Filter by status: `active`, `completed`, or `failed` |
-| `--tag <TAG>` | Filter by tag |
+| Flag                    | Description                                           |
+|-------------------------|-------------------------------------------------------|
+| `-a, --all`             | Include resolved (completed/failed) iterations        |
+| `--has-available`       | Only show iterations with at least one claimable task |
+| `-j, --json`            | Output iteration list as JSON                         |
+| `-s, --status <STATUS>` | Filter by status: `active`, `completed`, or `failed`  |
+| `--tag <TAG>`           | Filter by tag                                         |
 
 ### Examples
 
@@ -103,14 +103,14 @@ gest iteration show [OPTIONS] <ID>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Iteration ID or unique prefix |
+| Argument | Description                   |
+|----------|-------------------------------|
+| `<ID>`   | Iteration ID or unique prefix |
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
+| Flag         | Description                      |
+|--------------|----------------------------------|
 | `-j, --json` | Output iteration details as JSON |
 
 ### Examples
@@ -132,19 +132,19 @@ gest iteration update [OPTIONS] <ID>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Iteration ID or unique prefix |
+| Argument | Description                   |
+|----------|-------------------------------|
+| `<ID>`   | Iteration ID or unique prefix |
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
-| `-d, --description <DESCRIPTION>` | New description |
-| `-m, --metadata <METADATA>` | Key=value metadata pair, merged with existing (repeatable) |
-| `-s, --status <STATUS>` | New status: `active`, `completed`, or `failed` |
-| `--tags <TAGS>` | Replace all tags with this comma-separated list |
-| `-t, --title <TITLE>` | New title |
+| Flag                              | Description                                                |
+|-----------------------------------|------------------------------------------------------------|
+| `-d, --description <DESCRIPTION>` | New description                                            |
+| `-m, --metadata <METADATA>`       | Key=value metadata pair, merged with existing (repeatable) |
+| `-s, --status <STATUS>`           | New status: `active`, `completed`, or `failed`             |
+| `--tags <TAGS>`                   | Replace all tags with this comma-separated list            |
+| `-t, --title <TITLE>`             | New title                                                  |
 
 ### Examples
 
@@ -165,9 +165,9 @@ gest iteration add <ID> <TASK_ID>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Iteration ID or unique prefix |
+| Argument    | Description                     |
+|-------------|---------------------------------|
+| `<ID>`      | Iteration ID or unique prefix   |
 | `<TASK_ID>` | Task ID or unique prefix to add |
 
 ### Examples
@@ -188,9 +188,9 @@ gest iteration remove <ID> <TASK_ID>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Iteration ID or unique prefix |
+| Argument    | Description                        |
+|-------------|------------------------------------|
+| `<ID>`      | Iteration ID or unique prefix      |
 | `<TASK_ID>` | Task ID or unique prefix to remove |
 
 ### Examples
@@ -212,9 +212,9 @@ gest iteration graph <ID>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Iteration ID or unique prefix |
+| Argument | Description                   |
+|----------|-------------------------------|
+| `<ID>`   | Iteration ID or unique prefix |
 
 ### Examples
 
@@ -234,9 +234,9 @@ gest iteration tag <ID> [TAGS]...
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Iteration ID or unique prefix |
+| Argument    | Description                   |
+|-------------|-------------------------------|
+| `<ID>`      | Iteration ID or unique prefix |
 | `[TAGS]...` | Tags to add (space-separated) |
 
 ### Examples
@@ -257,9 +257,9 @@ gest iteration untag <ID> [TAGS]...
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Iteration ID or unique prefix |
+| Argument    | Description                      |
+|-------------|----------------------------------|
+| `<ID>`      | Iteration ID or unique prefix    |
 | `[TAGS]...` | Tags to remove (space-separated) |
 
 ### Examples
@@ -280,16 +280,16 @@ gest iteration link [OPTIONS] <ID> <REL> <TARGET_ID>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Iteration ID or unique prefix |
-| `<REL>` | Relationship type: `blocked-by`, `blocks`, `child-of`, `parent-of`, `relates-to` |
-| `<TARGET_ID>` | Target iteration or artifact ID or unique prefix |
+| Argument      | Description                                                                      |
+|---------------|----------------------------------------------------------------------------------|
+| `<ID>`        | Iteration ID or unique prefix                                                    |
+| `<REL>`       | Relationship type: `blocked-by`, `blocks`, `child-of`, `parent-of`, `relates-to` |
+| `<TARGET_ID>` | Target iteration or artifact ID or unique prefix                                 |
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
+| Flag         | Description                                   |
+|--------------|-----------------------------------------------|
 | `--artifact` | Target is an artifact instead of an iteration |
 
 ### Examples
@@ -317,9 +317,9 @@ Retrieve a single metadata value.
 gest iteration meta get <ID> <PATH>
 ```
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Iteration ID or unique prefix |
+| Argument | Description                                 |
+|----------|---------------------------------------------|
+| `<ID>`   | Iteration ID or unique prefix               |
 | `<PATH>` | Dot-delimited key path (e.g. `outer.inner`) |
 
 ### meta set
@@ -330,11 +330,11 @@ Set a metadata value. Strings, numbers, and booleans are auto-detected.
 gest iteration meta set <ID> <PATH> <VALUE>
 ```
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Iteration ID or unique prefix |
-| `<PATH>` | Dot-delimited key path (e.g. `outer.inner`) |
-| `<VALUE>` | Value to set |
+| Argument  | Description                                 |
+|-----------|---------------------------------------------|
+| `<ID>`    | Iteration ID or unique prefix               |
+| `<PATH>`  | Dot-delimited key path (e.g. `outer.inner`) |
+| `<VALUE>` | Value to set                                |
 
 ### Examples
 
@@ -357,25 +357,25 @@ gest iteration next [OPTIONS] <ID>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Iteration ID or unique prefix |
+| Argument | Description                   |
+|----------|-------------------------------|
+| `<ID>`   | Iteration ID or unique prefix |
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
-| `--claim` | Set the task to in-progress and assign it |
+| Flag              | Description                                         |
+|-------------------|-----------------------------------------------------|
+| `--claim`         | Set the task to in-progress and assign it           |
 | `--agent <AGENT>` | Agent name for assignment (required with `--claim`) |
-| `-j, --json` | Output as JSON |
+| `-j, --json`      | Output as JSON                                      |
 
 ### Exit Codes
 
-| Code | Meaning |
-| --- | --- |
-| 0 | Task found (and claimed if `--claim` was used) |
-| 1 | Error (invalid ID, missing `--agent`, etc.) |
-| 2 | No available tasks in the active phase |
+| Code | Meaning                                        |
+|------|------------------------------------------------|
+| 0    | Task found (and claimed if `--claim` was used) |
+| 1    | Error (invalid ID, missing `--agent`, etc.)    |
+| 2    | No available tasks in the active phase         |
 
 ### Examples
 
@@ -403,14 +403,14 @@ gest iteration status [OPTIONS] <ID>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Iteration ID or unique prefix |
+| Argument | Description                   |
+|----------|-------------------------------|
+| `<ID>`   | Iteration ID or unique prefix |
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
+| Flag         | Description                     |
+|--------------|---------------------------------|
 | `-j, --json` | Output iteration status as JSON |
 
 ### Examples
@@ -433,14 +433,14 @@ gest iteration advance [OPTIONS] <ID>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Iteration ID or unique prefix |
+| Argument | Description                   |
+|----------|-------------------------------|
+| `<ID>`   | Iteration ID or unique prefix |
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
+| Flag      | Description                                              |
+|-----------|----------------------------------------------------------|
 | `--force` | Advance even if the current phase has non-terminal tasks |
 
 ### Examples

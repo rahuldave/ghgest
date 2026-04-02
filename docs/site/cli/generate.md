@@ -10,10 +10,10 @@ gest generate <COMMAND> [OPTIONS]
 
 ## Subcommands
 
-| Command | Description |
-| --- | --- |
+| Command                                | Description                              |
+|----------------------------------------|------------------------------------------|
 | [`completions`](#generate-completions) | Print shell completion scripts to stdout |
-| [`man-pages`](#generate-man-pages) | Write man page files to a directory |
+| [`man-pages`](#generate-man-pages)     | Write man page files to a directory      |
 
 ---
 
@@ -27,8 +27,8 @@ gest generate completions --shell <SHELL>
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
+| Flag              | Description                                                 |
+|-------------------|-------------------------------------------------------------|
 | `--shell <SHELL>` | Target shell: `bash`, `elvish`, `fish`, `powershell`, `zsh` |
 
 ### Examples
@@ -56,8 +56,8 @@ gest generate man-pages --output-dir <OUTPUT_DIR>
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
+| Flag                        | Description                            |
+|-----------------------------|----------------------------------------|
 | `--output-dir <OUTPUT_DIR>` | Directory to write man page files into |
 
 ### Examples

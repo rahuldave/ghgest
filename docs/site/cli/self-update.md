@@ -11,11 +11,11 @@ gest self-update [OPTIONS]
 
 ## Options
 
-| Flag | Description |
-| --- | --- |
+| Flag                | Description                                           |
+|---------------------|-------------------------------------------------------|
 | `--target <TARGET>` | Pin to a specific version (bare semver, e.g. `1.2.3`) |
-| `-v, --verbose` | Increase verbosity (repeatable) |
-| `-h, --help` | Print help |
+| `-v, --verbose`     | Increase verbosity (repeatable)                       |
+| `-h, --help`        | Print help                                            |
 
 ## Examples
 

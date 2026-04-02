@@ -11,16 +11,16 @@ gest artifact <COMMAND> [OPTIONS]
 
 ## Subcommands
 
-| Command | Description |
-| --- | --- |
-| [`create`](#artifact-create) | Create a new artifact |
-| [`list`](#artifact-list) | List artifacts with optional filters |
-| [`show`](#artifact-show) | Display an artifact's full details |
-| [`update`](#artifact-update) | Update an artifact's fields |
-| [`tag`](#artifact-tag) | Add tags to an artifact |
-| [`untag`](#artifact-untag) | Remove tags from an artifact |
-| [`archive`](#artifact-archive) | Archive an artifact |
-| [`meta`](#artifact-meta) | Read or write metadata fields |
+| Command                        | Description                          |
+|--------------------------------|--------------------------------------|
+| [`create`](#artifact-create)   | Create a new artifact                |
+| [`list`](#artifact-list)       | List artifacts with optional filters |
+| [`show`](#artifact-show)       | Display an artifact's full details   |
+| [`update`](#artifact-update)   | Update an artifact's fields          |
+| [`tag`](#artifact-tag)         | Add tags to an artifact              |
+| [`untag`](#artifact-untag)     | Remove tags from an artifact         |
+| [`archive`](#artifact-archive) | Archive an artifact                  |
+| [`meta`](#artifact-meta)       | Read or write metadata fields        |
 
 ---
 
@@ -34,14 +34,14 @@ gest artifact create [OPTIONS]
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
-| `-t, --title <TITLE>` | Artifact title (auto-extracted from first `#` heading if omitted) |
-| `-b, --body <BODY>` | Body content as an inline string (skips editor and stdin) |
-| `-k, --type <KIND>` | Artifact type (e.g. `spec`, `adr`, `rfc`, `note`) |
-| `-m, --metadata <METADATA>` | Key=value metadata pairs (repeatable) |
-| `-s, --source <SOURCE>` | Read body content from a file path |
-| `--tags <TAGS>` | Comma-separated list of tags |
+| Flag                        | Description                                                       |
+|-----------------------------|-------------------------------------------------------------------|
+| `-t, --title <TITLE>`       | Artifact title (auto-extracted from first `#` heading if omitted) |
+| `-b, --body <BODY>`         | Body content as an inline string (skips editor and stdin)         |
+| `-k, --type <KIND>`         | Artifact type (e.g. `spec`, `adr`, `rfc`, `note`)                 |
+| `-m, --metadata <METADATA>` | Key=value metadata pairs (repeatable)                             |
+| `-s, --source <SOURCE>`     | Read body content from a file path                                |
+| `--tags <TAGS>`             | Comma-separated list of tags                                      |
 
 ### Examples
 
@@ -68,13 +68,13 @@ gest artifact list [OPTIONS]
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
-| `-a, --all` | Include archived artifacts alongside active ones |
-| `--archived` | Show only archived artifacts |
-| `-j, --json` | Output as JSON |
+| Flag                | Description                                         |
+|---------------------|-----------------------------------------------------|
+| `-a, --all`         | Include archived artifacts alongside active ones    |
+| `--archived`        | Show only archived artifacts                        |
+| `-j, --json`        | Output as JSON                                      |
 | `-k, --type <KIND>` | Filter by artifact type (e.g. `spec`, `adr`, `rfc`) |
-| `--tag <TAG>` | Filter by tag |
+| `--tag <TAG>`       | Filter by tag                                       |
 
 ### Examples
 
@@ -101,14 +101,14 @@ gest artifact show [OPTIONS] <ID>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Artifact ID or unique prefix |
+| Argument | Description                  |
+|----------|------------------------------|
+| `<ID>`   | Artifact ID or unique prefix |
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
+| Flag         | Description                                |
+|--------------|--------------------------------------------|
 | `-j, --json` | Output as JSON instead of formatted detail |
 
 ### Examples
@@ -130,18 +130,18 @@ gest artifact update [OPTIONS] <ID>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Artifact ID or unique prefix |
+| Argument | Description                  |
+|----------|------------------------------|
+| `<ID>`   | Artifact ID or unique prefix |
 
 ### Options
 
-| Flag | Description |
-| --- | --- |
-| `-b, --body <BODY>` | Replace the body content |
-| `-k, --type <KIND>` | Artifact type (e.g. `spec`, `adr`, `rfc`, `note`) |
-| `--tags <TAGS>` | Replace all tags with this comma-separated list |
-| `-t, --title <TITLE>` | New title |
+| Flag                  | Description                                       |
+|-----------------------|---------------------------------------------------|
+| `-b, --body <BODY>`   | Replace the body content                          |
+| `-k, --type <KIND>`   | Artifact type (e.g. `spec`, `adr`, `rfc`, `note`) |
+| `--tags <TAGS>`       | Replace all tags with this comma-separated list   |
+| `-t, --title <TITLE>` | New title                                         |
 
 ### Examples
 
@@ -162,9 +162,9 @@ gest artifact tag <ID> [TAGS]...
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Artifact ID or unique prefix |
+| Argument    | Description                   |
+|-------------|-------------------------------|
+| `<ID>`      | Artifact ID or unique prefix  |
 | `[TAGS]...` | Tags to add (space-separated) |
 
 ### Examples
@@ -185,9 +185,9 @@ gest artifact untag <ID> [TAGS]...
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Artifact ID or unique prefix |
+| Argument    | Description                      |
+|-------------|----------------------------------|
+| `<ID>`      | Artifact ID or unique prefix     |
 | `[TAGS]...` | Tags to remove (space-separated) |
 
 ### Examples
@@ -208,9 +208,9 @@ gest artifact archive <ID>
 
 ### Arguments
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Artifact ID or unique prefix |
+| Argument | Description                  |
+|----------|------------------------------|
+| `<ID>`   | Artifact ID or unique prefix |
 
 ### Examples
 
@@ -236,9 +236,9 @@ Retrieve a single metadata value.
 gest artifact meta get <ID> <PATH>
 ```
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Artifact ID or unique prefix |
+| Argument | Description                                 |
+|----------|---------------------------------------------|
+| `<ID>`   | Artifact ID or unique prefix                |
 | `<PATH>` | Dot-delimited key path (e.g. `outer.inner`) |
 
 ### meta set
@@ -249,11 +249,11 @@ Set a metadata value. Strings, numbers, booleans, and null are auto-detected.
 gest artifact meta set <ID> <PATH> <VALUE>
 ```
 
-| Argument | Description |
-| --- | --- |
-| `<ID>` | Artifact ID or unique prefix |
-| `<PATH>` | Dot-delimited key path (e.g. `config.timeout`) |
-| `<VALUE>` | Value to set |
+| Argument  | Description                                    |
+|-----------|------------------------------------------------|
+| `<ID>`    | Artifact ID or unique prefix                   |
+| `<PATH>`  | Dot-delimited key path (e.g. `config.timeout`) |
+| `<VALUE>` | Value to set                                   |
 
 ### Examples
 

@@ -13,10 +13,10 @@ gest searches for configuration in two layers: a **global** config and
 
 The global config lives at your platform's config home:
 
-| Platform | Path |
-| --- | --- |
-| Linux | `~/.config/gest/config.toml` |
-| macOS | `~/Library/Application Support/gest/config.toml` |
+| Platform | Path                                             |
+|----------|--------------------------------------------------|
+| Linux    | `~/.config/gest/config.toml`                     |
+| macOS    | `~/Library/Application Support/gest/config.toml` |
 
 You can override this location with the `GEST_CONFIG` environment variable.
 
@@ -130,27 +130,27 @@ paths.
 
 ### `[storage]`
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `data_dir` | string (absolute path) | _(auto-resolved)_ | Override the global data root directory. Must be an absolute path. |
-| `project_dir` | string (absolute path) | _(auto-resolved)_ | Override the project-specific data directory. Must be an absolute path. |
-| `state_dir` | string (absolute path) | _(auto-resolved)_ | Override the state directory (event store). Must be an absolute path. |
-| `artifact_dir` | string (path) | `<project_dir>/artifacts` | Override the artifact storage directory. |
-| `iteration_dir` | string (path) | `<project_dir>/iterations` | Override the iteration storage directory. |
-| `task_dir` | string (path) | `<project_dir>/tasks` | Override the task storage directory. |
+| Key             | Type                   | Default                    | Description                                                             |
+|-----------------|------------------------|----------------------------|-------------------------------------------------------------------------|
+| `data_dir`      | string (absolute path) | _(auto-resolved)_          | Override the global data root directory. Must be an absolute path.      |
+| `project_dir`   | string (absolute path) | _(auto-resolved)_          | Override the project-specific data directory. Must be an absolute path. |
+| `state_dir`     | string (absolute path) | _(auto-resolved)_          | Override the state directory (event store). Must be an absolute path.   |
+| `artifact_dir`  | string (path)          | `<project_dir>/artifacts`  | Override the artifact storage directory.                                |
+| `iteration_dir` | string (path)          | `<project_dir>/iterations` | Override the iteration storage directory.                               |
+| `task_dir`      | string (path)          | `<project_dir>/tasks`      | Override the task storage directory.                                    |
 
 ### `[serve]`
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
-| `bind_address` | string (IP address) | `"127.0.0.1"` | IP address the web server binds to. |
-| `port` | integer | `2300` | Port the web server listens on. |
-| `open` | boolean | `true` | Whether to automatically open the browser when the server starts. |
+| Key            | Type                | Default       | Description                                                       |
+|----------------|---------------------|---------------|-------------------------------------------------------------------|
+| `bind_address` | string (IP address) | `"127.0.0.1"` | IP address the web server binds to.                               |
+| `port`         | integer             | `2300`        | Port the web server listens on.                                   |
+| `open`         | boolean             | `true`        | Whether to automatically open the browser when the server starts. |
 
 ### `[log]`
 
-| Key | Type | Default | Description |
-| --- | --- | --- | --- |
+| Key     | Type   | Default  | Description                                                                          |
+|---------|--------|----------|--------------------------------------------------------------------------------------|
 | `level` | string | `"warn"` | Log level filter. Valid values: `"error"`, `"warn"`, `"info"`, `"debug"`, `"trace"`. |
 
 ### `[colors]`
@@ -177,14 +177,14 @@ bold = true
 
 Available fields in the table form:
 
-| Field | Type | Default | Description |
-| --- | --- | --- | --- |
-| `fg` | string | _(none)_ | Foreground color (named color or `#RRGGBB` hex). |
-| `bg` | string | _(none)_ | Background color (named color or `#RRGGBB` hex). |
-| `bold` | boolean | `false` | Enable bold text. |
-| `dim` | boolean | `false` | Enable dim/faint text. |
-| `italic` | boolean | `false` | Enable italic text. |
-| `underline` | boolean | `false` | Enable underlined text. |
+| Field       | Type    | Default  | Description                                      |
+|-------------|---------|----------|--------------------------------------------------|
+| `fg`        | string  | _(none)_ | Foreground color (named color or `#RRGGBB` hex). |
+| `bg`        | string  | _(none)_ | Background color (named color or `#RRGGBB` hex). |
+| `bold`      | boolean | `false`  | Enable bold text.                                |
+| `dim`       | boolean | `false`  | Enable dim/faint text.                           |
+| `italic`    | boolean | `false`  | Enable italic text.                              |
+| `underline` | boolean | `false`  | Enable underlined text.                          |
 
 **Supported named colors:** `black`, `red`, `green`, `yellow`, `blue`,
 `magenta`, `cyan`, `white`, and their `bright` variants (e.g. `bright cyan`).
@@ -215,18 +215,18 @@ bold = true
 
 ## Environment variables
 
-| Variable | Description |
-| --- | --- |
-| `GEST_CONFIG` | Override the path to the global config file. |
-| `GEST_DATA_DIR` | Override the global data root directory (must be an absolute path). |
-| `GEST_PROJECT_DIR` | Override the project-specific data directory (must be an absolute path). |
-| `GEST_STATE_DIR` | Override the state directory for the event store (must be an absolute path). |
-| `GEST_ARTIFACT_DIR` | Override the artifact storage directory. |
-| `GEST_ITERATION_DIR` | Override the iteration storage directory. |
-| `GEST_TASK_DIR` | Override the task storage directory. |
-| `GEST_LOG_LEVEL` | Override the log level filter (e.g. `debug`, `trace`). Takes precedence over the config file. |
-| `VISUAL` | Preferred editor for interactive editing (checked before `EDITOR`). |
-| `EDITOR` | Fallback editor for interactive editing. |
+| Variable             | Description                                                                                   |
+|----------------------|-----------------------------------------------------------------------------------------------|
+| `GEST_CONFIG`        | Override the path to the global config file.                                                  |
+| `GEST_DATA_DIR`      | Override the global data root directory (must be an absolute path).                           |
+| `GEST_PROJECT_DIR`   | Override the project-specific data directory (must be an absolute path).                      |
+| `GEST_STATE_DIR`     | Override the state directory for the event store (must be an absolute path).                  |
+| `GEST_ARTIFACT_DIR`  | Override the artifact storage directory.                                                      |
+| `GEST_ITERATION_DIR` | Override the iteration storage directory.                                                     |
+| `GEST_TASK_DIR`      | Override the task storage directory.                                                          |
+| `GEST_LOG_LEVEL`     | Override the log level filter (e.g. `debug`, `trace`). Takes precedence over the config file. |
+| `VISUAL`             | Preferred editor for interactive editing (checked before `EDITOR`).                           |
+| `EDITOR`             | Fallback editor for interactive editing.                                                      |
 
 ## Managing config from the CLI
 

@@ -136,15 +136,15 @@ gest iteration status <iteration-id> --json
 
 Fields:
 
-| Field | Description |
-| --- | --- |
-| `active_phase` | Lowest phase that still has incomplete tasks |
-| `total_phases` | Number of distinct phases in the iteration |
-| `phase_progress` | Done vs. total tasks in the active phase |
-| `blocked` | Active-phase tasks blocked by unfinished dependencies |
-| `in_progress` | Active-phase tasks currently being worked on |
-| `assignees` | Agents with in-progress tasks (across all phases) |
-| `overall_progress` | Done vs. total tasks across the entire iteration |
+| Field              | Description                                           |
+|--------------------|-------------------------------------------------------|
+| `active_phase`     | Lowest phase that still has incomplete tasks          |
+| `total_phases`     | Number of distinct phases in the iteration            |
+| `phase_progress`   | Done vs. total tasks in the active phase              |
+| `blocked`          | Active-phase tasks blocked by unfinished dependencies |
+| `in_progress`      | Active-phase tasks currently being worked on          |
+| `assignees`        | Agents with in-progress tasks (across all phases)     |
+| `overall_progress` | Done vs. total tasks across the entire iteration      |
 
 ## Step 4: Advance Phase
 

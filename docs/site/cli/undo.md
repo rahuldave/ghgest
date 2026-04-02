@@ -17,16 +17,16 @@ gest undo [STEPS]
 
 ## Arguments
 
-| Argument | Description |
-| --- | --- |
+| Argument  | Description                               |
+|-----------|-------------------------------------------|
 | `[STEPS]` | Number of commands to undo (default: `1`) |
 
 ## Options
 
-| Flag | Description |
-| --- | --- |
+| Flag            | Description                     |
+|-----------------|---------------------------------|
 | `-v, --verbose` | Increase verbosity (repeatable) |
-| `-h, --help` | Print help |
+| `-h, --help`    | Print help                      |
 
 ## Examples
 
