@@ -35,12 +35,26 @@ pub fn ensure_dirs(config: &Settings) -> super::Result<()> {
   Ok(())
 }
 
-/// Write `content` to `dest` and remove `src` if it exists, ensuring store dirs first.
+/// Atomically write `content` to `dest` and remove `src`, ensuring store dirs first.
+///
+/// Writes to a temporary file then renames it to `dest` so readers never see a
+/// partial write.  When `src` differs from `dest` the old file is removed;
+/// `ErrorKind::NotFound` is treated as success to avoid a TOCTOU race.
 pub(crate) fn move_entity_file(config: &Settings, content: &str, dest: &Path, src: &Path) -> super::Result<()> {
   ensure_dirs(config)?;
-  fs::write(dest, content)?;
-  if src.exists() {
-    fs::remove_file(src)?;
+
+  // Write to a sibling temp file, then atomically rename into place.
+  let dest_dir = dest.parent().unwrap_or(dest);
+  let tmp = dest_dir.join(format!(".tmp_{}", std::process::id()));
+  fs::write(&tmp, content)?;
+  fs::rename(&tmp, dest)?;
+
+  // Clean up the old location when it differs from the new one.
+  if src != dest
+    && let Err(e) = fs::remove_file(src)
+    && e.kind() != std::io::ErrorKind::NotFound
+  {
+    return Err(e.into());
   }
   Ok(())
 }
