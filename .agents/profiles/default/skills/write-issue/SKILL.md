@@ -37,7 +37,7 @@ Create a gest task with the issue content. Apply tags for type, area, and priori
 `docs/process/labels.md`. Use bare tags -- no namespace prefixes like `area:` or `type:`:
 
 ```sh
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "<title>" --description "<content>" --tags "enhancement,cli,p2"
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "<title>" --description "<content>" --tag "enhancement,cli,p2"
 ```
 
 Tag examples: `bug`, `enhancement`, `chore`, `cli`, `model`, `storage`, `server`, `ui`, `config`, `docs`, `p0`-`p4`.

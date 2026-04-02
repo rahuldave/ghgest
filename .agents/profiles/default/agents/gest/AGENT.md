@@ -21,23 +21,54 @@ All commands use `GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo ru
 IDs are 8-character lowercase alphabetic strings. Prefix matching works -- you can use a shorter prefix if it's
 unambiguous.
 
+## Command Aliases
+
+All entity types support these subcommand aliases:
+
+| Command  | Aliases |
+|----------|---------|
+| `create` | `new`   |
+| `list`   | `ls`    |
+| `show`   | `view`  |
+| `update` | `edit`  |
+| `remove` | `rm`    |
+
+Note subcommands also have aliases: `note list` → `ls`, `note show` → `view`.
+
+Top-level aliases: `gest u` → `gest undo`, `gest s` → `gest serve`.
+
+## Machine-Readable Output
+
+All mutation commands support `--json` (full JSON output) and `-q`/`--quiet` (print only the entity ID). Read commands
+like `meta get` support `--json` and `--raw` (bare value, no styling).
+
+## Stdin Piping
+
+When `--description` (tasks), `--body` (artifacts/notes), or `--source` is omitted and stdin is a pipe, the piped
+content is used as the body.
+
+## Batch Creation
+
+Use `--batch` on `task create` or `artifact create` to read NDJSON from stdin (one object per line).
+
 ## Artifacts
 
 ### Create
 
 ```sh
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create --title "<title>" --type <kind> --tags "<area>,<type>" --file <path>
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create --title "<title>" --type <kind> --tags "<area>,<type>" --body "<inline body>"
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create --title "<title>" --type <kind> --tag "<area>,<type>" --source <path>
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create --title "<title>" --type <kind> --tag "<area>,<type>" --body "<inline body>"
 ```
 
 Types: `spec`, `adr`, `rfc` (freeform string -- use these conventions).
 
-Options: `--tags <comma-separated>`, `--metadata <key=value>`.
+Options: `--tag <tag>` (repeatable, or comma-separated), `--metadata <key=value>`, `--json`, `-q`,
+`-i, --iteration <id>` (add to iteration).
 
 Tags use bare format (no namespace prefixes). Include area tags (`cli`, `config`, `docs`, `model`, `server`, `storage`,
 `ui`) and the artifact type tag (`spec`, `adr`, `rfc`).
 
-Output: `Created artifact <id>` -- extract the ID from this line.
+Output: use `-q` to get just the ID, or `--json` for full JSON.
 
 ### Show
 
@@ -50,7 +81,7 @@ GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact show
 
 ```sh
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact list                     # active only
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact list --include-archived  # include archived
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact list --all  # include archived
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact list --type <kind>       # filter by type
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact list --tag <tag>         # filter by tag
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact list --json              # structured JSON
@@ -89,17 +120,18 @@ GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact meta
 ### Create
 
 ```sh
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "<title>" --description "<desc>" --tags "enhancement,cli,p2"
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "<title>" --status <status> --tags "<type>,<area>,<priority>"
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "<title>" --description "<desc>" --tag "enhancement,cli,p2"
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "<title>" --status <status> --tag "<type>,<area>,<priority>"
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "<title>" --priority 1 --phase 2 --assigned-to agent-1
 ```
 
-Options: `--description`, `--status`, `--tags <comma-separated>`, `--metadata <key=value>`, `--priority <0-4>`, `--phase
-<number>`, `--assigned-to <actor>`.
+Options: `--description`, `--status`, `--tag <tag>` (repeatable, or comma-separated), `--metadata <key=value>`,
+`--priority <0-4>`, `--phase <number>`, `--assigned-to <actor>`, `--json`, `-q`,
+`-i, --iteration <id>` (add to iteration), `-l, --link <rel>:<target_id>` (repeatable).
 
 Tags use bare format (no namespace prefixes). See `docs/process/labels.md` for the tag vocabulary.
 
-Output: `Created task <id>` -- extract the ID from this line.
+Output: use `-q` to get just the ID, or `--json` for full JSON.
 
 ### Show
 
@@ -115,6 +147,7 @@ GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task list    
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task list --all               # include resolved
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task list --status <status>   # filter by status
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task list --tag <tag>         # filter by tag
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task list --assigned-to <name>  # filter by assignee
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task list --json              # structured JSON
 ```
 
@@ -213,7 +246,7 @@ Iterations group tasks into an execution plan. They separate "how to execute" fr
 
 ```sh
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration create "<title>"
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration create "<title>" --description "<desc>" --tags <tags>
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration create "<title>" --description "<desc>" --tag <tags>
 ```
 
 Output: `Created iteration <id>` -- extract the ID from this line.
@@ -362,7 +395,7 @@ command itself is not recorded, so repeated calls walk backwards through history
 ```sh
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- search "<query>"                     # search all entities
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- search --json "<query>"              # structured JSON
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- search --include-archived "<query>"  # include archived
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- search --all "<query>"  # include archived
 ```
 
 ## ID Extraction
@@ -388,9 +421,9 @@ GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration cre
 # Link it to the source spec
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration link <iteration-id> child-of <spec-id> --artifact
 # Create tasks with phase, priority, and tags
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "Add parser types" --phase 1 --priority 1 --tags "enhancement,model,p1"
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "Add CLI flag" --phase 1 --priority 2 --tags "enhancement,cli,p2"
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "Integrate parser" --phase 2 --priority 0 --tags "enhancement,cli,p0"
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "Add parser types" --phase 1 --priority 1 --tag "enhancement,model,p1"
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "Add CLI flag" --phase 1 --priority 2 --tag "enhancement,cli,p2"
+GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "Integrate parser" --phase 2 --priority 0 --tag "enhancement,cli,p0"
 # Link tasks to spec and add to iteration
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task link <task-id> child-of <spec-id> --artifact
 GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration add <iteration-id> <task-id>
