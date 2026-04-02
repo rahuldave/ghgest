@@ -4,7 +4,7 @@
 //! transaction. The event store lives in `<state_dir>/events.db` and uses
 //! WAL mode for safe concurrent access.
 
-use std::path::Path;
+use std::{path::Path, str::FromStr};
 
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, params};
@@ -16,6 +16,8 @@ pub enum Error {
   Io(#[from] std::io::Error),
   #[error(transparent)]
   Rusqlite(#[from] rusqlite::Error),
+  #[error("unknown event type: {0}")]
+  UnknownEventType(String),
 }
 
 /// A single file mutation within a transaction.
@@ -147,20 +149,26 @@ impl EventStore {
         WHERE transaction_id = ?1 ORDER BY id ASC",
     )?;
 
-    let events = stmt
+    let rows = stmt
       .query_map(params![transaction_id], |row| {
-        let file_path: String = row.get(0)?;
-        let event_type: String = row.get(1)?;
-        let before_content: Option<Vec<u8>> = row.get(2)?;
-        Ok(Event {
-          before_content,
-          event_type: EventType::from_str(&event_type),
-          file_path,
-        })
+        Ok((
+          row.get::<_, String>(0)?,
+          row.get::<_, String>(1)?,
+          row.get::<_, Option<Vec<u8>>>(2)?,
+        ))
       })?
       .collect::<std::result::Result<Vec<_>, _>>()?;
 
-    Ok(events)
+    rows
+      .into_iter()
+      .map(|(file_path, event_type_str, before_content)| {
+        Ok(Event {
+          before_content,
+          event_type: event_type_str.parse()?,
+          file_path,
+        })
+      })
+      .collect()
   }
 }
 
@@ -183,13 +191,17 @@ impl EventType {
       Self::Modified => "modified",
     }
   }
+}
 
-  fn from_str(s: &str) -> Self {
+impl FromStr for EventType {
+  type Err = Error;
+
+  fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
     match s {
-      "created" => Self::Created,
-      "deleted" => Self::Deleted,
-      "modified" => Self::Modified,
-      other => panic!("unknown event type: {other}"),
+      "created" => Ok(Self::Created),
+      "deleted" => Ok(Self::Deleted),
+      "modified" => Ok(Self::Modified),
+      other => Err(Error::UnknownEventType(other.to_string())),
     }
   }
 }
@@ -311,6 +323,13 @@ mod tests {
   }
 
   #[test]
+  fn it_parses_valid_event_types_via_from_str() {
+    assert_eq!("created".parse::<EventType>().unwrap(), EventType::Created);
+    assert_eq!("deleted".parse::<EventType>().unwrap(), EventType::Deleted);
+    assert_eq!("modified".parse::<EventType>().unwrap(), EventType::Modified);
+  }
+
+  #[test]
   fn it_records_multiple_events_per_transaction() {
     let store = make_store();
     let tx_id = store.begin_transaction("proj1", "advance phase").unwrap();
@@ -329,6 +348,28 @@ mod tests {
     assert_eq!(tx.events.len(), 3);
     assert_eq!(tx.events[0].file_path, "tasks/a.toml");
     assert_eq!(tx.events[2].file_path, "tasks/c.toml");
+  }
+
+  #[test]
+  fn it_returns_error_for_unknown_event_type() {
+    let store = make_store();
+    let tx_id = store.begin_transaction("proj1", "bad command").unwrap();
+
+    // Insert a row with an unknown event_type directly via SQL.
+    store
+      .conn
+      .execute(
+        "INSERT INTO events (transaction_id, file_path, event_type, created_at) \
+          VALUES (?1, ?2, ?3, ?4)",
+        params![tx_id, "tasks/x.toml", "bogus", "2026-01-01T00:00:00Z"],
+      )
+      .unwrap();
+
+    let err = store.latest_undoable("proj1").unwrap_err();
+    assert!(
+      matches!(err, Error::UnknownEventType(ref s) if s == "bogus"),
+      "expected UnknownEventType, got: {err:?}"
+    );
   }
 
   #[test]
