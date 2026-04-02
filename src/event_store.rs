@@ -9,6 +9,8 @@ use std::{path::Path, str::FromStr};
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, params};
 
+use crate::model::Id;
+
 /// Errors that can occur during event store operations.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -36,9 +38,9 @@ pub struct EventStore {
 impl EventStore {
   /// Begin a new transaction for a CLI command invocation.
   ///
-  /// Returns the transaction ID (a UUID-like random hex string).
+  /// Returns the transaction ID (a `model::Id` encoded string).
   pub fn begin_transaction(&self, project_id: &str, command: &str) -> Result<String> {
-    let id = generate_id();
+    let id = Id::new().to_string();
     let now = Utc::now().to_rfc3339();
     self.conn.execute(
       "INSERT INTO transactions (id, project_id, command, created_at) VALUES (?1, ?2, ?3, ?4)",
@@ -262,13 +264,6 @@ CREATE INDEX IF NOT EXISTS idx_transactions_project_undone
 CREATE INDEX IF NOT EXISTS idx_events_transaction
   ON events(transaction_id);",
   )
-}
-
-/// Generate a random 16-character hex string for use as a transaction ID.
-fn generate_id() -> String {
-  use rand::RngExt;
-  let bytes: [u8; 8] = rand::rng().random();
-  bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// Parse an RFC 3339 datetime string, panicking on invalid input (should never
