@@ -22,11 +22,18 @@
   <div class="c-azure bold" style="margin-bottom: 8px;">Artifacts ({{ artifacts.len() }})</div>
   <div class="term">
     <div class="term-body">
-      <table>
+      <table class="list-table">
+        <thead>
+          <tr>
+            <th style="width:100px">ID</th>
+            <th style="width:auto">Title</th>
+            <th style="width:120px">Tags</th>
+          </tr>
+        </thead>
         <tbody>
           {% for a in artifacts %}
           <tr{% if a.archived_at.is_some() %} class="c-dim"{% endif %}>
-            <td style="width: 100px;">
+            <td>
               <a href="/artifacts/{{ a.id }}">
                 <span class="id-prefix">{{ a.id.short() }}</span>
               </a>
@@ -47,11 +54,20 @@
   <div class="c-azure bold" style="margin-bottom: 8px;">Tasks ({{ tasks.len() }})</div>
   <div class="term">
     <div class="term-body">
-      <table>
+      <table class="list-table">
+        <thead>
+          <tr>
+            <th style="width:30px"></th>
+            <th style="width:100px">ID</th>
+            <th style="width:auto">Title</th>
+            <th style="width:120px">Tags</th>
+            <th style="width:100px">Status</th>
+          </tr>
+        </thead>
         <tbody>
           {% for task in tasks %}
           <tr>
-            <td style="width: 30px;">
+            <td>
               {% match task.status %}
                 {% when TaskStatus::Open %}<span class="status-open">○</span>
                 {% when TaskStatus::InProgress %}<span class="status-in-progress">◐</span>
@@ -59,7 +75,7 @@
                 {% when TaskStatus::Cancelled %}<span class="status-cancelled">✗</span>
               {% endmatch %}
             </td>
-            <td style="width: 100px;">
+            <td>
               <a href="/tasks/{{ task.id }}">
                 <span class="id-prefix">{{ task.id.short() }}</span>
               </a>
@@ -88,11 +104,19 @@
   <div class="c-azure bold" style="margin-bottom: 8px;">Iterations ({{ iterations.len() }})</div>
   <div class="term">
     <div class="term-body">
-      <table>
+      <table class="list-table">
+        <thead>
+          <tr>
+            <th style="width:100px">ID</th>
+            <th style="width:auto">Title</th>
+            <th style="width:120px">Tags</th>
+            <th style="width:90px">Status</th>
+          </tr>
+        </thead>
         <tbody>
           {% for iter in iterations %}
           <tr{% if iter.completed_at.is_some() %} class="c-dim"{% endif %}>
-            <td style="width: 100px;">
+            <td>
               <a href="/iterations/{{ iter.id }}">
                 <span class="id-prefix">{{ iter.id.short() }}</span>
               </a>

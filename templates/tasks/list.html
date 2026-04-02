@@ -41,16 +41,16 @@
 <span class="term-title">gest task list{% if current_status != Status::Open %} --status {{ current_status }}{% endif %}</span>
   </div>
   <div class="term-body">
-    <table>
+    <table class="list-table">
       <thead>
         <tr>
-          <th></th>
-          <th>ID</th>
-          <th>Pri</th>
-          <th>Title</th>
-          <th>Status</th>
-          <th>Info</th>
-          <th>Tags</th>
+          <th style="width:30px"></th>
+          <th style="width:90px">ID</th>
+          <th style="width:60px">Pri</th>
+          <th style="width:auto">Title</th>
+          <th style="width:100px">Status</th>
+          <th style="width:150px">Info</th>
+          <th style="width:120px">Tags</th>
         </tr>
       </thead>
       <tbody>
@@ -111,7 +111,7 @@
           </td>
           <td class="c-dim">
             {% if row.is_blocked %}
-              blocked by {{ row.blocking.blocked_by_ids.join(", ") }}
+              blocked by {{ row.blocked_by_display }}
             {% else if row.blocking.is_blocking %}
               blocking others
             {% endif %}

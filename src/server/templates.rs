@@ -270,6 +270,7 @@ impl IntoResponse for TaskListTemplate {
 }
 
 pub struct TaskRow {
+  pub blocked_by_display: String,
   pub blocking: ResolvedBlocking,
   pub is_blocked: bool,
   pub task: Task,

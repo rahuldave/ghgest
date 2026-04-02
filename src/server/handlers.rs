@@ -969,10 +969,17 @@ pub async fn task_list(State(state): State<ServerState>, Query(params): Query<Ta
     .zip(blockings)
     .map(|(task, blocking)| {
       let is_blocked = !blocking.blocked_by_ids.is_empty();
+      let blocked_by_display = blocking
+        .blocked_by_ids
+        .iter()
+        .map(|id| if id.len() > 8 { &id[..8] } else { id })
+        .collect::<Vec<_>>()
+        .join(", ");
       TaskRow {
-        task: task.clone(),
+        blocked_by_display,
         blocking,
         is_blocked,
+        task: task.clone(),
       }
     })
     .collect();

@@ -82,11 +82,19 @@
     {% for phase in phases %}
     <div style="margin-bottom: 16px;">
       <div class="c-pewter bold" style="margin-bottom: 6px;">Phase {{ phase.number }}</div>
-      <table>
+      <table class="list-table">
+        <thead>
+          <tr>
+            <th style="width:30px"></th>
+            <th style="width:100px">ID</th>
+            <th style="width:auto">Title</th>
+            <th style="width:100px">Status</th>
+          </tr>
+        </thead>
         <tbody>
           {% for task in phase.tasks %}
           <tr>
-            <td style="width: 30px;">
+            <td>
               {% match task.status %}
                 {% when TaskStatus::Open %}
                   <span class="status-open">○</span>
@@ -98,7 +106,7 @@
                   <span class="status-cancelled">✗</span>
               {% endmatch %}
             </td>
-            <td style="width: 100px;">
+            <td>
               <a href="/tasks/{{ task.id }}">
                 <span class="id-prefix">{{ task.id.short() }}</span>
               </a>
