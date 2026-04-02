@@ -16,9 +16,15 @@ pub struct Command {
   /// New description.
   #[arg(short, long)]
   pub description: Option<String>,
+  /// Output as JSON.
+  #[arg(short, long, conflicts_with = "quiet")]
+  pub json: bool,
   /// Key=value metadata pair, merged with existing (repeatable, e.g. `-m key=value`).
   #[arg(short, long)]
   pub metadata: Vec<String>,
+  /// Print only the iteration ID.
+  #[arg(short, long, conflicts_with = "json")]
+  pub quiet: bool,
   /// New status: active, completed, or failed.
   #[arg(short, long)]
   pub status: Option<String>,
@@ -62,6 +68,17 @@ impl Command {
     let author = action::resolve_author(false)?;
     let iteration = store::update_iteration(config, &id, patch, Some(&author))?;
 
+    if self.json {
+      let json = serde_json::to_string_pretty(&iteration)?;
+      println!("{json}");
+      return Ok(());
+    }
+
+    if self.quiet {
+      println!("{}", iteration.id);
+      return Ok(());
+    }
+
     let msg = format!("Updated iteration {}", iteration.id);
     println!("{}", SuccessMessage::new(&msg, theme));
     Ok(())
@@ -91,7 +108,9 @@ mod tests {
       let cmd = Command {
         id: "zyxw".to_string(),
         description: None,
+        json: false,
         metadata: vec!["team=backend".to_string()],
+        quiet: false,
         status: None,
         tag: vec![],
         title: None,
@@ -113,7 +132,9 @@ mod tests {
       let cmd = Command {
         id: "zyxw".to_string(),
         description: None,
+        json: false,
         metadata: vec![],
+        quiet: false,
         status: Some("completed".to_string()),
         tag: vec![],
         title: None,
@@ -136,7 +157,9 @@ mod tests {
       let cmd = Command {
         id: "zyxw".to_string(),
         description: None,
+        json: false,
         metadata: vec![],
+        quiet: false,
         status: None,
         tag: vec![],
         title: Some("New Title".to_string()),

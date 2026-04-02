@@ -13,6 +13,12 @@ use crate::{
 pub struct Command {
   /// Task ID or unique prefix.
   pub id: String,
+  /// Output as JSON.
+  #[arg(short, long, conflicts_with = "quiet")]
+  pub json: bool,
+  /// Print only the task ID.
+  #[arg(short, long, conflicts_with = "json")]
+  pub quiet: bool,
 }
 
 impl Command {
@@ -24,6 +30,18 @@ impl Command {
 
     let author = action::resolve_author(false)?;
     let task = action::set_status::<Task>(config, &id, Status::Cancelled, Some(&author))?;
+
+    if self.json {
+      let json = serde_json::to_string_pretty(&task)?;
+      println!("{json}");
+      return Ok(());
+    }
+
+    if self.quiet {
+      println!("{}", task.id);
+      return Ok(());
+    }
+
     let id_str = task.id.to_string();
 
     let view = TaskUpdateView {

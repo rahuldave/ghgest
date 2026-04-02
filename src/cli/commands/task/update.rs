@@ -19,6 +19,9 @@ pub struct Command {
   /// New description text.
   #[arg(short, long)]
   pub description: Option<String>,
+  /// Output as JSON.
+  #[arg(short, long, conflicts_with = "quiet")]
+  pub json: bool,
   /// Key=value metadata pair, merged with existing (repeatable).
   #[arg(short, long)]
   pub metadata: Vec<String>,
@@ -28,6 +31,9 @@ pub struct Command {
   /// Priority level (0-4, where 0 is highest).
   #[arg(short, long)]
   pub priority: Option<u8>,
+  /// Print only the task ID.
+  #[arg(short, long, conflicts_with = "json")]
+  pub quiet: bool,
   /// New status (done/cancelled auto-resolves; open/in-progress un-resolves).
   #[arg(short, long)]
   pub status: Option<String>,
@@ -76,6 +82,18 @@ impl Command {
 
     let author = action::resolve_author(false)?;
     let task = store::update_task(config, &id, patch, Some(&author))?;
+
+    if self.json {
+      let json = serde_json::to_string_pretty(&task)?;
+      println!("{json}");
+      return Ok(());
+    }
+
+    if self.quiet {
+      println!("{}", task.id);
+      return Ok(());
+    }
+
     let id_str = task.id.to_string();
 
     let status_str = if self.status.is_some() {
@@ -123,13 +141,15 @@ mod tests {
       let cmd = Command {
         id: "zyxw".to_string(),
         assigned_to: None,
-        title: None,
         description: None,
+        json: false,
+        metadata: vec!["team=backend".to_string()],
         phase: None,
         priority: None,
+        quiet: false,
         status: None,
         tag: vec![],
-        metadata: vec!["team=backend".to_string()],
+        title: None,
       };
 
       cmd.call(&ctx).unwrap();
@@ -150,13 +170,15 @@ mod tests {
       let cmd = Command {
         id: "zyxw".to_string(),
         assigned_to: None,
-        title: None,
         description: Some("New desc".to_string()),
+        json: false,
+        metadata: vec![],
         phase: None,
         priority: None,
+        quiet: false,
         status: None,
         tag: vec![],
-        metadata: vec![],
+        title: None,
       };
 
       cmd.call(&ctx).unwrap();
@@ -178,13 +200,15 @@ mod tests {
       let cmd = Command {
         id: "zyxw".to_string(),
         assigned_to: None,
-        title: Some("New Title".to_string()),
         description: None,
+        json: false,
+        metadata: vec![],
         phase: None,
         priority: None,
+        quiet: false,
         status: None,
         tag: vec![],
-        metadata: vec![],
+        title: Some("New Title".to_string()),
       };
 
       cmd.call(&ctx).unwrap();

@@ -11,6 +11,12 @@ use crate::{
 pub struct Command {
   /// Artifact ID or unique prefix.
   pub id: String,
+  /// Output as JSON.
+  #[arg(short, long, conflicts_with = "quiet")]
+  pub json: bool,
+  /// Print only the artifact ID.
+  #[arg(short, long, conflicts_with = "json")]
+  pub quiet: bool,
 }
 
 impl Command {
@@ -20,6 +26,18 @@ impl Command {
     let theme = &ctx.theme;
     let id = store::resolve_artifact_id(config, &self.id, false)?;
     store::archive_artifact(config, &id)?;
+
+    if self.json {
+      let artifact = store::read_artifact(config, &id)?;
+      let json = serde_json::to_string_pretty(&artifact)?;
+      println!("{json}");
+      return Ok(());
+    }
+
+    if self.quiet {
+      println!("{id}");
+      return Ok(());
+    }
 
     let msg = format!("Archived artifact {id}");
     println!("{}", SuccessMessage::new(&msg, theme));
@@ -50,6 +68,8 @@ mod tests {
 
       let cmd = Command {
         id: "zyxw".to_string(),
+        json: false,
+        quiet: false,
       };
       cmd.call(&ctx).unwrap();
 

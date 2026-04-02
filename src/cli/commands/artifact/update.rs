@@ -15,9 +15,15 @@ pub struct Command {
   /// Replace the body content.
   #[arg(short, long)]
   pub body: Option<String>,
+  /// Output as JSON.
+  #[arg(short, long, conflicts_with = "quiet")]
+  pub json: bool,
   /// Artifact type (e.g. spec, adr, rfc, note).
   #[arg(short = 'k', long = "type")]
   pub kind: Option<String>,
+  /// Print only the artifact ID.
+  #[arg(short, long, conflicts_with = "json")]
+  pub quiet: bool,
   /// Replace all tags (repeatable, or comma-separated).
   // TODO: deprecate --tags in favor of --tag
   #[arg(long = "tag", value_delimiter = ',', alias = "tags")]
@@ -49,6 +55,18 @@ impl Command {
     };
 
     let artifact = store::update_artifact(config, &id, patch)?;
+
+    if self.json {
+      let json = serde_json::to_string_pretty(&artifact)?;
+      println!("{json}");
+      return Ok(());
+    }
+
+    if self.quiet {
+      println!("{}", artifact.id);
+      return Ok(());
+    }
+
     let id_str = artifact.id.to_string();
 
     let mut msg = SuccessMessage::new("updated artifact", theme).id(&id_str);
@@ -87,7 +105,9 @@ mod tests {
       let cmd = Command {
         id: "zyxw".to_string(),
         body: Some("New body".to_string()),
+        json: false,
         kind: None,
+        quiet: false,
         tag: vec![],
         title: None,
       };
@@ -110,7 +130,9 @@ mod tests {
       let cmd = Command {
         id: "zyxw".to_string(),
         body: None,
+        json: false,
         kind: None,
+        quiet: false,
         tag: vec!["new".to_string(), "tags".to_string()],
         title: None,
       };
@@ -134,7 +156,9 @@ mod tests {
       let cmd = Command {
         id: "zyxw".to_string(),
         body: None,
+        json: false,
         kind: None,
+        quiet: false,
         tag: vec![],
         title: Some("New Title".to_string()),
       };
