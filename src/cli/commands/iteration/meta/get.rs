@@ -3,6 +3,7 @@ use clap::Args;
 use crate::{
   cli::{self, AppContext},
   store,
+  ui::views::meta::MetaValueView,
 };
 
 /// Retrieve a single metadata value from an iteration.
@@ -25,7 +26,8 @@ impl Command {
     let value = store::meta::resolve_dot_path(&root, &self.path)
       .ok_or_else(|| cli::Error::NotFound(format!("Metadata key not found: '{}'", self.path)))?;
 
-    store::meta::print_toml_value(value);
+    let formatted = store::meta::format_toml_value(value);
+    println!("{}", MetaValueView::new(formatted, ctx.theme.iteration_detail_value));
     Ok(())
   }
 }

@@ -40,8 +40,10 @@ pub trait MetaValue: Clone + Serialize + std::fmt::Debug {
   /// Parse a string into the most specific scalar type for this value format.
   fn parse_scalar(s: &str) -> Self;
 
-  /// Print this value to stdout in a human-friendly format.
-  fn print(&self);
+  /// Format this value as a human-friendly string.
+  ///
+  /// Scalars are formatted as plain text; compound types are pretty-printed as JSON.
+  fn format_display(&self) -> String;
 }
 
 impl MetaTable for toml::value::Table {
@@ -95,20 +97,20 @@ impl MetaValue for toml::Value {
     }
   }
 
-  fn print(&self) {
+  fn format_display(&self) -> String {
     match self {
-      toml::Value::String(s) => println!("{s}"),
-      toml::Value::Boolean(b) => println!("{b}"),
-      toml::Value::Integer(n) => println!("{n}"),
-      toml::Value::Float(n) => println!("{n}"),
-      toml::Value::Datetime(dt) => println!("{dt}"),
+      toml::Value::String(s) => format!("{s}\n"),
+      toml::Value::Boolean(b) => format!("{b}\n"),
+      toml::Value::Integer(n) => format!("{n}\n"),
+      toml::Value::Float(n) => format!("{n}\n"),
+      toml::Value::Datetime(dt) => format!("{dt}\n"),
       toml::Value::Array(arr) => {
         let json = serde_json::to_string_pretty(arr).unwrap_or_else(|_| format!("{arr:?}"));
-        println!("{json}");
+        format!("{json}\n")
       }
       toml::Value::Table(t) => {
         let json = serde_json::to_string_pretty(t).unwrap_or_else(|_| format!("{t:?}"));
-        println!("{json}");
+        format!("{json}\n")
       }
     }
   }
@@ -167,23 +169,21 @@ impl MetaValue for yaml_serde::Value {
     }
   }
 
-  fn print(&self) {
+  fn format_display(&self) -> String {
     match self {
-      yaml_serde::Value::String(s) => println!("{s}"),
-      yaml_serde::Value::Bool(b) => println!("{b}"),
-      yaml_serde::Value::Number(n) => println!("{n}"),
-      yaml_serde::Value::Null => println!("null"),
+      yaml_serde::Value::String(s) => format!("{s}\n"),
+      yaml_serde::Value::Bool(b) => format!("{b}\n"),
+      yaml_serde::Value::Number(n) => format!("{n}\n"),
+      yaml_serde::Value::Null => "null\n".to_string(),
       yaml_serde::Value::Sequence(seq) => {
         let json = serde_json::to_string_pretty(seq).unwrap_or_else(|_| format!("{seq:?}"));
-        println!("{json}");
+        format!("{json}\n")
       }
       yaml_serde::Value::Mapping(m) => {
         let json = serde_json::to_string_pretty(m).unwrap_or_else(|_| format!("{m:?}"));
-        println!("{json}");
+        format!("{json}\n")
       }
-      yaml_serde::Value::Tagged(t) => {
-        t.value.print();
-      }
+      yaml_serde::Value::Tagged(t) => t.value.format_display(),
     }
   }
 }

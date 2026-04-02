@@ -2,6 +2,7 @@
 
 pub mod artifact;
 pub mod iteration;
+pub mod meta;
 pub mod note;
 pub mod search;
 pub mod system;

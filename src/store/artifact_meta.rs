@@ -6,11 +6,11 @@ use yaml_serde::Value;
 
 pub use super::meta_value::{resolve_dot_path, set_dot_path};
 
-/// Print a YAML value to stdout in a human-friendly format.
+/// Format a YAML value as a human-friendly string.
 ///
-/// Scalars are printed as plain text; sequences and mappings are pretty-printed as JSON.
-pub fn print_yaml_value(value: &Value) {
-  super::meta_value::MetaValue::print(value);
+/// Scalars are formatted as plain text; sequences and mappings are pretty-printed as JSON.
+pub fn format_yaml_value(value: &Value) -> String {
+  super::meta_value::MetaValue::format_display(value)
 }
 
 #[cfg(test)]

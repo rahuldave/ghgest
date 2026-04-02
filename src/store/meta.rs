@@ -12,11 +12,11 @@ pub fn parse_toml_value(s: &str) -> Value {
   <Value as MetaValue>::parse_scalar(s)
 }
 
-/// Print a TOML value to stdout in a human-friendly format.
+/// Format a TOML value as a human-friendly string.
 ///
-/// Scalars are printed as plain text; arrays and tables are pretty-printed as JSON.
-pub fn print_toml_value(value: &Value) {
-  super::meta_value::MetaValue::print(value);
+/// Scalars are formatted as plain text; arrays and tables are pretty-printed as JSON.
+pub fn format_toml_value(value: &Value) -> String {
+  super::meta_value::MetaValue::format_display(value)
 }
 
 #[cfg(test)]

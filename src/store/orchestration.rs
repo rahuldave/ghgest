@@ -57,7 +57,9 @@ pub fn advance_phase(config: &Settings, id: &Id, force: bool) -> super::Result<A
 
   let from_phase = match active {
     Some(p) => p,
-    None => return Err(super::Error::PhaseAdvance("no active phase to advance".into())),
+    None => {
+      return Err(super::Error::PhaseAdvance("no active phase to advance".into()));
+    }
   };
 
   let remaining = tasks
