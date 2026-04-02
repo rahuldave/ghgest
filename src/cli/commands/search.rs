@@ -15,6 +15,35 @@ use crate::{
 #[derive(Debug, Args)]
 pub struct Command {
   /// Text matched against titles, descriptions, and body content.
+  #[arg(long_help = "\
+Text matched against titles, descriptions, and body content.
+
+Supports filter prefixes that narrow results:
+
+  is:<type>        Scope by entity type (task, artifact, iteration)
+  tag:<name>       Filter by exact tag (case-insensitive)
+  status:<status>  Filter by status (open, in-progress, done,
+                    cancelled, active, completed, failed)
+  type:<kind>      Filter artifacts by kind (spec, rfc, adr, ...)
+
+Prefix any filter with - to negate it:
+
+  -tag:wip         Exclude entities tagged \"wip\"
+  -is:iteration    Exclude iterations from results
+
+Combination rules:
+
+  Same filter type OR-combines:   is:task is:artifact → tasks OR artifacts
+  Different types AND-combine:    is:task tag:urgent  → tasks WITH tag \"urgent\"
+  Free text AND-combines with filters
+
+Examples:
+
+  gest search \"login bug\"
+  gest search \"is:task status:open\"
+  gest search \"is:artifact type:spec\"
+  gest search \"tag:urgent -tag:wip fix\"
+  gest search \"is:task is:artifact tag:cli\"")]
   pub query: String,
   /// Show full detail for each result.
   #[arg(short, long)]
