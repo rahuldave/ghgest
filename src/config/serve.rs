@@ -15,6 +15,8 @@ const DEFAULT_PORT: u16 = 2300;
 #[serde(default)]
 pub struct Settings {
   bind_address: IpAddr,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  log_level: Option<String>,
   open: bool,
   port: u16,
 }
@@ -23,6 +25,7 @@ impl Default for Settings {
   fn default() -> Self {
     Self {
       bind_address: DEFAULT_BIND_ADDRESS,
+      log_level: None,
       open: true,
       port: DEFAULT_PORT,
     }
@@ -33,6 +36,11 @@ impl Settings {
   /// The IP address the server should bind to.
   pub fn bind_address(&self) -> IpAddr {
     self.bind_address
+  }
+
+  /// Returns the configured serve log level string, if any.
+  pub fn log_level(&self) -> Option<&str> {
+    self.log_level.as_deref()
   }
 
   /// Whether to automatically open the browser when the server starts.
@@ -100,9 +108,33 @@ mod tests {
   }
 
   #[test]
+  fn it_defaults_to_no_log_level() {
+    let settings = Settings::default();
+
+    assert_eq!(settings.log_level(), None);
+  }
+
+  #[test]
+  fn it_deserializes_log_level() {
+    let toml_str = r#"log_level = "debug""#;
+    let settings: Settings = toml::from_str(toml_str).unwrap();
+
+    assert_eq!(settings.log_level(), Some("debug"));
+  }
+
+  #[test]
+  fn it_omits_none_log_level_on_serialize() {
+    let settings = Settings::default();
+    let serialized = toml::to_string(&settings).unwrap();
+
+    assert!(!serialized.contains("log_level"));
+  }
+
+  #[test]
   fn it_round_trips_through_toml() {
     let settings = Settings {
       bind_address: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+      log_level: Some("debug".to_string()),
       open: false,
       port: 9090,
     };

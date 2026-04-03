@@ -15,6 +15,7 @@ use crate::{config, ui::theming::theme::Theme};
 pub(crate) struct AppContext {
   pub(crate) settings: config::Settings,
   pub(crate) theme: Theme,
+  pub(crate) verbosity: u8,
 }
 
 /// Unified error type for CLI operations, wrapping config, I/O, and store errors.
@@ -88,6 +89,7 @@ impl Cli {
       let ctx = AppContext {
         settings,
         theme,
+        verbosity: self.verbose,
       };
       return commands::version::Command.call(&ctx);
     }
@@ -109,6 +111,7 @@ impl Cli {
     let ctx = AppContext {
       settings,
       theme,
+      verbosity: self.verbose,
     };
 
     if command.is_capturable() {

@@ -39,6 +39,7 @@ pub fn make_test_context(base: &std::path::Path) -> crate::cli::AppContext {
   crate::cli::AppContext {
     settings,
     theme,
+    verbosity: 0,
   }
 }
 

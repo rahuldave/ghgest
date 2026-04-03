@@ -78,6 +78,16 @@ pub fn init_early(level: log::LevelFilter) {
 ///
 /// Precedence: CLI flags > environment > config > default (`Warn`).
 pub fn resolve_level(verbosity: u8, env_level: Option<&str>, config_level: Option<&str>) -> log::LevelFilter {
+  resolve_level_with_default(verbosity, env_level, config_level, log::LevelFilter::Warn)
+}
+
+/// Like [`resolve_level`] but with a caller-specified default instead of `Warn`.
+pub fn resolve_level_with_default(
+  verbosity: u8,
+  env_level: Option<&str>,
+  config_level: Option<&str>,
+  default: log::LevelFilter,
+) -> log::LevelFilter {
   if verbosity > 0 {
     return match verbosity {
       1 => log::LevelFilter::Info,
@@ -94,7 +104,7 @@ pub fn resolve_level(verbosity: u8, env_level: Option<&str>, config_level: Optio
     return level;
   }
 
-  log::LevelFilter::Warn
+  default
 }
 
 fn parse_level(s: &str) -> Option<log::LevelFilter> {
@@ -171,6 +181,36 @@ mod tests {
     #[test]
     fn it_prefers_env_over_config() {
       assert_eq!(resolve_level(0, Some("debug"), Some("trace")), log::LevelFilter::Debug);
+    }
+  }
+
+  mod resolve_level_with_default {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn it_uses_custom_default_when_no_overrides() {
+      assert_eq!(
+        resolve_level_with_default(0, None, None, log::LevelFilter::Info),
+        log::LevelFilter::Info
+      );
+    }
+
+    #[test]
+    fn it_prefers_config_over_custom_default() {
+      assert_eq!(
+        resolve_level_with_default(0, None, Some("debug"), log::LevelFilter::Info),
+        log::LevelFilter::Debug
+      );
+    }
+
+    #[test]
+    fn it_prefers_cli_over_custom_default() {
+      assert_eq!(
+        resolve_level_with_default(2, None, None, log::LevelFilter::Info),
+        log::LevelFilter::Debug
+      );
     }
   }
 }

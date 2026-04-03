@@ -46,6 +46,7 @@ tokio = { features = [
 ], version = "1" }
 tokio-stream = { features = ["sync"], version = "0.1" }
 toml = "1"
+tracing = "0.1"
 typed-env = "0.3"
 unicode-width = "0.2"
 yaml_serde = "0.10"

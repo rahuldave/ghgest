@@ -1,11 +1,11 @@
 //! Route definitions and router construction.
 
 use axum::{
-  Router,
+  Router, middleware,
   routing::{get, post},
 };
 
-use super::{assets, handlers, state::ServerState};
+use super::{assets, handlers, request_log, state::ServerState};
 
 /// Build the top-level Axum router with all routes mounted.
 pub fn router(state: ServerState) -> Router {
@@ -45,5 +45,6 @@ pub fn router(state: ServerState) -> Router {
     .route("/tasks/_list", get(handlers::task_list_fragment))
     .route("/tasks/{id}/_detail", get(handlers::task_detail_fragment))
     .fallback(handlers::not_found)
+    .layer(middleware::from_fn(request_log::log_request))
     .with_state(state)
 }

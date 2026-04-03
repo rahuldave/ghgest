@@ -29,6 +29,18 @@ impl Command {
     let port = self.port.unwrap_or_else(|| serve_config.port());
     let open = !self.no_open && serve_config.open();
 
+    // Re-resolve log level with serve.log_level as the config value and
+    // `Info` as the default (instead of the CLI-wide `Warn`).
+    let env_level = crate::config::env::GEST_LOG_LEVEL.value().ok();
+    let serve_log_level = serve_config.log_level().or(ctx.settings.log().level());
+    let level = crate::logger::resolve_level_with_default(
+      ctx.verbosity,
+      env_level.as_deref(),
+      serve_log_level,
+      log::LevelFilter::Info,
+    );
+    log::set_max_level(level);
+
     let state = crate::server::ServerState::new(ctx.settings.clone());
 
     let rt = tokio::runtime::Runtime::new().map_err(|e| cli::Error::Runtime(e.to_string()))?;
