@@ -28,12 +28,6 @@ impl ServerState {
     (*self.ping_tx).clone()
   }
 
-  /// Sends a ping notification to all active subscribers.
-  pub fn send_ping(&self) {
-    // Ignore the error — it just means no receivers are listening.
-    let _ = self.ping_tx.send(());
-  }
-
   /// Returns a new receiver that will observe future ping notifications.
   pub fn subscribe_pings(&self) -> Receiver<()> {
     self.ping_tx.subscribe()
