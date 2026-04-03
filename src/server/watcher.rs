@@ -3,6 +3,8 @@
 //! Events are debounced so that rapid bursts of file operations (e.g. batch
 //! task creation) collapse into a single notification on the provided
 //! [`broadcast::Sender`].
+//!
+//! The debounce window is configurable via the `serve.debounce_ms` setting.
 
 use std::{path::PathBuf, time::Duration};
 
@@ -10,9 +12,6 @@ use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::{broadcast::Sender, mpsc};
 
 use crate::config::Settings;
-
-/// Default debounce window for collapsing rapid file-system events.
-const DEBOUNCE: Duration = Duration::from_millis(200);
 
 /// Returns `true` if the event should be ignored (e.g. atomic-write temp files).
 fn is_filtered(event: &Event) -> bool {
@@ -46,7 +45,7 @@ fn watched_dirs(settings: &Settings) -> Vec<PathBuf> {
 ///
 /// If none of the watched directories exist the function logs a warning and
 /// returns without spawning a watcher.
-pub fn spawn(settings: &Settings, tx: Sender<()>) -> tokio::task::JoinHandle<()> {
+pub fn spawn(settings: &Settings, debounce: Duration, tx: Sender<()>) -> tokio::task::JoinHandle<()> {
   let dirs = watched_dirs(settings);
 
   tokio::task::spawn(async move {
@@ -103,7 +102,7 @@ pub fn spawn(settings: &Settings, tx: Sender<()>) -> tokio::task::JoinHandle<()>
       }
 
       // Drain any events that arrive within the debounce window.
-      tokio::time::sleep(DEBOUNCE).await;
+      tokio::time::sleep(debounce).await;
       while notify_rx.try_recv().is_ok() {}
 
       // Broadcast the change. Ignore errors (no active receivers).

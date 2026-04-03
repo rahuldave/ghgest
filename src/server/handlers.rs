@@ -1077,7 +1077,9 @@ pub async fn task_update(State(state): State<ServerState>, Path(id_str): Path<St
 pub async fn artifact_detail_fragment(State(state): State<ServerState>, Path(id): Path<String>) -> Response {
   let resolved = match store::resolve_artifact_id(&state.settings, &id, true) {
     Ok(id) => id,
-    Err(_) => return (StatusCode::NOT_FOUND, Html("<p>artifact not found</p>")).into_response(),
+    Err(_) => {
+      return (StatusCode::NOT_FOUND, Html("<p>artifact not found</p>")).into_response();
+    }
   };
 
   match store::read_artifact(&state.settings, &resolved) {
@@ -1189,7 +1191,9 @@ pub async fn dashboard_fragment(State(state): State<ServerState>) -> Response {
 pub async fn iteration_board_fragment(State(state): State<ServerState>, Path(id_str): Path<String>) -> Response {
   let id = match store::resolve_iteration_id(&state.settings, &id_str, true) {
     Ok(id) => id,
-    Err(_) => return (StatusCode::NOT_FOUND, Html("<p>iteration not found</p>")).into_response(),
+    Err(_) => {
+      return (StatusCode::NOT_FOUND, Html("<p>iteration not found</p>")).into_response();
+    }
   };
 
   let iteration = match store::read_iteration(&state.settings, &id) {
@@ -1228,7 +1232,9 @@ pub async fn iteration_board_fragment(State(state): State<ServerState>, Path(id_
 pub async fn iteration_detail_fragment(State(state): State<ServerState>, Path(id_str): Path<String>) -> Response {
   let id = match store::resolve_iteration_id(&state.settings, &id_str, true) {
     Ok(id) => id,
-    Err(_) => return (StatusCode::NOT_FOUND, Html("<p>iteration not found</p>")).into_response(),
+    Err(_) => {
+      return (StatusCode::NOT_FOUND, Html("<p>iteration not found</p>")).into_response();
+    }
   };
 
   let iteration = match store::read_iteration(&state.settings, &id) {
@@ -1315,7 +1321,9 @@ pub async fn iteration_list_fragment(
 pub async fn task_detail_fragment(State(state): State<ServerState>, Path(id_str): Path<String>) -> Response {
   let id = match store::resolve_task_id(&state.settings, &id_str, true) {
     Ok(id) => id,
-    Err(_) => return (StatusCode::NOT_FOUND, Html("<p>404 — task not found</p>")).into_response(),
+    Err(_) => {
+      return (StatusCode::NOT_FOUND, Html("<p>404 — task not found</p>")).into_response();
+    }
   };
 
   let task = match store::read_task(&state.settings, &id) {

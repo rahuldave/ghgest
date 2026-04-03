@@ -16,6 +16,8 @@ const DEFAULT_PORT: u16 = 2300;
 pub struct Settings {
   bind_address: IpAddr,
   #[serde(default, skip_serializing_if = "Option::is_none")]
+  debounce_ms: Option<u64>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
   log_level: Option<String>,
   open: bool,
   port: u16,
@@ -25,6 +27,7 @@ impl Default for Settings {
   fn default() -> Self {
     Self {
       bind_address: DEFAULT_BIND_ADDRESS,
+      debounce_ms: None,
       log_level: None,
       open: true,
       port: DEFAULT_PORT,
@@ -36,6 +39,13 @@ impl Settings {
   /// The IP address the server should bind to.
   pub fn bind_address(&self) -> IpAddr {
     self.bind_address
+  }
+
+  /// File watcher debounce window in milliseconds.
+  ///
+  /// Defaults to `2000` when not explicitly configured.
+  pub fn debounce_ms(&self) -> u64 {
+    self.debounce_ms.unwrap_or(2000)
   }
 
   /// Returns the configured serve log level string, if any.
@@ -131,9 +141,33 @@ mod tests {
   }
 
   #[test]
+  fn it_defaults_to_debounce_ms_2000() {
+    let settings = Settings::default();
+
+    assert_eq!(settings.debounce_ms(), 2000);
+  }
+
+  #[test]
+  fn it_deserializes_debounce_ms() {
+    let toml_str = "debounce_ms = 500";
+    let settings: Settings = toml::from_str(toml_str).unwrap();
+
+    assert_eq!(settings.debounce_ms(), 500);
+  }
+
+  #[test]
+  fn it_omits_none_debounce_ms_on_serialize() {
+    let settings = Settings::default();
+    let serialized = toml::to_string(&settings).unwrap();
+
+    assert!(!serialized.contains("debounce_ms"));
+  }
+
+  #[test]
   fn it_round_trips_through_toml() {
     let settings = Settings {
       bind_address: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+      debounce_ms: Some(500),
       log_level: Some("debug".to_string()),
       open: false,
       port: 9090,
