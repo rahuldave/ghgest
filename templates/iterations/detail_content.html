@@ -28,10 +28,12 @@
             {% match iteration.status %}
               {% when IterationStatus::Active %}
                 <span class="status-in-progress">active</span>
+              {% when IterationStatus::Cancelled %}
+                <span class="status-cancelled">cancelled</span>
               {% when IterationStatus::Completed %}
                 <span class="status-done">completed</span>
               {% when IterationStatus::Failed %}
-                <span class="c-error">failed</span>
+                <span class="status-cancelled">failed</span>
             {% endmatch %}
           </td>
         </tr>

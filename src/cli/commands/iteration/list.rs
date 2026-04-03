@@ -19,10 +19,10 @@ pub struct Command {
   /// Output iteration list as JSON.
   #[arg(short, long)]
   pub json: bool,
-  /// Include resolved (completed/failed) iterations.
+  /// Include resolved (completed/cancelled) iterations.
   #[arg(short = 'a', long = "all")]
   pub show_all: bool,
-  /// Filter by status: active, completed, or failed.
+  /// Filter by status: active, cancelled, or completed (failed is accepted but deprecated).
   #[arg(short, long)]
   pub status: Option<String>,
   /// Filter by tag.
@@ -96,7 +96,37 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_filters_by_status() {
+    fn it_filters_by_cancelled_status() {
+      let dir = tempfile::tempdir().unwrap();
+      let ctx = make_test_context(dir.path());
+      let i1 = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");
+      let mut i2 = make_test_iteration("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk");
+      i2.title = "Cancelled one".to_string();
+      i2.status = Status::Cancelled;
+      store::write_iteration(&ctx.settings, &i1).unwrap();
+      store::write_iteration(&ctx.settings, &i2).unwrap();
+
+      let cmd = Command {
+        show_all: false,
+        json: false,
+        status: Some("cancelled".to_string()),
+        tag: None,
+        has_available: false,
+      };
+
+      cmd.call(&ctx).unwrap();
+
+      let filter = IterationFilter {
+        status: Some(Status::Cancelled),
+        ..Default::default()
+      };
+      let iterations = store::list_iterations(&ctx.settings, &filter).unwrap();
+      assert_eq!(iterations.len(), 1);
+      assert_eq!(iterations[0].title, "Cancelled one");
+    }
+
+    #[test]
+    fn it_filters_by_deprecated_failed_status() {
       let dir = tempfile::tempdir().unwrap();
       let ctx = make_test_context(dir.path());
       let i1 = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk");

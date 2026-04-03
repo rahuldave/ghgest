@@ -84,8 +84,11 @@ pub enum Status {
   #[default]
   #[serde(rename = "active")]
   Active,
+  #[serde(rename = "cancelled")]
+  Cancelled,
   #[serde(rename = "completed")]
   Completed,
+  /// Deprecated: use `Cancelled` instead. Kept for backward compatibility.
   #[serde(rename = "failed")]
   Failed,
 }
@@ -94,13 +97,14 @@ impl Status {
   pub fn as_str(&self) -> &'static str {
     match self {
       Self::Active => "active",
+      Self::Cancelled => "cancelled",
       Self::Completed => "completed",
       Self::Failed => "failed",
     }
   }
 
   pub fn is_terminal(&self) -> bool {
-    matches!(self, Self::Completed | Self::Failed)
+    matches!(self, Self::Cancelled | Self::Completed | Self::Failed)
   }
 }
 
@@ -116,6 +120,7 @@ impl FromStr for Status {
   fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
     match s {
       "active" => Ok(Self::Active),
+      "cancelled" => Ok(Self::Cancelled),
       "completed" => Ok(Self::Completed),
       "failed" => Ok(Self::Failed),
       other => Err(format!("unknown status: {other}")),
@@ -334,6 +339,7 @@ mod tests {
       #[test]
       fn it_formats_as_lowercase() {
         assert_eq!(Status::Active.to_string(), "active");
+        assert_eq!(Status::Cancelled.to_string(), "cancelled");
         assert_eq!(Status::Completed.to_string(), "completed");
         assert_eq!(Status::Failed.to_string(), "failed");
       }
@@ -347,6 +353,7 @@ mod tests {
       #[test]
       fn it_parses_valid_statuses() {
         assert_eq!("active".parse::<Status>().unwrap(), Status::Active);
+        assert_eq!("cancelled".parse::<Status>().unwrap(), Status::Cancelled);
         assert_eq!("completed".parse::<Status>().unwrap(), Status::Completed);
         assert_eq!("failed".parse::<Status>().unwrap(), Status::Failed);
       }

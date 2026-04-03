@@ -360,7 +360,25 @@ mod tests {
     }
 
     #[test]
-    fn it_filters_by_status() {
+    fn it_filters_by_cancelled_status() {
+      let dir = tempfile::tempdir().unwrap();
+      let i1 = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Active");
+      let mut i2 = make_test_iteration("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Cancelled");
+      i2.status = Status::Cancelled;
+      crate::store::write_iteration(&make_config(dir.path()), &i1).unwrap();
+      crate::store::write_iteration(&make_config(dir.path()), &i2).unwrap();
+
+      let filter = IterationFilter {
+        status: Some(Status::Cancelled),
+        ..Default::default()
+      };
+      let iterations = crate::store::list_iterations(&make_config(dir.path()), &filter).unwrap();
+      assert_eq!(iterations.len(), 1);
+      assert_eq!(iterations[0].title, "Cancelled");
+    }
+
+    #[test]
+    fn it_filters_by_deprecated_failed_status() {
       let dir = tempfile::tempdir().unwrap();
       let i1 = make_test_iteration("zyxwvutsrqponmlkzyxwvutsrqponmlk", "Active");
       let mut i2 = make_test_iteration("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk", "Failed");
