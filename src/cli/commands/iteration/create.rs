@@ -24,7 +24,7 @@ pub struct Command {
   /// Print only the iteration ID.
   #[arg(short, long, conflicts_with = "json")]
   pub quiet: bool,
-  /// Initial status: active, completed, or failed (default: active).
+  /// Initial status: active, cancelled, or completed (default: active).
   #[arg(short, long)]
   pub status: Option<String>,
   /// Tag (repeatable, or comma-separated).

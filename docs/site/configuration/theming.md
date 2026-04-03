@@ -256,6 +256,28 @@ These are the token keys currently recognized by gest.
 - `task.list.title`
 - `task.list.title.cancelled`
 
+## Markdown Shorthand Aliases
+
+All `markdown.*` tokens have `md.*` shorthand aliases that you can use in
+`[colors.overrides]`:
+
+| Shorthand              | Resolves to                  |
+|------------------------|------------------------------|
+| `md.blockquote`        | `markdown.blockquote`        |
+| `md.blockquote.border` | `markdown.blockquote.border` |
+| `md.code.block`        | `markdown.code.block`        |
+| `md.code.border`       | `markdown.code.border`       |
+| `md.code`              | `markdown.code.inline`       |
+| `md.emphasis`          | `markdown.emphasis`          |
+| `md.heading`           | `markdown.heading`           |
+| `md.link`              | `markdown.link`              |
+| `md.rule`              | `markdown.rule`              |
+| `md.strong`            | `markdown.strong`            |
+
+::: tip
+Note that `md.code` maps to `markdown.code.inline`, not `markdown.code`.
+:::
+
 ## Notes
 
 - `banner.gradient.start`, `banner.gradient.end`, and `banner.shadow` use

@@ -39,19 +39,6 @@ gest serve [OPTIONS]
 | `/iterations/:id/board` | Kanban board with columns mapped to task status          |
 | `/search?q=...`         | Full-text search across tasks and artifacts              |
 
-## Configuration
-
-The server reads its settings from the `[serve]` section in your config file. CLI flags override config values.
-
-```toml
-[serve]
-bind_address = "127.0.0.1"
-port = 2300
-open = true
-```
-
-See [Configuration](/configuration/#serve) for the full reference.
-
 ## Examples
 
 ```sh

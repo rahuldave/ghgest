@@ -53,7 +53,7 @@ stored. It is resolved with this precedence:
 
 1. `$GEST_PROJECT_DIR` environment variable (must be an absolute path)
 2. `storage.project_dir` in config (must be an absolute path)
-3. A `.gest/` or `gest/` directory found by walking up from the working directory
+3. A `.gest/` directory found by walking up from the working directory
 4. `<data_dir>/<hash>/` (a subdirectory of the global data root derived from a hash of your project path)
 
 ### Global store (default)
@@ -144,11 +144,13 @@ For a dedicated guide to terminal UI color customization, see
 
 ### `[serve]`
 
-| Key            | Type                | Default       | Description                                                       |
-|----------------|---------------------|---------------|-------------------------------------------------------------------|
-| `bind_address` | string (IP address) | `"127.0.0.1"` | IP address the web server binds to.                               |
-| `port`         | integer             | `2300`        | Port the web server listens on.                                   |
-| `open`         | boolean             | `true`        | Whether to automatically open the browser when the server starts. |
+| Key            | Type                | Default       | Description                                                                                                          |
+|----------------|---------------------|---------------|----------------------------------------------------------------------------------------------------------------------|
+| `bind_address` | string (IP address) | `"127.0.0.1"` | IP address the web server binds to.                                                                                  |
+| `port`         | integer             | `2300`        | Port the web server listens on.                                                                                      |
+| `open`         | boolean             | `true`        | Whether to automatically open the browser when the server starts.                                                    |
+| `debounce_ms`  | integer             | `2000`        | File-watcher debounce window in milliseconds. Controls how long the server waits before triggering a live reload.    |
+| `log_level`    | string              | `"info"`      | Log level for the server process. Overrides the global `[log].level` when running `gest serve`. Same valid values.   |
 
 ### `[log]`
 
@@ -158,39 +160,10 @@ For a dedicated guide to terminal UI color customization, see
 
 ### `[colors]`
 
-The `[colors]` section lets you override semantic color tokens used in the UI.
-Each key is a dot-delimited token name (e.g. `"log.error"`), and the value is
-either a color string or a table with detailed style options.
-
-**Simple form** -- set the foreground color with a string:
-
-```toml
-[colors]
-"log.error" = "#D23434"
-"log.warn" = "yellow"
-```
-
-**Table form** -- control foreground, background, and text modifiers:
-
-```toml
-[colors.emphasis]
-fg = "#9448C7"
-bold = true
-```
-
-Available fields in the table form:
-
-| Field       | Type    | Default  | Description                                      |
-|-------------|---------|----------|--------------------------------------------------|
-| `fg`        | string  | _(none)_ | Foreground color (named color or `#RRGGBB` hex). |
-| `bg`        | string  | _(none)_ | Background color (named color or `#RRGGBB` hex). |
-| `bold`      | boolean | `false`  | Enable bold text.                                |
-| `dim`       | boolean | `false`  | Enable dim/faint text.                           |
-| `italic`    | boolean | `false`  | Enable italic text.                              |
-| `underline` | boolean | `false`  | Enable underlined text.                          |
-
-**Supported named colors:** `black`, `red`, `green`, `yellow`, `blue`,
-`magenta`, `cyan`, `white`, and their `bright` variants (e.g. `bright cyan`).
+The `[colors]` section controls terminal UI colors through palette slots and
+per-token overrides. See the [Theming](/configuration/theming) guide for the
+full reference, including palette slots, token overrides, color formats, and
+the complete token list.
 
 ## Example config file
 
@@ -203,17 +176,17 @@ task_dir = "./tasks"
 [serve]
 port = 8080
 open = false
+debounce_ms = 1000
+log_level = "debug"
 
 [log]
 level = "info"
 
-[colors]
-"log.error" = "#D23434"
-"log.warn" = "yellow"
+[colors.palette]
+primary = "#5AB0FF"
 
-[colors.emphasis]
-fg = "#9448C7"
-bold = true
+[colors.overrides]
+"log.error" = "#D23434"
 ```
 
 ## Environment variables
@@ -230,6 +203,7 @@ bold = true
 | `GEST_LOG_LEVEL`     | Override the log level filter (e.g. `debug`, `trace`). Takes precedence over the config file. |
 | `VISUAL`             | Preferred editor for interactive editing (checked before `EDITOR`).                           |
 | `EDITOR`             | Fallback editor for interactive editing.                                                      |
+| `PAGER`              | Preferred pager program (falls back to `less`).                                               |
 
 ## Managing config from the CLI
 

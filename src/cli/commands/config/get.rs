@@ -8,7 +8,7 @@ use crate::{
 /// Retrieve a single configuration value by dot-delimited key.
 #[derive(Debug, Args)]
 pub struct Command {
-  /// Dot-delimited config key (e.g. `storage.data_dir`).
+  /// Dot-delimited config key (e.g. `storage.project_dir`).
   pub key: String,
 }
 

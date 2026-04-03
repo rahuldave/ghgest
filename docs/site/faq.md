@@ -89,7 +89,7 @@ Be careful not to overwrite files with the same ID in the destination.
 - **Tasks** are stored as TOML files (e.g., `tasks/abc123.toml`).
 - **Artifacts** are stored as Markdown files with YAML frontmatter (e.g., `artifacts/def456.md`).
 - **Iterations** are stored as TOML files (e.g., `iterations/ghi789.toml`).
-- **Configuration** supports TOML, JSON, and YAML. See [configuration](/configuration/) for details.
+- **Configuration** uses TOML. See [configuration](/configuration/) for details.
 
 All formats are human-readable and editable with any text editor.
 

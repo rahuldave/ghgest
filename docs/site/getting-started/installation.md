@@ -18,7 +18,7 @@ export PATH="$HOME/.local/bin:$PATH"
 To pin a specific version or change the install directory:
 
 ```sh
-GEST_VERSION=0.3.0 GEST_INSTALL_PATH=/usr/local/bin \
+GEST_VERSION=x.y.z GEST_INSTALL_PATH=/usr/local/bin \
   curl -fsSL https://gest.aaronmallen.dev/install | sh
 ```
 
@@ -45,7 +45,7 @@ binary somewhere on your `PATH`:
 
 ```sh
 # Example for macOS Apple Silicon
-tar xzf gest-v0.3.0-aarch64-apple-darwin.tar.gz
+tar xzf gest-vX.Y.Z-aarch64-apple-darwin.tar.gz
 mv gest ~/.local/bin/
 ```
 
@@ -57,11 +57,7 @@ After installing, confirm gest is available:
 gest version
 ```
 
-You should see output similar to:
-
-```text
-v0.3.4 macos-aarch64 (2026-03-31 revision 9644667)
-```
+You should see output showing the installed version, platform, and build revision.
 
 The `version` command also checks for available updates. To update an existing install, run:
 
