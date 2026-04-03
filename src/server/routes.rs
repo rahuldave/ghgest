@@ -23,6 +23,7 @@ pub fn router(state: ServerState) -> Router {
       get(handlers::artifact_detail).post(handlers::artifact_update),
     )
     .route("/artifacts/{id}/archive", post(handlers::artifact_archive))
+    .route("/events", get(handlers::events))
     .route("/artifacts/{id}/edit", get(handlers::artifact_edit_form))
     .route("/iterations", get(handlers::iteration_list))
     .route("/iterations/{id}", get(handlers::iteration_detail))

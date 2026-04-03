@@ -1,15 +1,19 @@
 //! Request handlers for each web view.
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, convert::Infallible};
 
 use axum::{
   Json,
   body::Bytes,
   extract::{Form, Path, Query, State},
   http::StatusCode,
-  response::{Html, IntoResponse, Redirect, Response},
+  response::{
+    Html, IntoResponse, Redirect, Response,
+    sse::{Event as SseEvent, KeepAlive, Sse},
+  },
 };
 use pulldown_cmark::{Options, Parser, html};
+use tokio_stream::{Stream, StreamExt, wrappers::BroadcastStream};
 
 use super::{
   state::ServerState,
@@ -238,6 +242,16 @@ pub async fn api_search(State(state): State<ServerState>, Query(params): Query<S
   }
 
   Json(items).into_response()
+}
+
+/// GET /events — SSE stream that emits a ping whenever watched files change.
+pub async fn events(State(state): State<ServerState>) -> Sse<impl Stream<Item = Result<SseEvent, Infallible>>> {
+  let rx = state.subscribe_pings();
+  let stream = BroadcastStream::new(rx).filter_map(|result| match result {
+    Ok(()) => Some(Ok(SseEvent::default().event("ping").data(""))),
+    Err(_) => None,
+  });
+  Sse::new(stream).keep_alive(KeepAlive::default())
 }
 
 /// POST /artifacts/:id/archive — archive an artifact.

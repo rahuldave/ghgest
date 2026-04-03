@@ -33,6 +33,8 @@ impl Command {
 
     let rt = tokio::runtime::Runtime::new().map_err(|e| cli::Error::Runtime(e.to_string()))?;
     rt.block_on(async {
+      let _watcher_handle = crate::server::watcher::spawn(&state.settings, state.ping_sender());
+
       let app = crate::server::router(state);
       let addr = std::net::SocketAddr::from((bind_address, port));
       let listener = tokio::net::TcpListener::bind(addr)

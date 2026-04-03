@@ -2,16 +2,15 @@
 
 use std::sync::Arc;
 
-use tokio::sync::broadcast::Receiver;
-use tokio::sync::broadcast::Sender;
+use tokio::sync::broadcast::{Receiver, Sender};
 
 use crate::config::Settings;
 
 /// Shared state available to every handler via Axum's state extractor.
 #[derive(Clone, Debug)]
 pub struct ServerState {
-  pub settings: Settings,
   ping_tx: Arc<Sender<()>>,
+  pub settings: Settings,
 }
 
 impl ServerState {
@@ -19,19 +18,24 @@ impl ServerState {
   pub fn new(settings: Settings) -> Self {
     let (ping_tx, _) = tokio::sync::broadcast::channel(16);
     Self {
-      settings,
       ping_tx: Arc::new(ping_tx),
+      settings,
     }
   }
 
-  /// Returns a new receiver that will observe future ping notifications.
-  pub fn subscribe_pings(&self) -> Receiver<()> {
-    self.ping_tx.subscribe()
+  /// Returns a clone of the underlying broadcast sender for use by the file watcher.
+  pub fn ping_sender(&self) -> Sender<()> {
+    (*self.ping_tx).clone()
   }
 
   /// Sends a ping notification to all active subscribers.
   pub fn send_ping(&self) {
     // Ignore the error — it just means no receivers are listening.
     let _ = self.ping_tx.send(());
+  }
+
+  /// Returns a new receiver that will observe future ping notifications.
+  pub fn subscribe_pings(&self) -> Receiver<()> {
+    self.ping_tx.subscribe()
   }
 }

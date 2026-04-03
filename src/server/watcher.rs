@@ -4,12 +4,10 @@
 //! task creation) collapse into a single notification on the provided
 //! [`broadcast::Sender`].
 
-use std::path::PathBuf;
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
-use tokio::sync::broadcast::Sender;
-use tokio::sync::mpsc;
+use tokio::sync::{broadcast::Sender, mpsc};
 
 use crate::config::Settings;
 
@@ -59,11 +57,11 @@ pub fn spawn(settings: &Settings, tx: Sender<()>) -> tokio::task::JoinHandle<()>
       let notify_tx = notify_tx.clone();
       RecommendedWatcher::new(
         move |res: Result<Event, notify::Error>| {
-          if let Ok(event) = res {
-            if !is_filtered(&event) {
-              // Non-blocking send — drop if the buffer is full.
-              let _ = notify_tx.try_send(());
-            }
+          if let Ok(event) = res
+            && !is_filtered(&event)
+          {
+            // Non-blocking send — drop if the buffer is full.
+            let _ = notify_tx.try_send(());
           }
         },
         notify::Config::default(),
@@ -116,11 +114,12 @@ pub fn spawn(settings: &Settings, tx: Sender<()>) -> tokio::task::JoinHandle<()>
 
 #[cfg(test)]
 mod tests {
-  use super::*;
   use notify::event::{CreateKind, EventKind};
 
+  use super::*;
+
   #[test]
-  fn filters_tmp_files() {
+  fn it_filters_tmp_files() {
     let event = Event {
       kind: EventKind::Create(CreateKind::File),
       paths: vec![PathBuf::from("/tasks/.tmp_12345")],
@@ -130,7 +129,7 @@ mod tests {
   }
 
   #[test]
-  fn does_not_filter_normal_files() {
+  fn it_does_not_filter_normal_files() {
     let event = Event {
       kind: EventKind::Create(CreateKind::File),
       paths: vec![PathBuf::from("/tasks/abc123.toml")],
@@ -140,13 +139,10 @@ mod tests {
   }
 
   #[test]
-  fn mixed_paths_not_filtered() {
+  fn it_does_not_filter_mixed_paths() {
     let event = Event {
       kind: EventKind::Create(CreateKind::File),
-      paths: vec![
-        PathBuf::from("/tasks/.tmp_12345"),
-        PathBuf::from("/tasks/abc123.toml"),
-      ],
+      paths: vec![PathBuf::from("/tasks/.tmp_12345"), PathBuf::from("/tasks/abc123.toml")],
       attrs: Default::default(),
     };
     assert!(!is_filtered(&event));
