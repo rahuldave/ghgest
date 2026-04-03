@@ -269,7 +269,7 @@ pub async fn api_search(State(state): State<ServerState>, Query(params): Query<S
 pub async fn events(State(state): State<ServerState>) -> Sse<impl Stream<Item = Result<SseEvent, Infallible>>> {
   let rx = state.subscribe_pings();
   let stream = BroadcastStream::new(rx).filter_map(|result| match result {
-    Ok(()) => Some(Ok(SseEvent::default().event("ping").data(""))),
+    Ok(()) => Some(Ok(SseEvent::default().event("ping").data("reload"))),
     Err(_) => None,
   });
   Sse::new(stream).keep_alive(KeepAlive::default())

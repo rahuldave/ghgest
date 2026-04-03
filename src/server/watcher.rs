@@ -27,7 +27,11 @@ fn is_filtered(event: &Event) -> bool {
 /// For each entity directory we watch both the root and the `resolved/`
 /// subdirectory (if it exists).
 fn watched_dirs(settings: &Settings) -> Vec<PathBuf> {
-  let roots = [settings.storage().task_dir(), settings.storage().artifact_dir()];
+  let roots = [
+    settings.storage().task_dir(),
+    settings.storage().artifact_dir(),
+    settings.storage().iteration_dir(),
+  ];
 
   let mut dirs = Vec::new();
   for root in roots {
