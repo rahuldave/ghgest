@@ -41,7 +41,7 @@ impl Command {
       let iteration = store::read_iteration(config, &id)?;
       println!("{}", serde_json::to_string_pretty(&iteration)?);
     } else if self.quiet {
-      println!("{id}");
+      println!("{}", id.short());
     } else {
       let msg = format!("Linked {} --{}--\u{003e} {}", id, self.rel, target_id);
       println!("{}", SuccessMessage::new(&msg, theme));

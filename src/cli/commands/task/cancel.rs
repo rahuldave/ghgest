@@ -38,7 +38,7 @@ impl Command {
     }
 
     if self.quiet {
-      println!("{}", task.id);
+      println!("{}", task.id.short());
       return Ok(());
     }
 

@@ -59,7 +59,7 @@ impl Command {
     if self.json {
       println!("{}", serde_json::to_string_pretty(&note)?);
     } else if self.quiet {
-      println!("{}", note.id);
+      println!("{}", note.id.short());
     } else {
       let msg = format!("added note {} to task {}", note.id.short(), task_id.short());
       println!("{}", SuccessMessage::new(&msg, theme));

@@ -3,6 +3,7 @@ mod when_advancing;
 mod when_cancelling;
 mod when_cancelling_cascades;
 mod when_creating;
+mod when_creating_with_quiet_flag;
 mod when_graphing;
 mod when_linking;
 mod when_listing;

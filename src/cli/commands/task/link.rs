@@ -41,7 +41,7 @@ impl Command {
       let task = store::read_task(config, &id)?;
       println!("{}", serde_json::to_string_pretty(&task)?);
     } else if self.quiet {
-      println!("{id}");
+      println!("{}", id.short());
     } else {
       let msg = format!("Linked {} --{}--\u{003e} {}", id.short(), self.rel, target_id.short());
       println!("{}", SuccessMessage::new(&msg, theme));

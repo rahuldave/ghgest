@@ -63,7 +63,7 @@ impl Command {
     }
 
     if self.quiet {
-      println!("{}", artifact.id);
+      println!("{}", artifact.id.short());
       return Ok(());
     }
 

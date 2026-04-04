@@ -31,7 +31,7 @@ impl Command {
     if self.json {
       println!("{}", serde_json::to_string_pretty(&task)?);
     } else if self.quiet {
-      println!("{}", task.id);
+      println!("{}", task.id.short());
     } else {
       let msg = format!("Tagged task {} with {}", task.id, self.tags.join(", "));
       println!("{}", SuccessMessage::new(&msg, &ctx.theme));

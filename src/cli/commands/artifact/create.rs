@@ -112,7 +112,7 @@ impl Command {
     }
 
     if self.quiet {
-      println!("{}", artifact.id);
+      println!("{}", artifact.id.short());
       return Ok(());
     }
 
@@ -167,7 +167,7 @@ impl Command {
       }
 
       if self.quiet {
-        println!("{}", artifact.id);
+        println!("{}", artifact.id.short());
       } else {
         let json = serde_json::to_string(&artifact)?;
         println!("{json}");

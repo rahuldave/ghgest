@@ -31,7 +31,7 @@ impl Command {
     if self.json {
       println!("{}", serde_json::to_string_pretty(&artifact)?);
     } else if self.quiet {
-      println!("{}", artifact.id);
+      println!("{}", artifact.id.short());
     } else {
       let msg = format!("Tagged artifact {} with {}", artifact.id, self.tags.join(", "));
       println!("{}", SuccessMessage::new(&msg, &ctx.theme));

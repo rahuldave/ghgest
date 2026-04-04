@@ -36,7 +36,7 @@ impl Command {
       let iteration = store::read_iteration(config, &iteration_id)?;
       println!("{}", serde_json::to_string_pretty(&iteration)?);
     } else if self.quiet {
-      println!("{iteration_id}");
+      println!("{}", iteration_id.short());
     } else {
       let msg = format!("Removed task {} from iteration {}", task_id, iteration_id);
       println!("{}", SuccessMessage::new(&msg, theme));

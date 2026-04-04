@@ -32,7 +32,7 @@ impl Command {
     if self.json {
       println!("{}", serde_json::to_string_pretty(&iteration)?);
     } else if self.quiet {
-      println!("{}", iteration.id);
+      println!("{}", iteration.id.short());
     } else {
       let msg = format!("Set {}.{} = {}", iteration.id, self.path, self.value);
       println!("{}", SuccessMessage::new(&msg, &ctx.theme));

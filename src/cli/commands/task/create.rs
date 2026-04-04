@@ -142,7 +142,7 @@ impl Command {
     }
 
     if self.quiet {
-      println!("{}", task.id);
+      println!("{}", task.id.short());
       return Ok(());
     }
 
@@ -218,7 +218,7 @@ impl Command {
       };
 
       if self.quiet {
-        println!("{}", task.id);
+        println!("{}", task.id.short());
       } else {
         let json = serde_json::to_string(&task)?;
         println!("{json}");

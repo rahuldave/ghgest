@@ -31,7 +31,7 @@ impl Command {
     if self.json {
       println!("{}", serde_json::to_string_pretty(&iteration)?);
     } else if self.quiet {
-      println!("{}", iteration.id);
+      println!("{}", iteration.id.short());
     } else {
       let msg = format!("Untagged iteration {} from {}", iteration.id, self.tags.join(", "));
       println!("{}", SuccessMessage::new(&msg, &ctx.theme));

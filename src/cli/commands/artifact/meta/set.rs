@@ -39,7 +39,7 @@ impl Command {
     if self.json {
       println!("{}", serde_json::to_string_pretty(&artifact)?);
     } else if self.quiet {
-      println!("{}", artifact.id);
+      println!("{}", artifact.id.short());
     } else {
       let msg = format!("Set {}.{} = {}", id, self.path, self.value);
       println!("{}", SuccessMessage::new(&msg, &ctx.theme));

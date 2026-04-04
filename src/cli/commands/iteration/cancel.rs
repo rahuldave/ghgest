@@ -38,7 +38,7 @@ impl Command {
     }
 
     if self.quiet {
-      println!("{}", iteration.id);
+      println!("{}", iteration.id.short());
       return Ok(());
     }
 

@@ -55,7 +55,7 @@ impl Command {
     if self.json {
       println!("{}", serde_json::to_string_pretty(&updated_note)?);
     } else if self.quiet {
-      println!("{}", updated_note.id);
+      println!("{}", updated_note.id.short());
     } else {
       let msg = format!("updated note {} on task {}", note_id.short(), task_id.short());
       println!("{}", SuccessMessage::new(&msg, theme));
