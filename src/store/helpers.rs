@@ -1,3 +1,9 @@
+// NOTE: Each store module (artifact, task, iteration) has a thin list_*/read_*/create_*/write_*
+// adapter layer that delegates to these shared helpers. The remaining structural similarity
+// across those adapters is intentional — the entity-specific differences (filter fields,
+// serialization format, directory naming, archive vs resolve semantics) mean further
+// abstraction would add more complexity than the current 3-6 line wrappers.
+
 use std::{fs, path::Path};
 
 use super::fs::{move_entity_file, read_dir_files};
