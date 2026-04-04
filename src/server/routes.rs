@@ -5,7 +5,7 @@ use axum::{
   routing::{get, post},
 };
 
-use super::{assets, handlers, request_log, state::ServerState};
+use super::{assets, handlers, request_log, security_headers, state::ServerState};
 
 /// Build the top-level Axum router with all routes mounted.
 pub fn router(state: ServerState) -> Router {
@@ -46,5 +46,6 @@ pub fn router(state: ServerState) -> Router {
     .route("/tasks/{id}/_detail", get(handlers::task_detail_fragment))
     .fallback(handlers::not_found)
     .layer(middleware::from_fn(request_log::log_request))
+    .layer(middleware::from_fn(security_headers::add_security_headers))
     .with_state(state)
 }

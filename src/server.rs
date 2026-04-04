@@ -4,6 +4,7 @@ mod assets;
 mod handlers;
 mod request_log;
 mod routes;
+mod security_headers;
 mod state;
 mod templates;
 pub mod watcher;
