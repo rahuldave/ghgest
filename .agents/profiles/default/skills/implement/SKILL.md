@@ -26,6 +26,24 @@ GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task update <
 
 ### 2. Implement
 
+Before writing any code, read `docs/dev/code-style.md` and `docs/dev/testing.md` to understand the project's ordering
+and testing conventions. Key rules to keep in mind:
+
+**Structural ordering (from `docs/dev/code-style.md`):**
+
+- Module-level: constants first, then type groups (public alphabetically, then private alphabetically), then free
+  functions
+- Enum variants: alphabetical
+- Struct fields: alphabetical
+- Impl blocks: static/associated functions first (public then private, alphabetical), then instance methods (public then
+  private, alphabetical)
+
+**Test conventions (from `docs/dev/testing.md`):**
+
+- Naming: `it_<does_something>` pattern; group names match the function or method being tested
+- Body structure: blank line between setup and assertions; blank line between assertion groups
+- Skip trivial code: don't test simple constructors, trivial getters, or thin wrappers
+
 Write the code to satisfy all acceptance criteria. Follow these principles:
 
 - **Tests are source of truth** -- never modify existing tests unless the issue explicitly calls for a behavioral
