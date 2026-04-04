@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 use super::Error;
 
 /// Configuration for the `[storage]` section.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Settings {
   artifact_dir: Option<PathBuf>,
@@ -254,6 +254,21 @@ impl Settings {
   #[cfg(test)]
   pub fn resolve_state_at(&mut self, state_dir: PathBuf) {
     self.resolved_state_dir = state_dir;
+  }
+}
+
+impl Serialize for Settings {
+  fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+    use serde::ser::SerializeMap;
+
+    let mut map = serializer.serialize_map(Some(6))?;
+    map.serialize_entry("artifact_dir", &self.resolved_artifact_dir)?;
+    map.serialize_entry("data_dir", &self.resolved_data_dir)?;
+    map.serialize_entry("iteration_dir", &self.resolved_iteration_dir)?;
+    map.serialize_entry("project_dir", &self.resolved_project_dir)?;
+    map.serialize_entry("state_dir", &self.resolved_state_dir)?;
+    map.serialize_entry("task_dir", &self.resolved_task_dir)?;
+    map.end()
   }
 }
 
