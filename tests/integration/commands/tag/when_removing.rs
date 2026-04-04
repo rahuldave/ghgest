@@ -1,22 +1,11 @@
 use predicates::prelude::*;
 
-use crate::support::helpers::{GestCmd, extract_id_from_create_output};
-
-fn create_task_id(env: &GestCmd, title: &str) -> String {
-  let output = env
-    .cmd()
-    .args(["task", "create", title])
-    .output()
-    .expect("failed to run gest task create");
-  assert!(output.status.success(), "task create failed");
-  let stdout = String::from_utf8(output.stdout).unwrap();
-  extract_id_from_create_output(&stdout).expect("no ID in create output")
-}
+use crate::support::helpers::GestCmd;
 
 #[test]
 fn it_removes_tags_from_a_task() {
   let env = GestCmd::new();
-  let id = create_task_id(&env, "untag target");
+  let id = env.create_task("untag target");
 
   env.run(&["tag", "add", &id, "keep", "drop"]).success();
 

@@ -2,24 +2,6 @@ use predicates::prelude::*;
 
 use crate::support::helpers::GestCmd;
 
-fn create_task_id(env: &GestCmd) -> String {
-  env
-    .cmd()
-    .args(["task", "create", "Test Task", "--description", "A test task"])
-    .assert()
-    .success();
-
-  let output = env
-    .cmd()
-    .args(["task", "list", "--json", "--all"])
-    .output()
-    .expect("failed to run task list");
-
-  let tasks: serde_json::Value = serde_json::from_slice(&output.stdout).expect("failed to parse task list JSON");
-
-  tasks[0]["id"].as_str().expect("task id not found in JSON").to_string()
-}
-
 fn add_note_and_get_id(env: &GestCmd, task_id: &str, body: &str) -> String {
   env
     .cmd()
@@ -41,7 +23,7 @@ fn add_note_and_get_id(env: &GestCmd, task_id: &str, body: &str) -> String {
 #[test]
 fn it_deletes_a_note() {
   let env = GestCmd::new();
-  let task_id = create_task_id(&env);
+  let task_id = env.create_task("Test Task");
   let note_id = add_note_and_get_id(&env, &task_id, "Note to delete");
 
   env

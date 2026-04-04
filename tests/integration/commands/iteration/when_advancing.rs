@@ -2,46 +2,14 @@ use predicates::prelude::*;
 
 use crate::support::helpers::GestCmd;
 
-fn create_iteration(env: &GestCmd, title: &str) -> String {
-  let output = env
-    .cmd()
-    .args(["iteration", "create", title])
-    .output()
-    .expect("failed to run gest iteration create");
-
-  let stdout = String::from_utf8_lossy(&output.stdout);
-  stdout
-    .split_whitespace()
-    .last()
-    .expect("no output from iteration create")
-    .to_string()
-}
-
-fn create_task(env: &GestCmd, title: &str) -> String {
-  let output = env
-    .cmd()
-    .args(["task", "create", title])
-    .output()
-    .expect("failed to run gest task create");
-
-  let stdout = String::from_utf8_lossy(&output.stdout);
-  // Output first line: "  ✓  created task  <8-char-id>"
-  stdout
-    .lines()
-    .next()
-    .and_then(|line| line.split_whitespace().last())
-    .expect("no output from task create")
-    .to_string()
-}
-
 #[test]
 fn it_advances_phase() {
   let env = GestCmd::new();
-  let iter_id = create_iteration(&env, "Sprint 1");
+  let iter_id = env.create_iteration("Sprint 1");
 
   // Create two tasks in different phases
-  let task1_id = create_task(&env, "Phase 1 task");
-  let task2_id = create_task(&env, "Phase 2 task");
+  let task1_id = env.create_task("Phase 1 task");
+  let task2_id = env.create_task("Phase 2 task");
 
   // Assign tasks to phases
   env

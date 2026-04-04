@@ -2,28 +2,10 @@ use predicates::prelude::*;
 
 use crate::support::helpers::GestCmd;
 
-fn create_task_and_get_id(env: &GestCmd, title: &str) -> String {
-  let output = env
-    .cmd()
-    .args(["task", "create", title])
-    .output()
-    .expect("failed to run gest task create");
-
-  assert!(output.status.success(), "task create failed");
-
-  let stdout = String::from_utf8(output.stdout).expect("stdout is not valid utf8");
-  let first_line = stdout.lines().next().expect("no output from task create");
-  first_line
-    .split_whitespace()
-    .last()
-    .expect("no ID in create output")
-    .to_string()
-}
-
 #[test]
 fn it_comma_splits_tags() {
   let env = GestCmd::new();
-  let id = create_task_and_get_id(&env, "Comma tag target");
+  let id = env.create_task("Comma tag target");
 
   env.run(&["task", "tag", &id, "rust,cli"]).success();
 
@@ -36,7 +18,7 @@ fn it_comma_splits_tags() {
 #[test]
 fn it_tags_a_task() {
   let env = GestCmd::new();
-  let id = create_task_and_get_id(&env, "Tag target");
+  let id = env.create_task("Tag target");
 
   env.run(&["task", "tag", &id, "mytag"]).success();
 

@@ -2,23 +2,6 @@ use predicates::prelude::*;
 
 use crate::support::helpers::GestCmd;
 
-fn create_iteration_and_get_id(env: &GestCmd, title: &str) -> String {
-  let output = env
-    .cmd()
-    .args(["iteration", "create", title])
-    .output()
-    .expect("failed to run gest iteration create");
-
-  assert!(output.status.success(), "iteration create failed");
-
-  let stdout = String::from_utf8_lossy(&output.stdout);
-  stdout
-    .split_whitespace()
-    .last()
-    .expect("no output from iteration create")
-    .to_string()
-}
-
 /// Read the iteration TOML file, checking both the active and resolved directories.
 ///
 /// The short ID prefix returned by `iteration create` uniquely identifies the file; this helper
@@ -43,7 +26,7 @@ fn read_iteration_toml(env: &GestCmd, short_id: &str) -> String {
 #[test]
 fn it_generates_no_event_when_status_is_unchanged() {
   let env = GestCmd::new();
-  let id = create_iteration_and_get_id(&env, "No-op iteration");
+  let id = env.create_iteration("No-op iteration");
 
   // Update to the same status the iteration already has — no event should be generated.
   env.run(&["iteration", "update", &id, "--status", "active"]).success();
@@ -58,7 +41,7 @@ fn it_generates_no_event_when_status_is_unchanged() {
 #[test]
 fn it_persists_the_event_so_iteration_show_json_includes_it() {
   let env = GestCmd::new();
-  let id = create_iteration_and_get_id(&env, "JSON event iteration");
+  let id = env.create_iteration("JSON event iteration");
 
   env.run(&["iteration", "update", &id, "--status", "failed"]).success();
 
@@ -71,7 +54,7 @@ fn it_persists_the_event_so_iteration_show_json_includes_it() {
 #[test]
 fn it_records_a_status_change_event_in_the_iteration_file() {
   let env = GestCmd::new();
-  let id = create_iteration_and_get_id(&env, "Event iteration");
+  let id = env.create_iteration("Event iteration");
 
   // Update status from the default 'active' to 'failed', which should generate an event.
   env.run(&["iteration", "update", &id, "--status", "failed"]).success();
@@ -86,7 +69,7 @@ fn it_records_a_status_change_event_in_the_iteration_file() {
 #[test]
 fn it_records_the_correct_from_and_to_statuses_in_the_event() {
   let env = GestCmd::new();
-  let id = create_iteration_and_get_id(&env, "Status from-to iteration");
+  let id = env.create_iteration("Status from-to iteration");
 
   env.run(&["iteration", "update", &id, "--status", "failed"]).success();
 

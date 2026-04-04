@@ -2,28 +2,10 @@ use predicates::prelude::*;
 
 use crate::support::helpers::GestCmd;
 
-fn create_task_and_get_id(env: &GestCmd, title: &str) -> String {
-  let output = env
-    .cmd()
-    .args(["task", "create", title])
-    .output()
-    .expect("failed to run gest task create");
-
-  assert!(output.status.success(), "task create failed");
-
-  let stdout = String::from_utf8(output.stdout).expect("stdout is not valid utf8");
-  let first_line = stdout.lines().next().expect("no output from task create");
-  first_line
-    .split_whitespace()
-    .last()
-    .expect("no ID in create output")
-    .to_string()
-}
-
 #[test]
 fn it_updates_task_status() {
   let env = GestCmd::new();
-  let id = create_task_and_get_id(&env, "Status task");
+  let id = env.create_task("Status task");
 
   env.run(&["task", "update", &id, "--status", "done"]).success();
 }
@@ -31,7 +13,7 @@ fn it_updates_task_status() {
 #[test]
 fn it_updates_task_title() {
   let env = GestCmd::new();
-  let id = create_task_and_get_id(&env, "Original title");
+  let id = env.create_task("Original title");
 
   env.run(&["task", "update", &id, "--title", "New title"]).success();
 
@@ -44,7 +26,7 @@ fn it_updates_task_title() {
 #[test]
 fn it_outputs_json_with_updated_title() {
   let env = GestCmd::new();
-  let id = create_task_and_get_id(&env, "JSON title");
+  let id = env.create_task("JSON title");
 
   let output = env
     .cmd()
@@ -63,7 +45,7 @@ fn it_outputs_json_with_updated_title() {
 #[test]
 fn it_outputs_bare_id_with_quiet_flag() {
   let env = GestCmd::new();
-  let id = create_task_and_get_id(&env, "Quiet task");
+  let id = env.create_task("Quiet task");
 
   let output = env
     .cmd()

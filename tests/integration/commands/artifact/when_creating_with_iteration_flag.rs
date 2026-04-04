@@ -2,27 +2,10 @@ use predicates::prelude::*;
 
 use crate::support::helpers::GestCmd;
 
-fn create_iteration(env: &GestCmd, title: &str) -> String {
-  let output = env
-    .cmd()
-    .args(["iteration", "create", title])
-    .output()
-    .expect("failed to run gest iteration create");
-
-  assert!(output.status.success(), "iteration create failed");
-
-  let stdout = String::from_utf8_lossy(&output.stdout);
-  stdout
-    .split_whitespace()
-    .last()
-    .expect("no ID in iteration create output")
-    .to_string()
-}
-
 #[test]
 fn it_adds_the_new_artifact_to_the_iteration() {
   let env = GestCmd::new();
-  let iter_id = create_iteration(&env, "Sprint Docs");
+  let iter_id = env.create_iteration("Sprint Docs");
 
   env
     .cmd()
@@ -64,7 +47,7 @@ fn it_adds_the_new_artifact_to_the_iteration() {
 #[test]
 fn it_still_outputs_created_artifact_confirmation() {
   let env = GestCmd::new();
-  let iter_id = create_iteration(&env, "Sprint Output");
+  let iter_id = env.create_iteration("Sprint Output");
 
   env
     .cmd()

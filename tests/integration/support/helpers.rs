@@ -147,6 +147,6 @@ impl GestCmd {
 pub fn extract_id_from_create_output(output: &str) -> Option<String> {
   output
     .lines()
-    .find(|line| line.contains("created"))
+    .find(|line| line.to_lowercase().contains("created"))
     .and_then(|line| line.split_whitespace().last().map(str::to_string))
 }

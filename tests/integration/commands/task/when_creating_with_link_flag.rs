@@ -2,28 +2,10 @@ use predicates::prelude::*;
 
 use crate::support::helpers::GestCmd;
 
-fn create_task_and_get_id(env: &GestCmd, title: &str) -> String {
-  let output = env
-    .cmd()
-    .args(["task", "create", title])
-    .output()
-    .expect("failed to run gest task create");
-
-  assert!(output.status.success(), "task create failed");
-
-  let stdout = String::from_utf8_lossy(&output.stdout);
-  stdout
-    .lines()
-    .next()
-    .and_then(|line| line.split_whitespace().last())
-    .expect("no ID in task create output")
-    .to_string()
-}
-
 #[test]
 fn it_creates_the_task_successfully() {
   let env = GestCmd::new();
-  let target_id = create_task_and_get_id(&env, "Blocker");
+  let target_id = env.create_task("Blocker");
 
   env
     .cmd()
@@ -36,7 +18,7 @@ fn it_creates_the_task_successfully() {
 #[test]
 fn it_records_the_link_on_the_created_task() {
   let env = GestCmd::new();
-  let target_id = create_task_and_get_id(&env, "Target Task");
+  let target_id = env.create_task("Target Task");
 
   let output = env
     .cmd()
