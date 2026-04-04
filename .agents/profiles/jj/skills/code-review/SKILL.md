@@ -39,7 +39,10 @@ Evaluate the changeset against this checklist:
 
 #### Style
 
-- Follows conventions from `docs/dev/code-style.md`
+- **Structural ordering** (Blocking): module-level item ordering, enum variant ordering, struct field ordering, and impl
+  block method ordering must follow `docs/dev/code-style.md`
+- **Test conventions** (Blocking): test naming (`it_<does_something>`), test body structure (blank line between setup
+  and assertions), and test grouping must follow `docs/dev/testing.md`
 - Naming is clear and consistent with the codebase
 - Code organization matches project structure
 
