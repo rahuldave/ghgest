@@ -12,6 +12,7 @@
 mod when_artifact;
 mod when_artifact_meta;
 mod when_artifact_metadata_args;
+mod when_artifact_prefix;
 mod when_config;
 mod when_init;
 mod when_iteration;
