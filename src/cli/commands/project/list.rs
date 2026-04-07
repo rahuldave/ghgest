@@ -25,7 +25,7 @@ impl Command {
       if i > 0 {
         println!();
       }
-      let row = ProjectListRow::new(project.id().short(), project.root().display().to_string());
+      let row = ProjectListRow::new(project.id().to_string(), project.root().display().to_string());
       println!("{row}");
     }
 
