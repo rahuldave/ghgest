@@ -2,7 +2,7 @@ use clap::Args;
 
 use crate::{
   AppContext,
-  cli::Error,
+  cli::{Error, meta_args},
   store::{model::iteration::Patch, repo},
   ui::{components::SuccessMessage, json},
 };
@@ -15,6 +15,12 @@ pub struct Command {
   /// Set the iteration description.
   #[arg(long, short)]
   description: Option<String>,
+  /// Set a metadata key=value pair (repeatable; supports dot-paths and scalar inference).
+  #[arg(long = "metadata", short = 'm', value_name = "KEY=VALUE")]
+  metadata: Vec<String>,
+  /// Merge a JSON object into metadata (repeatable; applied after --metadata pairs).
+  #[arg(long = "metadata-json", value_name = "JSON")]
+  metadata_json: Vec<String>,
   /// Set the iteration title.
   #[arg(long, short)]
   title: Option<String>,
@@ -31,10 +37,22 @@ impl Command {
     let before_iter = repo::iteration::find_by_id(&conn, id.clone())
       .await?
       .ok_or(Error::UninitializedProject)?;
+
+    let metadata = if self.metadata.is_empty() && self.metadata_json.is_empty() {
+      None
+    } else {
+      meta_args::build_metadata(
+        Some(before_iter.metadata().clone()),
+        &self.metadata,
+        &self.metadata_json,
+      )?
+    };
+
     let before = serde_json::to_value(&before_iter)?;
     let tx = repo::transaction::begin(&conn, project_id, "iteration update").await?;
     let patch = Patch {
       description: self.description.clone(),
+      metadata,
       title: self.title.clone(),
       ..Default::default()
     };
