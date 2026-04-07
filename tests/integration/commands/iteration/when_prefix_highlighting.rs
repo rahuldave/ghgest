@@ -6,86 +6,7 @@
 //! the trailing "rest" portion. Each test inspects the escape stream to infer
 //! the actual prefix length rendered for a given short ID.
 
-use crate::support::helpers::GestCmd;
-
-/// Strip ANSI escape sequences from a string.
-fn strip_ansi(s: &str) -> String {
-  let mut out = String::new();
-  let bytes = s.as_bytes();
-  let mut i = 0;
-  while i < bytes.len() {
-    if bytes[i] == 0x1b && i + 1 < bytes.len() && bytes[i + 1] == b'[' {
-      i += 2;
-      while i < bytes.len() && bytes[i] != b'm' {
-        i += 1;
-      }
-      if i < bytes.len() {
-        i += 1;
-      }
-      continue;
-    }
-    out.push(bytes[i] as char);
-    i += 1;
-  }
-  out
-}
-
-/// Given an output stream containing a styled short ID, return the number of
-/// characters that were rendered with the "prefix" style. The `Id` component
-/// emits `<prefix-style>PREFIX<reset><rest-style>REST<reset>`, so the prefix
-/// length is the number of plain characters between the first escape sequence
-/// starting with `\x1b[1m` (bold) and the next escape sequence.
-fn styled_prefix_len(output: &str, short_id: &str) -> usize {
-  // Locate the bold-prefix marker for the short id inside the stream.
-  // The prefix style is bold + primary color; the rest style is foreground
-  // muted. Both are preceded by an escape sequence, but only the prefix style
-  // starts with `\x1b[1m` (the bold attribute).
-  let needle_byte = short_id.as_bytes()[0];
-  let bytes = output.as_bytes();
-  let mut i = 0;
-  while i < bytes.len() {
-    // Look for an escape opener `\x1b[1m` followed eventually by the first
-    // character of the short id before any further non-escape text.
-    if bytes[i] == 0x1b && i + 2 < bytes.len() && bytes[i + 1] == b'[' && bytes[i + 2] == b'1' {
-      // Skip until `m`.
-      let mut j = i + 2;
-      while j < bytes.len() && bytes[j] != b'm' {
-        j += 1;
-      }
-      if j >= bytes.len() {
-        break;
-      }
-      j += 1;
-      // Skip any additional escape sequences immediately following
-      // (`\x1b[Nm` color codes are often emitted as separate SGR sequences).
-      while j + 1 < bytes.len() && bytes[j] == 0x1b && bytes[j + 1] == b'[' {
-        let mut k = j + 2;
-        while k < bytes.len() && bytes[k] != b'm' {
-          k += 1;
-        }
-        if k >= bytes.len() {
-          break;
-        }
-        j = k + 1;
-      }
-      if j < bytes.len() && bytes[j] == needle_byte {
-        // Count plain chars until the next escape.
-        let mut count = 0;
-        let mut k = j;
-        while k < bytes.len() && bytes[k] != 0x1b {
-          count += 1;
-          k += 1;
-        }
-        // Ensure the following chars in the short id also match.
-        if count >= 1 && output[j..k].starts_with(&short_id[..count.min(short_id.len())]) {
-          return count;
-        }
-      }
-    }
-    i += 1;
-  }
-  panic!("could not find styled prefix for id {short_id} in output:\n{output:?}");
-}
+use crate::support::helpers::{GestCmd, rendered_prefix_len, strip_ansi};
 
 /// Run an iteration list command with color forced on and return raw stdout.
 fn list_raw(g: &GestCmd, all: bool) -> String {
@@ -107,6 +28,11 @@ fn list_raw(g: &GestCmd, all: bool) -> String {
 /// Create `count` iterations and return their short IDs.
 fn create_iterations(g: &GestCmd, count: usize) -> Vec<String> {
   (0..count).map(|i| g.create_iteration(&format!("Sprint {i}"))).collect()
+}
+
+fn styled_prefix_len(output: &str, short_id: &str) -> usize {
+  rendered_prefix_len(output, short_id)
+    .unwrap_or_else(|| panic!("could not find styled prefix for id {short_id} in output:\n{output:?}"))
 }
 
 #[test]

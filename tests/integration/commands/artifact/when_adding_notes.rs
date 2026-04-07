@@ -1,49 +1,17 @@
 use crate::support::helpers::GestCmd;
 
-#[test]
-fn it_creates_an_artifact() {
-  let g = GestCmd::new();
+fn add_note_and_get_id(g: &GestCmd, artifact_id: &str, body: &str) -> String {
   let output = g
     .cmd()
-    .args(["artifact", "create", "My spec", "--body", "The body."])
+    .args(["artifact", "note", "add", artifact_id, "-b", body, "--quiet"])
     .output()
-    .expect("artifact create failed to run");
-
-  assert!(output.status.success(), "artifact create exited non-zero");
-  let stdout = String::from_utf8_lossy(&output.stdout);
-  assert!(stdout.contains("created artifact"), "got: {stdout}");
-  assert!(stdout.contains("My spec"), "got: {stdout}");
-}
-
-#[test]
-fn it_lists_artifacts() {
-  let g = GestCmd::new();
-  g.create_artifact("Listable artifact", "body");
-
-  let output = g
-    .cmd()
-    .args(["artifact", "list"])
-    .output()
-    .expect("artifact list failed to run");
-
-  let stdout = String::from_utf8_lossy(&output.stdout);
-  assert!(stdout.contains("Listable artifact"), "got: {stdout}");
-}
-
-#[test]
-fn it_shows_an_artifact_by_id() {
-  let g = GestCmd::new();
-  let id = g.create_artifact("Showable artifact", "detailed body text");
-
-  let output = g
-    .cmd()
-    .args(["artifact", "show", &id])
-    .output()
-    .expect("artifact show failed to run");
-
-  assert!(output.status.success(), "artifact show exited non-zero");
-  let stdout = String::from_utf8_lossy(&output.stdout);
-  assert!(stdout.contains("Showable artifact"), "got: {stdout}");
+    .expect("artifact note add failed to run");
+  assert!(
+    output.status.success(),
+    "artifact note add exited non-zero: {}",
+    String::from_utf8_lossy(&output.stderr)
+  );
+  String::from_utf8_lossy(&output.stdout).trim().to_string()
 }
 
 #[test]
@@ -81,20 +49,6 @@ fn it_rejects_a_positional_note_body() {
     !output.status.success(),
     "artifact note add should reject positional body, got success"
   );
-}
-
-fn add_note_and_get_id(g: &GestCmd, artifact_id: &str, body: &str) -> String {
-  let output = g
-    .cmd()
-    .args(["artifact", "note", "add", artifact_id, "-b", body, "--quiet"])
-    .output()
-    .expect("artifact note add failed to run");
-  assert!(
-    output.status.success(),
-    "artifact note add exited non-zero: {}",
-    String::from_utf8_lossy(&output.stderr)
-  );
-  String::from_utf8_lossy(&output.stdout).trim().to_string()
 }
 
 #[test]

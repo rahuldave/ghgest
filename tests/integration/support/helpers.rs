@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use assert_cmd::Command;
 use tempfile::TempDir;
@@ -120,19 +120,9 @@ impl GestCmd {
     extract_id_from_create_output(&stdout).unwrap_or_else(|| panic!("could not extract task ID from output:\n{stdout}"))
   }
 
-  fn data_dir(&self) -> PathBuf {
-    self.temp_dir.path().join(".gest")
-  }
-
   /// Return a `Command` with isolation env vars but no extra args.
   pub fn raw_cmd(&self) -> Command {
     Self::build_cmd(&self.temp_dir)
-  }
-
-  /// Read a file relative to the data directory.
-  pub fn read_data_file(&self, relative: &str) -> String {
-    let path = self.data_dir().join(relative);
-    std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("failed to read {}: {e}", path.display()))
   }
 
   /// Shorthand for `cmd().args(args).assert()`.
@@ -152,4 +142,74 @@ pub fn extract_id_from_create_output(output: &str) -> Option<String> {
     .lines()
     .find(|line| line.to_lowercase().contains("created"))
     .and_then(|line| line.split_whitespace().last().map(str::to_string))
+}
+
+/// Extract the rendered prefix length for `short_id` from a colored output buffer.
+///
+/// IDs are displayed as `<CSI>...m{prefix}<CSI>0m<CSI>...m{rest}<CSI>0m`. We scan for the id
+/// as a contiguous run of visible characters, allowing escape sequences to interleave; the
+/// first interleaved escape after at least one visible character marks the prefix→rest
+/// boundary.
+pub fn rendered_prefix_len(output: &str, short_id: &str) -> Option<usize> {
+  let bytes = output.as_bytes();
+  let target = short_id.as_bytes();
+  let mut i = 0;
+  while i < bytes.len() {
+    let mut j = i;
+    let mut t = 0;
+    let mut prefix_len: Option<usize> = None;
+    let mut visible_seen = 0usize;
+    let mut last_was_visible = true;
+    while t < target.len() && j < bytes.len() {
+      if bytes[j] == 0x1b && j + 1 < bytes.len() && bytes[j + 1] == b'[' {
+        if t > 0 && prefix_len.is_none() && last_was_visible {
+          prefix_len = Some(visible_seen);
+        }
+        j += 2;
+        while j < bytes.len() && !(0x40..=0x7e).contains(&bytes[j]) {
+          j += 1;
+        }
+        if j < bytes.len() {
+          j += 1;
+        }
+        last_was_visible = false;
+        continue;
+      }
+      if bytes[j] == target[t] {
+        t += 1;
+        j += 1;
+        visible_seen += 1;
+        last_was_visible = true;
+      } else {
+        break;
+      }
+    }
+    if t == target.len() {
+      return Some(prefix_len.unwrap_or(visible_seen));
+    }
+    i += 1;
+  }
+  None
+}
+
+/// Strip ANSI escape sequences from a string.
+pub fn strip_ansi(s: &str) -> String {
+  let mut out = String::with_capacity(s.len());
+  let bytes = s.as_bytes();
+  let mut i = 0;
+  while i < bytes.len() {
+    if bytes[i] == 0x1b && i + 1 < bytes.len() && bytes[i + 1] == b'[' {
+      i += 2;
+      while i < bytes.len() && !(0x40..=0x7e).contains(&bytes[i]) {
+        i += 1;
+      }
+      if i < bytes.len() {
+        i += 1;
+      }
+    } else {
+      out.push(bytes[i] as char);
+      i += 1;
+    }
+  }
+  out
 }
