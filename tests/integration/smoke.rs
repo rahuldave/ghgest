@@ -10,6 +10,7 @@
 //! integration tests are the source of truth for CLI behavior as a whole.
 
 mod when_artifact;
+mod when_artifact_meta;
 mod when_config;
 mod when_init;
 mod when_iteration;
