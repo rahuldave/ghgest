@@ -4,6 +4,7 @@
 //! per-project TOML files discovered by walking up from the working directory.
 
 pub mod colors;
+pub mod database;
 pub mod env;
 mod loader;
 mod log;
@@ -32,6 +33,7 @@ pub enum Error {
 #[serde(default)]
 pub struct Settings {
   colors: colors::Settings,
+  database: database::Settings,
   log: log::Settings,
   serve: serve::Settings,
   storage: storage::Settings,
@@ -41,6 +43,11 @@ impl Settings {
   /// Returns the color customization settings.
   pub fn colors(&self) -> &colors::Settings {
     &self.colors
+  }
+
+  /// Returns the database connection settings.
+  pub fn database(&self) -> &database::Settings {
+    &self.database
   }
 
   /// Returns the logging settings.
