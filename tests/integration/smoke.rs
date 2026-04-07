@@ -18,6 +18,7 @@ mod when_init;
 mod when_iteration;
 mod when_iteration_meta;
 mod when_iteration_metadata_args;
+mod when_iteration_prefix;
 mod when_search;
 mod when_tag;
 mod when_task;
