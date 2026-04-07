@@ -1,7 +1,8 @@
 ---
 id: "0012"
 title: "SQLite for the Event Store"
-status: active
+status: superseded
+superseded_by: "0013"
 tags: [storage, architecture, event-store]
 created: 2026-04-01
 ---
@@ -10,7 +11,7 @@ created: 2026-04-01
 
 ## Status
 
-![Active](https://img.shields.io/badge/Active-green?style=for-the-badge)
+[![Superseded][superseded-badge]][0013]
 
 ## Summary
 
@@ -75,3 +76,7 @@ remains flat files per ADR-0001.
 
 - ADR-0001: Flat Files Over SQLite for Storage (remains active for entity data)
 - Spec: Event Store and Undo Command (`quvwpvrx`)
+
+[0013]: https://github.com/aaronmallen/gest/blob/main/docs/design/0013-global-only-storage-with-project-identity.md
+[superseded-badge]:
+https://img.shields.io/badge/0013-black?style=for-the-badge&label=Superseded&labelColor=orange

@@ -1,7 +1,8 @@
 ---
 id: "0001"
 title: Flat Files Over SQLite for Storage
-status: active
+status: superseded
+superseded_by: "0013"
 tags: [storage, architecture]
 created: 2026-03-26
 ---
@@ -10,7 +11,7 @@ created: 2026-03-26
 
 ## Status
 
-![Active](https://img.shields.io/badge/Active-green?style=for-the-badge)
+[![Superseded][superseded-badge]][0013]
 
 ## Summary
 
@@ -85,3 +86,7 @@ naturally greppable.
 - No indexed queries — search is O(n) across all files
 - No referential integrity enforcement — links are pointers validated at read time
 - Large stores (thousands of files) may see slower list/search performance than SQLite
+
+[0013]: https://github.com/aaronmallen/gest/blob/main/docs/design/0013-global-only-storage-with-project-identity.md
+[superseded-badge]:
+https://img.shields.io/badge/0013-black?style=for-the-badge&label=Superseded&labelColor=orange

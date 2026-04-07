@@ -80,4 +80,4 @@ or env vars. `config set` stores raw values as-is to preserve portability.
 
 [0009]: https://github.com/aaronmallen/gest/blob/main/docs/design/0009-zero-config-discovery-toml-only.md
 [superseded-badge]:
-  https://img.shields.io/badge/0009--zero--config--discovery--toml--only-black?style=for-the-badge&label=Superseded&labelColor=orange
+  https://img.shields.io/badge/0009-black?style=for-the-badge&label=Superseded&labelColor=orange
