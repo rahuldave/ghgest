@@ -1,1 +1,2 @@
-//! Integration tests for `gest generate`. Populated in phase 3.
+mod when_completions;
+mod when_man_pages;
