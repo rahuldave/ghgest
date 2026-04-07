@@ -5,6 +5,8 @@
 
 /// Smallest styled display primitives (badge, icon, label, etc.).
 pub mod atoms;
+/// New atomic-design component system (atoms, molecules, views).
+pub mod components;
 /// Mid-level widgets composed from atoms.
 pub mod composites;
 /// JSON output formatting helpers for --json command output.
