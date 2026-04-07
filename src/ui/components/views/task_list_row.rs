@@ -53,11 +53,17 @@ impl<'a> Component<'a> {
   }
 
   /// Returns the rendered blocking info string for this row.
+  ///
+  /// The indicator IDs reuse this row's `id_prefix_len` so the highlighted
+  /// prefix matches the task's own pool (active vs all). Blocked-by IDs may
+  /// belong to a different pool, but for simplicity we use the row task's
+  /// pool — see `task::show` for the rationale.
   pub fn blocking_info_string(&self) -> String {
     let blocked_by = self.blocked_by.into_iter().collect();
     Indicators::new()
       .blocking(self.blocking)
       .blocked_by(blocked_by)
+      .prefix_len(self.id_prefix_len)
       .to_string()
   }
 

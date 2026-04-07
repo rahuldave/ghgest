@@ -21,6 +21,7 @@ pub struct Component<'a> {
   assigned: Option<&'a str>,
   body: Option<&'a str>,
   id: &'a str,
+  id_prefix_len: usize,
   links: Vec<(&'a str, &'a str)>,
   phase: Option<(u32, Option<&'a str>)>,
   priority: Option<u8>,
@@ -35,6 +36,7 @@ impl<'a> Component<'a> {
       assigned: None,
       body: None,
       id,
+      id_prefix_len: 2,
       links: Vec::new(),
       phase: None,
       priority: None,
@@ -42,6 +44,12 @@ impl<'a> Component<'a> {
       tags: &[],
       title,
     }
+  }
+
+  /// Sets the highlighted prefix length used for the heading and link IDs.
+  pub fn id_prefix_len(mut self, len: usize) -> Self {
+    self.id_prefix_len = len;
+    self
   }
 
   /// Sets the assignee for this task.
@@ -133,7 +141,7 @@ impl Display for Component<'_> {
     let theme = crate::ui::style::global();
     let lw = self.label_width();
 
-    writeln!(f, "{}", Id::new(self.id))?;
+    writeln!(f, "{}", Id::new(self.id).prefix_len(self.id_prefix_len))?;
 
     writeln!(f)?;
 
@@ -193,7 +201,7 @@ impl Display for Component<'_> {
           f,
           "{INDENT}{label}{GAP}{} {}",
           relation.paint(*theme.indicator_blocked_by_label()),
-          Id::new(id),
+          Id::new(id).prefix_len(self.id_prefix_len),
         )?;
       }
     }

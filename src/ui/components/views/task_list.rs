@@ -4,7 +4,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::ui::components::{
   atoms::{Badge, Column, Icon, Id, Tag, Title},
-  molecules::{EmptyList, Grid, GroupedList, Row, StatusBadge},
+  molecules::{EmptyList, Grid, GroupedList, Indicators, Row, StatusBadge},
 };
 
 /// A single task entry for the list view.
@@ -78,12 +78,27 @@ impl Display for Component {
         String::new()
       };
 
+      // Indicators reuse the list's prefix pool. The blocked-by IDs may
+      // belong to a different pool than the row task, but threading two
+      // pools through every entry would complicate the API for marginal
+      // value, so we accept the row task's pool as the indicator pool too.
+      let blocked_by_ids: Vec<&str> = entry.blocked_by.as_deref().into_iter().collect();
+      let indicators_str = Indicators::new()
+        .blocking(entry.blocking)
+        .blocked_by(blocked_by_ids)
+        .prefix_len(self.prefix_len)
+        .to_string();
+
       let mut row = Row::new()
         .col(Column::natural(icon))
         .col(Column::natural(id))
         .col(Column::natural(priority_str))
         .col(Column::natural(title))
         .col(Column::natural(status_badge));
+
+      if !indicators_str.is_empty() {
+        row = row.col(Column::natural(indicators_str));
+      }
 
       if !tag_str.is_empty() {
         row = row.col(Column::natural(tag_str));
