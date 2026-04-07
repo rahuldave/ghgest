@@ -27,10 +27,19 @@ impl Command {
     let tag = repo::tag::attach(&conn, EntityType::Artifact, &id, &self.label).await?;
     repo::transaction::record_event(&conn, tx.id(), "entity_tags", &tag.id().to_string(), "created", None).await?;
 
+    let artifact = repo::artifact::find_by_id(&conn, id.clone())
+      .await?
+      .ok_or_else(|| Error::Resolve(repo::resolve::Error::NotFound(self.id.clone())))?;
+    let prefix_len = if artifact.is_archived() {
+      repo::artifact::shortest_all_prefix(&conn, project_id).await?
+    } else {
+      repo::artifact::shortest_active_prefix(&conn, project_id).await?
+    };
     let short_id = id.short();
     self.output.print_entity(&tag, &short_id, || {
       SuccessMessage::new("tagged artifact")
         .id(id.short())
+        .prefix_len(prefix_len)
         .field("tag", self.label.clone())
         .to_string()
     })?;

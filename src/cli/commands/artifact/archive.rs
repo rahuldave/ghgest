@@ -30,10 +30,12 @@ impl Command {
     let artifact = repo::artifact::archive(&conn, &id).await?;
     repo::transaction::record_event(&conn, tx.id(), "artifacts", &id.to_string(), "modified", Some(&before)).await?;
 
+    let prefix_len = repo::artifact::shortest_all_prefix(&conn, project_id).await?;
     let short_id = artifact.id().short();
     self.output.print_entity(&artifact, &short_id, || {
       SuccessMessage::new("archived artifact")
         .id(artifact.id().short())
+        .prefix_len(prefix_len)
         .field("title", artifact.title().to_string())
         .to_string()
     })?;

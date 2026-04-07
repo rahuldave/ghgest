@@ -106,10 +106,12 @@ impl Command {
       repo::transaction::record_event(&conn, tx.id(), "relationships", &rel.id().to_string(), "created", None).await?;
     }
 
+    let prefix_len = repo::artifact::shortest_active_prefix(&conn, project_id).await?;
     let short_id = artifact.id().short();
     self.output.print_entity(&artifact, &short_id, || {
       SuccessMessage::new("created artifact")
         .id(artifact.id().short())
+        .prefix_len(prefix_len)
         .field("title", artifact.title().to_string())
         .to_string()
     })?;

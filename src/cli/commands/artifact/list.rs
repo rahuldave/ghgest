@@ -8,7 +8,7 @@ use crate::{
     repo,
   },
   ui::{
-    components::{ArtifactEntry, ArtifactListView, min_unique_prefix},
+    components::{ArtifactEntry, ArtifactListView},
     json,
   },
 };
@@ -57,8 +57,11 @@ impl Command {
       return Ok(());
     }
 
-    let id_refs: Vec<&str> = id_shorts.iter().map(|s| s.as_str()).collect();
-    let prefix_len = min_unique_prefix(&id_refs);
+    let prefix_len = if self.all || self.archived {
+      repo::artifact::shortest_all_prefix(&conn, project_id).await?
+    } else {
+      repo::artifact::shortest_active_prefix(&conn, project_id).await?
+    };
 
     let mut entries = Vec::new();
     for (artifact, id_short) in artifacts.iter().zip(id_shorts.iter()) {
