@@ -15,7 +15,7 @@ mod timeline;
 use std::{
   io::Error as IoError,
   net::SocketAddr,
-  path::PathBuf,
+  path::{Path, PathBuf},
   sync::Arc,
   time::{Duration, Instant},
 };
@@ -25,6 +25,22 @@ use notify::{Error as NotifyError, Event as NotifyEvent, RecursiveMode, Watcher}
 pub use state::AppState;
 
 use crate::{io::git, store::Db};
+
+/// File name of the unix domain socket used for the web reload IPC channel.
+pub const RELOAD_SOCKET_FILE: &str = "web.sock";
+
+/// Resolve the unix domain socket path used by the web server's reload listener.
+///
+/// When `gest_dir` is provided (the project is in local mode with a `.gest/` directory)
+/// the socket lives at `<gest_dir>/web.sock`. Otherwise it lives next to the SQLite
+/// database file at `<data_dir>/web.sock`. Both the server-side listener and the
+/// CLI-side notifier resolve the same path through this helper.
+pub fn reload_socket_path(gest_dir: Option<&Path>, data_dir: &Path) -> PathBuf {
+  match gest_dir {
+    Some(dir) => dir.join(RELOAD_SOCKET_FILE),
+    None => data_dir.join(RELOAD_SOCKET_FILE),
+  }
+}
 
 /// Start the web server on the given address.
 ///

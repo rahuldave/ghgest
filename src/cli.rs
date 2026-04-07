@@ -2,6 +2,7 @@
 
 mod commands;
 pub mod meta_args;
+pub mod web_notify;
 
 use clap::{ArgAction, CommandFactory, Parser, Subcommand};
 use getset::Getters;
