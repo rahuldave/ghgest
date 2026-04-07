@@ -1,8 +1,9 @@
 ---
 id: "0010"
 title: "Atomic UI Architecture"
-status: active
+status: superseded
 supersedes: "0006"
+superseded_by: "0015"
 tags: [cli, ui, architecture]
 created: 2026-03-30
 ---
@@ -11,7 +12,7 @@ created: 2026-03-30
 
 ## Status
 
-![Active](https://img.shields.io/badge/Active-green?style=for-the-badge)
+[![Superseded][superseded-badge]][0015]
 
 Supersedes [ADR-0006: UI Components as Display+Write Types](0006-ui-components-as-display-types.md).
 
@@ -126,3 +127,7 @@ Core principles from ADR-0006 are preserved:
 
 - More modules and files than the flat structure
 - Three-tier naming requires contributors to understand the distinction between atoms, composites, and views
+
+[0015]: https://github.com/aaronmallen/gest/blob/main/docs/design/0015-atoms-molecules-views-ui.md
+[superseded-badge]:
+  https://img.shields.io/badge/0015-black?style=for-the-badge&label=Superseded&labelColor=orange

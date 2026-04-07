@@ -15,11 +15,12 @@ This directory contains Architecture Decision Records (ADRs) for the project.
 | [0007] | Centralized Theme System Using yansi::Style  | Active               | 2026-03-26 |
 | [0008] | Custom Logger with Styled Stderr Output      | Active               | 2026-03-26 |
 | [0009] | Zero-Config Discovery (TOML Only)            | Active               | 2026-03-29 |
-| [0010] | Atomic UI Architecture                       | Active               | 2026-03-30 |
+| [0010] | Atomic UI Architecture                       | Superseded by [0015] | 2026-03-30 |
 | [0011] | Askama for Web UI Templating                 | Active               | 2026-03-31 |
 | [0012] | SQLite for the Event Store                   | Superseded by [0013] | 2026-04-01 |
 | [0013] | Global-Only Storage with Project Identity    | Active               | 2026-04-06 |
-| [0014] | libsql for Remote Database Support           | Active               | 2026-04-07 |
+| [0014] | libsql for Remote Database Support           | Active               | 2026-04-06 |
+| [0015] | Atoms/Molecules/Views UI Architecture        | Active               | 2026-04-06 |
 
 ADRs document significant architectural decisions, the context in which they were made, and their consequences. See
 [Writing ADRs] for the process and template.
@@ -38,4 +39,5 @@ ADRs document significant architectural decisions, the context in which they wer
 [0012]: https://github.com/aaronmallen/gest/blob/main/docs/design/0012-sqlite-for-the-event-store.md
 [0013]: https://github.com/aaronmallen/gest/blob/main/docs/design/0013-global-only-storage-with-project-identity.md
 [0014]: https://github.com/aaronmallen/gest/blob/main/docs/design/0014-libsql-for-remote-database-support.md
+[0015]: https://github.com/aaronmallen/gest/blob/main/docs/design/0015-atoms-molecules-views-ui.md
 [Writing ADRs]: https://github.com/aaronmallen/gest/blob/main/docs/process/writing-adrs.md
