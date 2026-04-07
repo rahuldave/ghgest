@@ -45,3 +45,40 @@ fn it_shows_an_artifact_by_id() {
   let stdout = String::from_utf8_lossy(&output.stdout);
   assert!(stdout.contains("Showable artifact"), "got: {stdout}");
 }
+
+#[test]
+fn it_adds_a_note_via_body_flag() {
+  let g = GestCmd::new();
+  let id = g.create_artifact("Notable artifact", "body");
+
+  let output = g
+    .cmd()
+    .args(["artifact", "note", "add", &id, "-b", "first note body"])
+    .output()
+    .expect("artifact note add failed to run");
+
+  assert!(
+    output.status.success(),
+    "artifact note add exited non-zero: {}",
+    String::from_utf8_lossy(&output.stderr)
+  );
+  let stdout = String::from_utf8_lossy(&output.stdout);
+  assert!(stdout.contains("added note"), "got: {stdout}");
+}
+
+#[test]
+fn it_rejects_a_positional_note_body() {
+  let g = GestCmd::new();
+  let id = g.create_artifact("Notable artifact", "body");
+
+  let output = g
+    .cmd()
+    .args(["artifact", "note", "add", &id, "positional body"])
+    .output()
+    .expect("artifact note add failed to run");
+
+  assert!(
+    !output.status.success(),
+    "artifact note add should reject positional body, got success"
+  );
+}

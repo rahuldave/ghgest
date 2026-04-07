@@ -20,6 +20,7 @@ pub struct Command {
   /// The task ID or prefix.
   id: String,
   /// The note body (use `-` to open `$EDITOR`).
+  #[arg(short, long)]
   body: String,
   /// Set the author (agent) identifier for this note.
   #[arg(long)]
