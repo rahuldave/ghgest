@@ -142,6 +142,16 @@ For a dedicated guide to terminal UI color customization, see
 | `iteration_dir` | string (path)          | `<project_dir>/iterations` | Override the iteration storage directory.                               |
 | `task_dir`      | string (path)          | `<project_dir>/tasks`      | Override the task storage directory.                                    |
 
+### `[database]`
+
+gest v0.5.0 stores entity data in a SQLite database (via libsql). By default the database lives at
+`<data_dir>/gest.db`. For multi-device sync, you can point at a remote libsql database instead.
+
+| Key          | Type   | Default | Description                                                                    |
+|--------------|--------|---------|--------------------------------------------------------------------------------|
+| `url`        | string | _none_  | Optional libsql remote URL. When unset, a local SQLite file is used.           |
+| `auth_token` | string | _none_  | Auth token for the remote libsql database. Only used when `url` is set.        |
+
 ### `[serve]`
 
 | Key            | Type                | Default       | Description                                                                                                          |
@@ -200,7 +210,7 @@ primary = "#5AB0FF"
 | `GEST_ARTIFACT_DIR`  | Override the artifact storage directory.                                                      |
 | `GEST_ITERATION_DIR` | Override the iteration storage directory.                                                     |
 | `GEST_TASK_DIR`      | Override the task storage directory.                                                          |
-| `GEST_LOG_LEVEL`     | Override the log level filter (e.g. `debug`, `trace`). Takes precedence over the config file. |
+| `GEST_LOG__LEVEL`    | Override the log level filter (e.g. `debug`, `trace`). Takes precedence over the config file. |
 | `VISUAL`             | Preferred editor for interactive editing (checked before `EDITOR`).                           |
 | `EDITOR`             | Fallback editor for interactive editing.                                                      |
 | `PAGER`              | Preferred pager program (falls back to `less`).                                               |
