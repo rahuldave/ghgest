@@ -1,7 +1,13 @@
 mod when_adding_notes;
+mod when_blocking;
+mod when_cancelling;
+mod when_claiming;
+mod when_completing;
 mod when_creating;
+mod when_linking;
 mod when_listing;
 mod when_managing_metadata;
 mod when_prefix_highlighting;
 mod when_showing;
+mod when_untagging;
 mod when_updating;
