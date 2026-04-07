@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+      - "*-dev"
     tags:
       - "[0-9]+.*"
   pull_request:
