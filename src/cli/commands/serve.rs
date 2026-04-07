@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 
 use clap::Args;
 
@@ -7,33 +7,39 @@ use crate::{AppContext, cli::Error};
 /// Start the web dashboard server.
 #[derive(Args, Debug)]
 pub struct Command {
-  /// File watcher debounce in milliseconds.
-  #[arg(long, default_value = "300")]
-  debounce_ms: u64,
-  /// The host to bind to.
-  #[arg(long, alias = "bind", default_value = "127.0.0.1")]
-  host: String,
+  /// Address to bind to (overrides `[serve].bind_address`).
+  #[arg(long = "bind", short = 'b', alias = "host")]
+  bind_address: Option<IpAddr>,
+  /// File watcher debounce in milliseconds (overrides `[serve].debounce_ms`).
+  #[arg(long)]
+  debounce_ms: Option<u64>,
   /// Suppress automatic browser opening.
   #[arg(long)]
   no_open: bool,
-  /// The port to bind to.
-  #[arg(long, short, default_value = "2300")]
-  port: u16,
+  /// Port to listen on (overrides `[serve].port`).
+  #[arg(long, short)]
+  port: Option<u16>,
 }
 
 impl Command {
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
-    let addr: SocketAddr = format!("{}:{}", self.host, self.port)
-      .parse()
-      .map_err(|e: std::net::AddrParseError| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
+    let serve_config = context.settings().serve();
 
+    let bind_address = self.bind_address.unwrap_or_else(|| serve_config.bind_address());
+    let port = self.port.unwrap_or_else(|| serve_config.port());
+    let debounce_ms = self.debounce_ms.unwrap_or_else(|| serve_config.debounce_ms());
+    let open = !self.no_open && serve_config.open();
+
+    if let Some(level) = serve_config.log_level() {
+      log::set_max_level(level.into());
+    }
+
+    let addr = SocketAddr::from((bind_address, port));
     let url = format!("http://{addr}");
     println!("  starting gest dashboard at {url}");
 
-    if !self.no_open
-      && let Err(e) = open::that(&url)
-    {
+    if open && let Err(e) = open::that(&url) {
       log::warn!("failed to open browser: {e}");
     }
 
@@ -42,7 +48,7 @@ impl Command {
       project_id.clone(),
       addr,
       context.gest_dir().clone(),
-      self.debounce_ms,
+      debounce_ms,
     )
     .await
     .map_err(std::io::Error::other)?;
