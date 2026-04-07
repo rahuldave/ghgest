@@ -1,3 +1,5 @@
+/// JSON metadata helpers shared by all `meta` subcommands.
+pub mod meta;
 /// Sequential schema migrations applied at startup.
 pub mod migration;
 pub mod model;
