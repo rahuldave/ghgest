@@ -23,6 +23,7 @@ use crate::{
     forms::{self, ExistingLink, NoteFormData},
     markdown,
     note_display::{self, NoteDisplay},
+    timeline::{self, TimelineItem},
   },
 };
 
@@ -59,6 +60,7 @@ struct TaskDetailFragmentTemplate {
   notes: Vec<NoteDisplay>,
   tags: Vec<String>,
   task: task::Model,
+  timeline_items: Vec<TimelineItem>,
 }
 
 #[derive(Template)]
@@ -71,6 +73,7 @@ struct TaskDetailTemplate {
   notes: Vec<NoteDisplay>,
   tags: Vec<String>,
   task: task::Model,
+  timeline_items: Vec<TimelineItem>,
 }
 
 #[derive(Template)]
@@ -174,6 +177,7 @@ pub async fn task_detail(State(state): State<AppState>, Path(id): Path<String>) 
 
   let (tags, notes, description_html, is_blocked, blocking, display_links) =
     load_task_detail_data(&conn, &task_id, &task).await?;
+  let timeline_items = timeline::build_timeline(&conn, EntityType::Task, &task_id).await?;
 
   let tmpl = TaskDetailTemplate {
     task,
@@ -183,6 +187,7 @@ pub async fn task_detail(State(state): State<AppState>, Path(id): Path<String>) 
     is_blocked,
     blocking,
     display_links,
+    timeline_items,
   };
   Ok(Html(tmpl.render().map_err(|e| e.to_string())?))
 }
@@ -203,6 +208,7 @@ pub async fn task_detail_fragment(
 
   let (tags, notes, description_html, is_blocked, blocking, display_links) =
     load_task_detail_data(&conn, &task_id, &task).await?;
+  let timeline_items = timeline::build_timeline(&conn, EntityType::Task, &task_id).await?;
 
   let tmpl = TaskDetailFragmentTemplate {
     task,
@@ -212,6 +218,7 @@ pub async fn task_detail_fragment(
     is_blocked,
     blocking,
     display_links,
+    timeline_items,
   };
   Ok(Html(tmpl.render().map_err(|e| e.to_string())?))
 }
@@ -583,6 +590,177 @@ mod tests {
     // Leak the tempdir for the duration of the test process
     std::mem::forget(tmp);
     AppState::new(store, project_id)
+  }
+
+  mod task_detail_timeline {
+    use pretty_assertions::assert_eq;
+
+    use crate::{
+      store::{
+        self,
+        model::{
+          Project, note,
+          primitives::{EntityType, TaskStatus},
+          task,
+        },
+        repo,
+      },
+      web::{AppState, timeline},
+    };
+
+    #[tokio::test]
+    async fn it_merges_notes_and_semantic_events_for_a_task_in_chronological_order() {
+      let (store_arc, tmp) = store::open_temp().await.unwrap();
+      let conn = store_arc.connect().await.unwrap();
+      let project = Project::new("/tmp/web-task-timeline".into());
+      conn
+        .execute(
+          "INSERT INTO projects (id, root, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
+          [
+            project.id().to_string(),
+            project.root().to_string_lossy().into_owned(),
+            project.created_at().to_rfc3339(),
+            project.updated_at().to_rfc3339(),
+          ],
+        )
+        .await
+        .unwrap();
+      let project_id = project.id().clone();
+      std::mem::forget(tmp);
+
+      let task = repo::task::create(
+        &conn,
+        &project_id,
+        &task::New {
+          title: "Task".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+
+      // Record a semantic create event.
+      let tx = repo::transaction::begin(&conn, &project_id, "task create")
+        .await
+        .unwrap();
+      repo::transaction::record_semantic_event(
+        &conn,
+        tx.id(),
+        "tasks",
+        &task.id().to_string(),
+        "created",
+        None,
+        Some("created"),
+        None,
+        None,
+      )
+      .await
+      .unwrap();
+
+      // Add a note via the repo (simulating a web note_add).
+      repo::note::create(
+        &conn,
+        EntityType::Task,
+        task.id(),
+        &note::New {
+          body: "first note".into(),
+          author_id: None,
+        },
+      )
+      .await
+      .unwrap();
+
+      // A second semantic event: status change.
+      let tx2 = repo::transaction::begin(&conn, &project_id, "task claim")
+        .await
+        .unwrap();
+      let _ = repo::task::update(
+        &conn,
+        task.id(),
+        &task::Patch {
+          status: Some(TaskStatus::InProgress),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      repo::transaction::record_semantic_event(
+        &conn,
+        tx2.id(),
+        "tasks",
+        &task.id().to_string(),
+        "modified",
+        None,
+        Some("status-change"),
+        Some("open"),
+        Some("in-progress"),
+      )
+      .await
+      .unwrap();
+
+      // Prevent the temp store from dropping.
+      let _state = AppState::new(store_arc.clone(), project_id.clone());
+      let items = timeline::build_timeline(&conn, EntityType::Task, task.id())
+        .await
+        .unwrap();
+
+      assert_eq!(items.len(), 3);
+      // First item should be the created event.
+      assert!(items[0].as_event().is_some());
+      // Second should be the note.
+      assert!(items[1].as_note().is_some());
+      // Third should be the status-change event.
+      assert_eq!(
+        items[2].as_event().unwrap().display_text,
+        "someone changed status from open to in-progress"
+      );
+    }
+
+    #[tokio::test]
+    async fn it_filters_out_events_with_null_semantic_type() {
+      let (store_arc, tmp) = store::open_temp().await.unwrap();
+      let conn = store_arc.connect().await.unwrap();
+      let project = Project::new("/tmp/web-task-timeline-nullfilter".into());
+      conn
+        .execute(
+          "INSERT INTO projects (id, root, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
+          [
+            project.id().to_string(),
+            project.root().to_string_lossy().into_owned(),
+            project.created_at().to_rfc3339(),
+            project.updated_at().to_rfc3339(),
+          ],
+        )
+        .await
+        .unwrap();
+      let project_id = project.id().clone();
+      std::mem::forget(tmp);
+
+      let task = repo::task::create(
+        &conn,
+        &project_id,
+        &task::New {
+          title: "Task".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+
+      // A plain modified event (no semantic_type) should NOT appear.
+      let tx = repo::transaction::begin(&conn, &project_id, "task update")
+        .await
+        .unwrap();
+      repo::transaction::record_event(&conn, tx.id(), "tasks", &task.id().to_string(), "modified", None)
+        .await
+        .unwrap();
+
+      let items = timeline::build_timeline(&conn, EntityType::Task, task.id())
+        .await
+        .unwrap();
+
+      assert!(items.is_empty());
+    }
   }
 
   mod build_task_list_data {

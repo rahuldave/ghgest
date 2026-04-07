@@ -67,27 +67,41 @@
 </div>
 {% endif %}
 
-{% if !notes.is_empty() %}
-<h2 class="section-heading" style="margin-top: 24px;">Notes</h2>
-{% for note in notes %}
-<div class="note-card">
-  <div class="note-header">
-    <div class="note-meta" style="display: flex; align-items: center; gap: 8px;">
-      {% if note.author_gravatar.is_some() %}
-      <img class="note-avatar" src="{{ note.author_gravatar.as_deref().unwrap() }}" alt="" />
-      {% endif %}
-      {% if note.author_name.is_some() %}
-      <span style="font-weight: 600;">{{ note.author_name.as_deref().unwrap() }}</span>
-      {% if note.author_is_agent %}<span class="note-agent-badge">agent</span>{% endif %}
-      {% endif %}
-      <span class="c-dim">{{ note.id_short }}</span>
-      <span class="c-dim">&middot; {{ note.created_at }}</span>
+{% if !timeline_items.is_empty() %}
+<h2 class="section-heading" style="margin-top: 24px;">Activity</h2>
+{% for item in timeline_items %}
+  {% if let Some(note) = item.as_note() %}
+    <div class="note-card">
+      <div class="note-header">
+        <div class="note-meta" style="display: flex; align-items: center; gap: 8px;">
+          {% if note.author_gravatar.is_some() %}
+          <img class="note-avatar" src="{{ note.author_gravatar.as_deref().unwrap() }}" alt="" />
+          {% endif %}
+          {% if note.author_name.is_some() %}
+          <span style="font-weight: 600;">{{ note.author_name.as_deref().unwrap() }}</span>
+          {% if note.author_is_agent %}<span class="note-agent-badge">agent</span>{% endif %}
+          {% endif %}
+          <span class="c-dim">{{ note.id_short }}</span>
+          <span class="c-dim">&middot; {{ note.created_at_display }}</span>
+        </div>
+      </div>
+      <div class="note-body md-content">
+        {{ note.body_html|safe }}
+      </div>
     </div>
-  </div>
-  <div class="note-body md-content">
-    {{ note.body_html|safe }}
-  </div>
-</div>
+  {% else if let Some(event) = item.as_event() %}
+    <div class="note-card event-card">
+      <div class="note-header">
+        <div class="note-meta" style="display: flex; align-items: center; gap: 8px;">
+          {% if event.author_gravatar.is_some() %}
+          <img class="note-avatar" src="{{ event.author_gravatar.as_deref().unwrap() }}" alt="" />
+          {% endif %}
+          <span>{{ event.display_text }}</span>
+          <span class="c-dim">&middot; {{ event.created_at_display }}</span>
+        </div>
+      </div>
+    </div>
+  {% endif %}
 {% endfor %}
 {% endif %}
 

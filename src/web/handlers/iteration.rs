@@ -20,7 +20,10 @@ use crate::{
       iteration::{IterationTaskRow, StatusCounts},
     },
   },
-  web::AppState,
+  web::{
+    AppState,
+    timeline::{self, TimelineItem},
+  },
 };
 
 #[derive(Deserialize)]
@@ -56,6 +59,7 @@ struct IterationDetailFragmentTemplate {
   status_counts: StatusCounts,
   tags: Vec<String>,
   task_count: i64,
+  timeline_items: Vec<TimelineItem>,
 }
 
 #[derive(Template)]
@@ -66,6 +70,7 @@ struct IterationDetailTemplate {
   status_counts: StatusCounts,
   tags: Vec<String>,
   task_count: i64,
+  timeline_items: Vec<TimelineItem>,
 }
 
 #[derive(Template)]
@@ -135,7 +140,8 @@ pub async fn iteration_board_fragment(
 
 /// Iteration detail page.
 pub async fn iteration_detail(State(state): State<AppState>, Path(id): Path<String>) -> Result<Html<String>, String> {
-  let (iteration, tags, phases, task_count, status_counts) = build_iteration_detail(&state, &id).await?;
+  let (iteration, tags, phases, task_count, status_counts, timeline_items) =
+    build_iteration_detail(&state, &id).await?;
 
   let tmpl = IterationDetailTemplate {
     iteration,
@@ -143,6 +149,7 @@ pub async fn iteration_detail(State(state): State<AppState>, Path(id): Path<Stri
     phases,
     task_count,
     status_counts,
+    timeline_items,
   };
   Ok(Html(tmpl.render().map_err(|e| e.to_string())?))
 }
@@ -152,7 +159,8 @@ pub async fn iteration_detail_fragment(
   State(state): State<AppState>,
   Path(id): Path<String>,
 ) -> Result<Html<String>, String> {
-  let (iteration, tags, phases, task_count, status_counts) = build_iteration_detail(&state, &id).await?;
+  let (iteration, tags, phases, task_count, status_counts, timeline_items) =
+    build_iteration_detail(&state, &id).await?;
 
   let tmpl = IterationDetailFragmentTemplate {
     iteration,
@@ -160,6 +168,7 @@ pub async fn iteration_detail_fragment(
     phases,
     task_count,
     status_counts,
+    timeline_items,
   };
   Ok(Html(tmpl.render().map_err(|e| e.to_string())?))
 }
@@ -247,7 +256,17 @@ async fn build_iteration_board(
 async fn build_iteration_detail(
   state: &AppState,
   id: &str,
-) -> Result<(iteration::Model, Vec<String>, Vec<PhaseGroup>, i64, StatusCounts), String> {
+) -> Result<
+  (
+    iteration::Model,
+    Vec<String>,
+    Vec<PhaseGroup>,
+    i64,
+    StatusCounts,
+    Vec<TimelineItem>,
+  ),
+  String,
+> {
   let conn = state.store().connect().await.map_err(|e| e.to_string())?;
   let iter_id = repo::resolve::resolve_id(&conn, "iterations", id)
     .await
@@ -281,7 +300,8 @@ async fn build_iteration_detail(
     .collect();
 
   let task_count = status_counts.total;
-  Ok((iteration, tags, phases, task_count, status_counts))
+  let timeline_items = timeline::build_timeline(&conn, EntityType::Iteration, &iter_id).await?;
+  Ok((iteration, tags, phases, task_count, status_counts, timeline_items))
 }
 
 /// Build enriched iteration list data.
@@ -409,6 +429,90 @@ mod tests {
 
     std::mem::forget(tmp);
     AppState::new(store, project_id)
+  }
+
+  mod iteration_detail_timeline {
+    use pretty_assertions::assert_eq;
+
+    use crate::{
+      store::{
+        self,
+        model::{Project, iteration, note, primitives::EntityType},
+        repo,
+      },
+      web::timeline,
+    };
+
+    #[tokio::test]
+    async fn it_merges_notes_and_semantic_events_in_chronological_order() {
+      let (store_arc, tmp) = store::open_temp().await.unwrap();
+      let conn = store_arc.connect().await.unwrap();
+      let project = Project::new("/tmp/web-iter-timeline".into());
+      conn
+        .execute(
+          "INSERT INTO projects (id, root, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
+          [
+            project.id().to_string(),
+            project.root().to_string_lossy().into_owned(),
+            project.created_at().to_rfc3339(),
+            project.updated_at().to_rfc3339(),
+          ],
+        )
+        .await
+        .unwrap();
+      let project_id = project.id().clone();
+      std::mem::forget(tmp);
+
+      let iter = repo::iteration::create(
+        &conn,
+        &project_id,
+        &iteration::New {
+          title: "Sprint".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+
+      let tx = repo::transaction::begin(&conn, &project_id, "iteration create")
+        .await
+        .unwrap();
+      repo::transaction::record_semantic_event(
+        &conn,
+        tx.id(),
+        "iterations",
+        &iter.id().to_string(),
+        "created",
+        None,
+        Some("created"),
+        None,
+        None,
+      )
+      .await
+      .unwrap();
+
+      repo::note::create(
+        &conn,
+        EntityType::Iteration,
+        iter.id(),
+        &note::New {
+          body: "iteration note".into(),
+          author_id: None,
+        },
+      )
+      .await
+      .unwrap();
+
+      // Keep the store_arc alive for the query.
+      let _ = store_arc.clone();
+      let items = timeline::build_timeline(&conn, EntityType::Iteration, iter.id())
+        .await
+        .unwrap();
+
+      assert_eq!(items.len(), 2);
+      assert!(items[0].as_event().is_some());
+      assert!(items[1].as_note().is_some());
+    }
   }
 
   mod build_iteration_list {

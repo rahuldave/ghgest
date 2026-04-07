@@ -18,6 +18,7 @@ use crate::{
     forms::{self, ExistingLink, NoteFormData},
     markdown,
     note_display::{self, NoteDisplay},
+    timeline::{self, TimelineItem},
   },
 };
 
@@ -49,6 +50,7 @@ struct ArtifactDetailContentTemplate {
   body_html: String,
   notes: Vec<NoteDisplay>,
   tags: Vec<String>,
+  timeline_items: Vec<TimelineItem>,
 }
 
 #[derive(Template)]
@@ -58,6 +60,7 @@ struct ArtifactDetailTemplate {
   body_html: String,
   notes: Vec<NoteDisplay>,
   tags: Vec<String>,
+  timeline_items: Vec<TimelineItem>,
 }
 
 #[derive(Template)]
@@ -150,12 +153,13 @@ pub async fn artifact_create_submit(
 
 /// Artifact detail page.
 pub async fn artifact_detail(State(state): State<AppState>, Path(id): Path<String>) -> Result<Html<String>, String> {
-  let (artifact, body_html, tags, notes) = build_artifact_detail_data(&state, &id).await?;
+  let (artifact, body_html, tags, notes, timeline_items) = build_artifact_detail_data(&state, &id).await?;
   let tmpl = ArtifactDetailTemplate {
     artifact,
     body_html,
     tags,
     notes,
+    timeline_items,
   };
   Ok(Html(tmpl.render().map_err(|e| e.to_string())?))
 }
@@ -165,12 +169,13 @@ pub async fn artifact_detail_fragment(
   State(state): State<AppState>,
   Path(id): Path<String>,
 ) -> Result<Html<String>, String> {
-  let (artifact, body_html, tags, notes) = build_artifact_detail_data(&state, &id).await?;
+  let (artifact, body_html, tags, notes, timeline_items) = build_artifact_detail_data(&state, &id).await?;
   let tmpl = ArtifactDetailContentTemplate {
     artifact,
     body_html,
     tags,
     notes,
+    timeline_items,
   };
   Ok(Html(tmpl.render().map_err(|e| e.to_string())?))
 }
@@ -314,7 +319,16 @@ pub async fn artifact_update(
 async fn build_artifact_detail_data(
   state: &AppState,
   id: &str,
-) -> Result<(artifact::Model, String, Vec<String>, Vec<NoteDisplay>), String> {
+) -> Result<
+  (
+    artifact::Model,
+    String,
+    Vec<String>,
+    Vec<NoteDisplay>,
+    Vec<TimelineItem>,
+  ),
+  String,
+> {
   let conn = state.store().connect().await.map_err(|e| e.to_string())?;
   let artifact_id = repo::resolve::resolve_id(&conn, "artifacts", id)
     .await
@@ -333,8 +347,9 @@ async fn build_artifact_detail_data(
 
   let body_html = markdown::render_markdown_to_html(artifact.body());
   let notes = note_display::build_note_displays(&conn, raw_notes).await;
+  let timeline_items = timeline::build_timeline(&conn, EntityType::Artifact, &artifact_id).await?;
 
-  Ok((artifact, body_html, tags, notes))
+  Ok((artifact, body_html, tags, notes, timeline_items))
 }
 
 /// Build the enriched artifact list data (rows with tags, counts, filtered).
@@ -390,4 +405,102 @@ async fn build_artifact_list_data(
   }
 
   Ok((rows, open_count, archived_count, current_status))
+}
+
+#[cfg(test)]
+mod tests {
+  use crate::{
+    store::{
+      self,
+      model::{
+        Project, artifact, note,
+        primitives::{EntityType, Id},
+      },
+      repo,
+    },
+    web::timeline,
+  };
+
+  async fn setup_artifact_with_note_and_event() -> (std::sync::Arc<store::Db>, Id) {
+    let (store_arc, tmp) = store::open_temp().await.unwrap();
+    let conn = store_arc.connect().await.unwrap();
+    let project = Project::new("/tmp/web-artifact-timeline".into());
+    conn
+      .execute(
+        "INSERT INTO projects (id, root, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
+        [
+          project.id().to_string(),
+          project.root().to_string_lossy().into_owned(),
+          project.created_at().to_rfc3339(),
+          project.updated_at().to_rfc3339(),
+        ],
+      )
+      .await
+      .unwrap();
+    let project_id = project.id().clone();
+
+    let art = repo::artifact::create(
+      &conn,
+      &project_id,
+      &artifact::New {
+        title: "Spec".into(),
+        ..Default::default()
+      },
+    )
+    .await
+    .unwrap();
+
+    let tx = repo::transaction::begin(&conn, &project_id, "artifact create")
+      .await
+      .unwrap();
+    repo::transaction::record_semantic_event(
+      &conn,
+      tx.id(),
+      "artifacts",
+      &art.id().to_string(),
+      "created",
+      None,
+      Some("created"),
+      None,
+      None,
+    )
+    .await
+    .unwrap();
+
+    repo::note::create(
+      &conn,
+      EntityType::Artifact,
+      art.id(),
+      &note::New {
+        body: "note body".into(),
+        author_id: None,
+      },
+    )
+    .await
+    .unwrap();
+
+    let art_id = art.id().clone();
+    std::mem::forget(tmp);
+    (store_arc, art_id)
+  }
+
+  mod artifact_detail_timeline {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn it_merges_notes_and_semantic_events_in_chronological_order() {
+      let (store_arc, art_id) = setup_artifact_with_note_and_event().await;
+      let conn = store_arc.connect().await.unwrap();
+
+      let items = timeline::build_timeline(&conn, EntityType::Artifact, &art_id)
+        .await
+        .unwrap();
+
+      assert_eq!(items.len(), 2);
+      assert!(items[0].as_event().is_some());
+      assert!(items[1].as_note().is_some());
+    }
+  }
 }

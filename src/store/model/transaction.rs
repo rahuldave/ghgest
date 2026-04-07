@@ -8,6 +8,7 @@ use super::{Error, primitives::Id};
 /// A recorded command execution for undo support.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Model {
+  author_id: Option<Id>,
   command: String,
   created_at: DateTime<Utc>,
   id: Id,
@@ -16,6 +17,11 @@ pub struct Model {
 }
 
 impl Model {
+  /// The author who initiated this transaction, if any.
+  pub fn author_id(&self) -> Option<&Id> {
+    self.author_id.as_ref()
+  }
+
   /// The command string that was executed.
   pub fn command(&self) -> &str {
     &self.command
@@ -42,7 +48,8 @@ impl Model {
   }
 }
 
-/// Expects columns in order: `id`, `project_id`, `command`, `created_at`, `undone_at`.
+/// Expects columns in order: `id`, `project_id`, `command`, `created_at`,
+/// `undone_at`, `author_id`.
 impl TryFrom<Row> for Model {
   type Error = Error;
 
@@ -52,7 +59,12 @@ impl TryFrom<Row> for Model {
     let command: String = row.get(2)?;
     let created_at: String = row.get(3)?;
     let undone_at: Option<String> = row.get(4)?;
+    let author_id: Option<String> = row.get(5)?;
 
+    let author_id = author_id
+      .map(|s| s.parse::<Id>())
+      .transpose()
+      .map_err(Error::InvalidValue)?;
     let created_at = DateTime::parse_from_rfc3339(&created_at)
       .map(|dt| dt.with_timezone(&Utc))
       .map_err(|e| Error::InvalidValue(e.to_string()))?;
@@ -67,6 +79,7 @@ impl TryFrom<Row> for Model {
       .transpose()?;
 
     Ok(Self {
+      author_id,
       command,
       created_at,
       id,

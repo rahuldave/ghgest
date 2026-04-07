@@ -22,18 +22,36 @@ pub enum Error {
   NothingToUndo,
 }
 
+const SELECT_COLUMNS: &str = "id, project_id, command, created_at, undone_at, author_id";
+
 /// Begin a new transaction for the given command.
 pub async fn begin(conn: &Connection, project_id: &Id, command: &str) -> Result<Model, Error> {
+  begin_with_author(conn, project_id, command, None).await
+}
+
+/// Begin a new transaction attributed to a specific author.
+pub async fn begin_with_author(
+  conn: &Connection,
+  project_id: &Id,
+  command: &str,
+  author_id: Option<&Id>,
+) -> Result<Model, Error> {
   let id = Id::new();
   let now = Utc::now();
+  let author: Value = match author_id {
+    Some(a) => Value::from(a.to_string()),
+    None => Value::Null,
+  };
   conn
     .execute(
-      "INSERT INTO transactions (id, project_id, command, created_at) VALUES (?1, ?2, ?3, ?4)",
-      [
+      "INSERT INTO transactions (id, project_id, command, created_at, author_id) \
+        VALUES (?1, ?2, ?3, ?4, ?5)",
+      libsql::params![
         id.to_string(),
         project_id.to_string(),
         command.to_string(),
         now.to_rfc3339(),
+        author,
       ],
     )
     .await?;
@@ -48,7 +66,7 @@ pub async fn find_by_id(conn: &Connection, id: impl Into<Id>) -> Result<Option<M
   let id = id.into();
   let mut rows = conn
     .query(
-      "SELECT id, project_id, command, created_at, undone_at FROM transactions WHERE id = ?1",
+      &format!("SELECT {SELECT_COLUMNS} FROM transactions WHERE id = ?1"),
       [id.to_string()],
     )
     .await?;
@@ -63,9 +81,11 @@ pub async fn find_by_id(conn: &Connection, id: impl Into<Id>) -> Result<Option<M
 pub async fn latest_undoable(conn: &Connection, project_id: &Id) -> Result<Option<Model>, Error> {
   let mut rows = conn
     .query(
-      "SELECT id, project_id, command, created_at, undone_at FROM transactions \
-        WHERE project_id = ?1 AND undone_at IS NULL \
-        ORDER BY created_at DESC LIMIT 1",
+      &format!(
+        "SELECT {SELECT_COLUMNS} FROM transactions \
+          WHERE project_id = ?1 AND undone_at IS NULL \
+          ORDER BY created_at DESC LIMIT 1"
+      ),
       [project_id.to_string()],
     )
     .await?;
@@ -80,9 +100,11 @@ pub async fn latest_undoable(conn: &Connection, project_id: &Id) -> Result<Optio
 pub async fn latest_undoable_n(conn: &Connection, project_id: &Id, n: u32) -> Result<Vec<Model>, Error> {
   let mut rows = conn
     .query(
-      "SELECT id, project_id, command, created_at, undone_at FROM transactions \
-        WHERE project_id = ?1 AND undone_at IS NULL \
-        ORDER BY created_at DESC LIMIT ?2",
+      &format!(
+        "SELECT {SELECT_COLUMNS} FROM transactions \
+          WHERE project_id = ?1 AND undone_at IS NULL \
+          ORDER BY created_at DESC LIMIT ?2"
+      ),
       libsql::params![project_id.to_string(), n],
     )
     .await?;
@@ -176,6 +198,77 @@ pub async fn record_semantic_event(
     )
     .await?;
   Ok(())
+}
+
+/// A semantic event entry for the activity timeline, joined with its parent
+/// transaction's author and creation timestamp.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SemanticEvent {
+  pub author_id: Option<Id>,
+  pub created_at: chrono::DateTime<Utc>,
+  pub id: Id,
+  pub new_value: Option<String>,
+  pub old_value: Option<String>,
+  pub row_id: String,
+  pub semantic_type: String,
+  pub table_name: String,
+}
+
+/// Return all semantic events for a given row, ordered by creation time ascending.
+///
+/// Filters out events with `semantic_type IS NULL`, so free-form edits
+/// never appear in the activity timeline.
+pub async fn semantic_events_for_row(
+  conn: &Connection,
+  table_name: &str,
+  row_id: &Id,
+) -> Result<Vec<SemanticEvent>, Error> {
+  let mut rows = conn
+    .query(
+      "SELECT te.id, te.row_id, te.table_name, te.semantic_type, te.old_value, te.new_value, \
+        te.created_at, t.author_id \
+        FROM transaction_events te \
+        JOIN transactions t ON t.id = te.transaction_id \
+        WHERE te.table_name = ?1 AND te.row_id = ?2 \
+          AND te.semantic_type IS NOT NULL \
+          AND t.undone_at IS NULL \
+        ORDER BY te.created_at ASC",
+      libsql::params![table_name.to_string(), row_id.to_string()],
+    )
+    .await?;
+
+  let mut results = Vec::new();
+  while let Some(row) = rows.next().await? {
+    let id: String = row.get(0)?;
+    let row_id: String = row.get(1)?;
+    let table_name: String = row.get(2)?;
+    let semantic_type: String = row.get(3)?;
+    let old_value: Option<String> = row.get(4)?;
+    let new_value: Option<String> = row.get(5)?;
+    let created_at: String = row.get(6)?;
+    let author_id: Option<String> = row.get(7)?;
+
+    let id: Id = id.parse().map_err(ModelError::InvalidValue)?;
+    let author_id = author_id
+      .map(|s| s.parse::<Id>())
+      .transpose()
+      .map_err(ModelError::InvalidValue)?;
+    let created_at = chrono::DateTime::parse_from_rfc3339(&created_at)
+      .map(|dt| dt.with_timezone(&Utc))
+      .map_err(|e| ModelError::InvalidValue(e.to_string()))?;
+
+    results.push(SemanticEvent {
+      author_id,
+      created_at,
+      id,
+      new_value,
+      old_value,
+      row_id,
+      semantic_type,
+      table_name,
+    });
+  }
+  Ok(results)
 }
 
 /// Undo a transaction by replaying its events in reverse.

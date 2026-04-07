@@ -10,6 +10,7 @@ mod request_log;
 mod security_headers;
 mod sse;
 mod state;
+mod timeline;
 
 use std::{
   io::Error as IoError,
