@@ -13,7 +13,7 @@ Promote a gest spec artifact to a GitHub Discussion.
 ### 1. Read the Spec
 
 ```sh
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact show <id> --json
+cargo run -- artifact show <id> --json
 ```
 
 Extract:
@@ -69,7 +69,7 @@ After the user confirms, execute the commands. Extract the discussion URL from t
 metadata:
 
 ```sh
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact meta set <id> github-discussion <url>
+cargo run -- artifact meta set <id> github-discussion <url>
 ```
 
 ### 4. Report

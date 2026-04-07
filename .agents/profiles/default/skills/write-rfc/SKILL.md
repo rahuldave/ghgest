@@ -33,14 +33,14 @@ Pipe the RFC content via stdin. When `--body` is omitted and stdin is piped, ges
 to get the bare artifact ID:
 
 ```sh
-cat <<'EOF' | GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create \
-  --title "<title>" --type rfc --tag "<area>,rfc" -q
+cat <<'EOF' | cargo run -- artifact create "<title>" \
+  --tag rfc --tag "<area>" -q
 <rfc content here>
 EOF
 ```
 
-Use bare tags (no `area:` or `type:` prefixes). Include the relevant area tag(s) from `docs/process/labels.md` and the
-`rfc` type tag.
+Title is a positional argument in v0.5.0. Categorization is tag-driven: include the `rfc`
+tag plus the relevant area tag(s) from `docs/process/labels.md`.
 
 The `-q` flag prints only the artifact ID, ready for downstream use.
 

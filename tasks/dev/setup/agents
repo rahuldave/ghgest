@@ -165,28 +165,10 @@ case "$VCS" in
   "git-butler")   VCS="git-butler" ;;
 esac
 
-# --- Step 4: Which task runner? ---
-
-echo ""
-TASKS=$(_choose_one \
-  "Which task runner do you use?" \
-  "mise (recommended)" \
-  "sh (run task scripts directly)")
-
-case "$TASKS" in
-  "mise (recommended)")             TASKS="mise" ;;
-  "sh (run task scripts directly)") TASKS="sh" ;;
-esac
-
 # --- Validate profiles ---
 
 if [ ! -d "$PROFILES_DIR/$VCS" ]; then
   echo "Error: VCS profile '$VCS' not found in $PROFILES_DIR/"
-  exit 1
-fi
-
-if [ ! -d "$PROFILES_DIR/$TASKS" ]; then
-  echo "Error: Task runner profile '$TASKS' not found in $PROFILES_DIR/"
   exit 1
 fi
 
@@ -197,7 +179,6 @@ _style 212 "Configuration Summary"
 echo ""
 echo "  Assistants:   $(echo "$ASSISTANTS" | tr '\n' ',' | sed 's/,$//' | sed 's/,/, /g')"
 echo "  VCS:          $VCS"
-echo "  Task runner:  $TASKS"
 echo ""
 
 if ! _confirm "Apply this configuration?"; then
@@ -210,7 +191,7 @@ fi
 echo ""
 _spin "Assembling agents and skills..." sleep 0.5
 
-PROFILES=("default" "$VCS" "$TASKS")
+PROFILES=("default" "$VCS")
 
 # --- Wire up each assistant ---
 
@@ -348,7 +329,6 @@ done
 cat > "$CONFIG_FILE" <<EOF
 assistants=$(echo "$ASSISTANTS" | tr '\n' ',' | sed 's/,$//')
 vcs=$VCS
-tasks=$TASKS
 EOF
 
 # --- Summary ---
