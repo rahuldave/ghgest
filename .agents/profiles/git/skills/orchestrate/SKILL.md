@@ -16,9 +16,9 @@ when needed.
 Retrieve the iteration and visualize the execution plan:
 
 ```sh
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration show --json <id>
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration status <id> --json
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration graph <id>
+cargo run -- iteration show --json <id>
+cargo run -- iteration status <id> --json
+cargo run -- iteration graph <id>
 ```
 
 Extract:
@@ -57,10 +57,10 @@ For each phase:
 
    ```sh
    # Claim next available task (returns JSON with task details):
-   GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration next <iteration-id> --claim --agent implement-agent --json
+   cargo run -- iteration next <iteration-id> --claim --agent implement-agent --json
 
    # Or get just the task ID for scripting:
-   GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration next <iteration-id> --claim --agent implement-agent -q
+   cargo run -- iteration next <iteration-id> --claim --agent implement-agent -q
    ```
 
    Exit code **2** means no tasks are available (distinguishes idle from errors).
@@ -107,13 +107,13 @@ current phase are integrated before starting the next phase.
 1. **Check phase progress:**
 
    ```sh
-   GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration status <iteration-id> --json
+   cargo run -- iteration status <iteration-id> --json
    ```
 
 2. **Advance to the next phase** once the current phase is complete:
 
    ```sh
-   GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- iteration advance <iteration-id>
+   cargo run -- iteration advance <iteration-id>
    ```
 
    Use `--force` to advance past stuck tasks if needed.
@@ -132,14 +132,14 @@ After all phases complete:
    - If **all tasks** completed successfully (`done`):
 
      ```sh
-     GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- \
+     cargo run -- \
        iteration update <iteration-id> --status completed -q
      ```
 
    - If **any tasks** remain `in-progress`:
 
      ```sh
-     GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- \
+     cargo run -- \
        iteration cancel <iteration-id> -q
      ```
 

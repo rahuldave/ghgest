@@ -12,7 +12,7 @@ Implement a single issue (gest task) from start to commit.
 
 ### 1. Read the Issue
 
-Retrieve the task via `GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task show <id>`. Understand:
+Retrieve the task via `cargo run -- task show <id>`. Understand:
 
 - User story (the "why")
 - Acceptance criteria (the "what" -- each must be satisfied)
@@ -21,7 +21,7 @@ Retrieve the task via `GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 car
 Then mark the task as in-progress:
 
 ```sh
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task update <id> --status in-progress
+cargo run -- task update <id> --status in-progress
 ```
 
 ### 2. Implement
@@ -87,16 +87,16 @@ Invoke `/commit` to create the commit. Reference the issue in the commit footer 
 Mark the task as done:
 
 ```sh
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task complete <id>
+cargo run -- task complete <id>
 ```
 
 Then check if the task links to a spec artifact (look for artifact links in the task's `links` field). If it does, query
 all tasks that link to the same artifact via
-`GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task list --json` and check whether any remain
+`cargo run -- task list --json` and check whether any remain
 `open` or `in-progress`. If none do, archive the artifact:
 
 ```sh
-GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact archive <spec-id>
+cargo run -- artifact archive <spec-id>
 ```
 
 **On failure:** If any prior step fails and cannot be resolved, leave the task as `in-progress` -- do not mark it `done`

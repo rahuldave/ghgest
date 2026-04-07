@@ -54,14 +54,14 @@ Pipe the spec content via stdin. When `--body` is omitted and stdin is piped, ge
 to get the bare artifact ID:
 
 ```sh
-cat <<'EOF' | GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- artifact create \
-  --title "<title>" --type spec --tag "<area>,spec" -q
+cat <<'EOF' | cargo run -- artifact create "<title>" \
+  --tag spec --tag "<area>" -q
 <spec content here>
 EOF
 ```
 
-Use bare tags (no `area:` or `type:` prefixes). Include the relevant area tag(s) from `docs/process/labels.md` and the
-`spec` type tag.
+Title is a positional argument in v0.5.0. Categorization is tag-driven: include the `spec`
+tag plus the relevant area tag(s) from `docs/process/labels.md`.
 
 The `-q` flag prints only the artifact ID, ready for downstream use.
 

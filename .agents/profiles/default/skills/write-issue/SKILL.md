@@ -38,7 +38,7 @@ automatically. Use `-q` to get the bare task ID. Apply tags for type, area, and 
 `docs/process/labels.md`. Use bare tags -- no namespace prefixes like `area:` or `type:`:
 
 ```sh
-cat <<'EOF' | GEST_PROJECT_DIR=$XDG_DATA_HOME/gest/2f8de7bc06014bd7 cargo run -- task create "<title>" \
+cat <<'EOF' | cargo run -- task create "<title>" \
   --tag "enhancement,cli,p2" -q
 <issue content here>
 EOF
