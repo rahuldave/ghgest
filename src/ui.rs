@@ -7,6 +7,8 @@
 pub mod atoms;
 /// Mid-level widgets composed from atoms.
 pub mod composites;
+/// JSON output formatting helpers for --json command output.
+pub mod json;
 /// Row and column layout containers with terminal-aware overflow.
 pub mod layout;
 /// Markdown-to-styled-terminal renderer.
