@@ -4,11 +4,14 @@
 //! - `is:<type>` — filter by entity type (artifact, iteration, task)
 //! - `tag:<name>` — filter by tag
 //! - `status:<status>` — filter by status
-//! - `type:<kind>` — filter by artifact kind
 //! - `-<filter>` — negate any filter (e.g. `-tag:wip`)
 //!
 //! Same filter types OR-combine; different filter types AND-combine.
+//! Exclude filters AND-combine (exclude any match).
 //! Unknown prefixes are treated as free text.
+
+/// Known filter prefixes (case-insensitive matching is handled by lowercasing the prefix).
+const KNOWN_PREFIXES: &[&str] = &["is", "status", "tag"];
 
 /// A single filter extracted from the query.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -16,7 +19,6 @@ pub enum Filter {
   Is(String),
   Status(String),
   Tag(String),
-  Type(String),
 }
 
 /// The result of parsing a search query string.
@@ -24,7 +26,7 @@ pub enum Filter {
 pub struct ParsedQuery {
   pub exclude: Vec<Filter>,
   pub include: Vec<Filter>,
-  pub text: String,
+  pub text: Vec<String>,
 }
 
 impl ParsedQuery {
@@ -35,20 +37,17 @@ impl ParsedQuery {
   }
 }
 
-/// Known filter prefixes (case-insensitive matching is handled by lowercasing the prefix).
-const KNOWN_PREFIXES: &[&str] = &["is", "status", "tag", "type"];
-
 /// Parse a search query string into a [`ParsedQuery`].
 pub fn parse(query: &str) -> ParsedQuery {
   let mut include = Vec::new();
   let mut exclude = Vec::new();
-  let mut text_parts: Vec<&str> = Vec::new();
+  let mut text = Vec::new();
 
   for token in query.split_whitespace() {
     let (negated, body) = if let Some(rest) = token.strip_prefix('-') {
       // A bare `-` or `-` followed by no colon is just free text.
       if rest.is_empty() || !rest.contains(':') {
-        text_parts.push(token);
+        text.push(token.to_owned());
         continue;
       }
       (true, rest)
@@ -64,7 +63,6 @@ pub fn parse(query: &str) -> ParsedQuery {
           "is" => Filter::Is(value_lower),
           "status" => Filter::Status(value_lower),
           "tag" => Filter::Tag(value_lower),
-          "type" => Filter::Type(value_lower),
           _ => unreachable!(),
         };
         if negated {
@@ -77,13 +75,13 @@ pub fn parse(query: &str) -> ParsedQuery {
     }
 
     // Unknown prefix or no colon — treat as free text.
-    text_parts.push(token);
+    text.push(token.to_owned());
   }
 
   ParsedQuery {
     exclude,
     include,
-    text: text_parts.join(" "),
+    text,
   }
 }
 
@@ -124,7 +122,7 @@ mod tests {
       let q = parse("is:task tag:urgent fix login bug");
 
       assert_eq!(q.include, vec![Filter::Is("task".into()), Filter::Tag("urgent".into())]);
-      assert_eq!(q.text, "fix login bug");
+      assert_eq!(q.text, vec!["fix", "login", "bug"]);
     }
 
     #[test]
@@ -150,17 +148,14 @@ mod tests {
 
     #[test]
     fn it_lowercases_filter_values() {
-      let q = parse("status:InProgress type:RFC");
+      let q = parse("status:InProgress");
 
-      assert_eq!(
-        q.include,
-        vec![Filter::Status("inprogress".into()), Filter::Type("rfc".into())]
-      );
+      assert_eq!(q.include, vec![Filter::Status("inprogress".into())]);
     }
 
     #[test]
     fn it_parses_all_supported_filter_types() {
-      let q = parse("is:artifact tag:foo status:open type:spec");
+      let q = parse("is:artifact tag:foo status:open");
 
       assert_eq!(
         q.include,
@@ -168,7 +163,6 @@ mod tests {
           Filter::Is("artifact".into()),
           Filter::Tag("foo".into()),
           Filter::Status("open".into()),
-          Filter::Type("spec".into()),
         ]
       );
     }
@@ -179,28 +173,28 @@ mod tests {
 
       assert!(q.include.is_empty());
       assert!(q.exclude.is_empty());
-      assert_eq!(q.text, "hello world");
+      assert_eq!(q.text, vec!["hello", "world"]);
     }
 
     #[test]
     fn it_treats_bare_dash_as_free_text() {
       let q = parse("- foo");
 
-      assert_eq!(q.text, "- foo");
+      assert_eq!(q.text, vec!["-", "foo"]);
     }
 
     #[test]
     fn it_treats_dash_without_colon_as_free_text() {
       let q = parse("-nocolon foo");
 
-      assert_eq!(q.text, "-nocolon foo");
+      assert_eq!(q.text, vec!["-nocolon", "foo"]);
     }
 
     #[test]
     fn it_treats_empty_value_filter_as_free_text() {
       let q = parse("tag: foo");
 
-      assert_eq!(q.text, "tag: foo");
+      assert_eq!(q.text, vec!["tag:", "foo"]);
       assert!(q.include.is_empty());
     }
 
@@ -209,7 +203,7 @@ mod tests {
       let q = parse("foo:bar baz:qux hello");
 
       assert!(q.include.is_empty());
-      assert_eq!(q.text, "foo:bar baz:qux hello");
+      assert_eq!(q.text, vec!["foo:bar", "baz:qux", "hello"]);
     }
   }
 
@@ -226,7 +220,7 @@ mod tests {
     #[test]
     fn it_is_not_empty_with_text() {
       let q = ParsedQuery {
-        text: "hello".into(),
+        text: vec!["hello".into()],
         ..Default::default()
       };
 

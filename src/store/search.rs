@@ -23,7 +23,7 @@ pub struct SearchResults {
 /// - `-<filter>` to negate any filter
 pub fn search(config: &Settings, query: &str, show_all: bool) -> super::Result<SearchResults> {
   let parsed = super::search_query::parse(query);
-  let text_lower = parsed.text.to_lowercase();
+  let text_lower = parsed.text.join(" ").to_lowercase();
 
   let want_tasks = wants_entity_type(&parsed, "task");
   let want_artifacts = wants_entity_type(&parsed, "artifact");
@@ -41,13 +41,6 @@ pub fn search(config: &Settings, query: &str, show_all: bool) -> super::Result<S
           return false;
         }
         if !matches_status_filters(&parsed, &task.status.to_string()) {
-          return false;
-        }
-        // Tasks have no kind — exclude if a type: include filter is present.
-        if has_include_of_kind(&parsed, FilterKind::Type) {
-          return false;
-        }
-        if has_exclude_of_kind(&parsed, FilterKind::Type) && !matches_type_exclude(&parsed) {
           return false;
         }
         matches_text(task, &text_lower)
@@ -69,10 +62,7 @@ pub fn search(config: &Settings, query: &str, show_all: bool) -> super::Result<S
           return false;
         }
         // Artifacts have no status — exclude if a status: include filter is present.
-        if has_include_of_kind(&parsed, FilterKind::Status) {
-          return false;
-        }
-        if !matches_type_filters(&parsed, artifact.kind.as_deref().unwrap_or("")) {
+        if parsed.include.iter().any(|f| matches!(f, Filter::Status(_))) {
           return false;
         }
         matches_text_artifact(artifact, &text_lower)
@@ -96,13 +86,6 @@ pub fn search(config: &Settings, query: &str, show_all: bool) -> super::Result<S
         if !matches_status_filters(&parsed, &iteration.status.to_string()) {
           return false;
         }
-        // Iterations have no kind — exclude if a type: include filter is present.
-        if has_include_of_kind(&parsed, FilterKind::Type) {
-          return false;
-        }
-        if has_exclude_of_kind(&parsed, FilterKind::Type) && !matches_type_exclude(&parsed) {
-          return false;
-        }
         matches_text_iteration(iteration, &text_lower)
       })
       .collect()
@@ -115,12 +98,6 @@ pub fn search(config: &Settings, query: &str, show_all: bool) -> super::Result<S
     iterations,
     tasks,
   })
-}
-
-/// Discriminant for filter kinds (used to check presence without matching values).
-enum FilterKind {
-  Status,
-  Type,
 }
 
 /// Determine whether a given entity type should be included based on `is:` filters.
@@ -210,62 +187,6 @@ fn matches_status_filters(parsed: &ParsedQuery, status: &str) -> bool {
     return false;
   }
 
-  true
-}
-
-/// Check type (artifact kind) filters.
-fn matches_type_filters(parsed: &ParsedQuery, kind: &str) -> bool {
-  let kind_lower = kind.to_lowercase();
-
-  let type_includes: Vec<&str> = parsed
-    .include
-    .iter()
-    .filter_map(|f| match f {
-      Filter::Type(v) => Some(v.as_str()),
-      _ => None,
-    })
-    .collect();
-
-  if !type_includes.is_empty() && !type_includes.iter().any(|tv| *tv == kind_lower) {
-    return false;
-  }
-
-  let type_excludes: Vec<&str> = parsed
-    .exclude
-    .iter()
-    .filter_map(|f| match f {
-      Filter::Type(v) => Some(v.as_str()),
-      _ => None,
-    })
-    .collect();
-
-  if type_excludes.iter().any(|tv| *tv == kind_lower) {
-    return false;
-  }
-
-  true
-}
-
-/// Whether any include filter of the given kind exists.
-fn has_include_of_kind(parsed: &ParsedQuery, kind: FilterKind) -> bool {
-  parsed.include.iter().any(|f| match kind {
-    FilterKind::Status => matches!(f, Filter::Status(_)),
-    FilterKind::Type => matches!(f, Filter::Type(_)),
-  })
-}
-
-/// Whether any exclude filter of the given kind exists.
-fn has_exclude_of_kind(parsed: &ParsedQuery, kind: FilterKind) -> bool {
-  parsed.exclude.iter().any(|f| match kind {
-    FilterKind::Status => matches!(f, Filter::Status(_)),
-    FilterKind::Type => matches!(f, Filter::Type(_)),
-  })
-}
-
-/// For entities without a kind field: if only exclude type filters exist, they
-/// pass (because they can't match the excluded kind).
-fn matches_type_exclude(_parsed: &ParsedQuery) -> bool {
-  // Entities without a kind can never match -type:X, so they always pass.
   true
 }
 
@@ -549,23 +470,6 @@ mod tests {
 
       assert_eq!(results.tasks.len(), 1);
       assert_eq!(results.tasks[0].title, "Other Task");
-    }
-
-    #[test]
-    fn it_filters_artifacts_by_type() {
-      let dir = tempfile::tempdir().unwrap();
-      let cfg = crate::test_helpers::make_test_config(dir.path().to_path_buf());
-      let mut artifact = make_test_artifact("llllllllllllllllllllllllllllllll", "My Spec", "body");
-      artifact.kind = Some("spec".to_string());
-      crate::store::write_artifact(&cfg, &artifact).unwrap();
-      let mut artifact2 = make_test_artifact("nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn", "My RFC", "body");
-      artifact2.kind = Some("rfc".to_string());
-      crate::store::write_artifact(&cfg, &artifact2).unwrap();
-
-      let results = crate::store::search(&cfg, "type:spec", false).unwrap();
-
-      assert_eq!(results.artifacts.len(), 1);
-      assert_eq!(results.artifacts[0].title, "My Spec");
     }
 
     #[test]

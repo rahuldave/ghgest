@@ -7,7 +7,7 @@ pub mod note;
 pub mod project;
 pub mod relationship;
 pub mod resolve;
-// pub mod search; // wired up in phase 44 alongside the new search_query module
+pub mod search;
 pub mod tag;
 pub mod task;
 pub mod transaction;
