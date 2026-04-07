@@ -53,26 +53,27 @@ gest task list
 
 ## Create an Artifact
 
-Artifacts store documents like specs, ADRs, RFCs, and notes. You can create one from a file:
+Artifacts store documents like specs, ADRs, RFCs, and notes. Categorize them with tags.
+You can create one from a file:
 
 ```sh
-gest artifact create --source auth-spec.md --type spec --tag "auth"
+gest artifact create --source auth-spec.md --tag spec --tag auth
 ```
 
 Or write the body inline:
 
 ```sh
-gest artifact create \
-  -t "Rate Limiting Design" \
+gest artifact create "Rate Limiting Design" \
   -b "Token-bucket algorithm with per-user quotas." \
-  -k adr \
-  --tag "api,design"
+  --tag adr \
+  --tag api \
+  --tag design
 ```
 
-- `-t` sets the title (auto-extracted from the first `#` heading if omitted)
+- The title is a positional argument (auto-extracted from the first `#` heading if omitted)
 - `-b` provides inline body content
-- `-k` / `--type` sets the artifact type (e.g. `spec`, `adr`, `rfc`, `note`)
-- `--source` reads body content from a file
+- `--tag` / `-t` adds a tag — use tags like `spec`, `adr`, `rfc`, `note` to categorize
+- `--source` / `-s` reads body content from a file
 
 List artifacts to see them:
 

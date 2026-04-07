@@ -28,7 +28,9 @@ specific fields.
 | `is:`     | Filter by entity type (`task`, `artifact`, `iteration`) | `is:task`     |
 | `tag:`    | Filter by tag name                                      | `tag:urgent`  |
 | `status:` | Filter by status                                        | `status:open` |
-| `type:`   | Filter by artifact kind                                 | `type:spec`   |
+
+Artifact categorization is tag-driven in v0.5.0 — use `tag:spec` instead of the removed
+`type:spec` filter.
 
 Both prefixes and values are **case-insensitive** -- `IS:Task`, `is:task`, and `Is:TASK` all behave the same.
 
@@ -91,8 +93,8 @@ gest search "is:task status:open migration"
 # Filter to iterations
 gest search "is:iteration"
 
-# Artifacts of type "spec"
-gest search "type:spec"
+# Artifacts tagged "spec"
+gest search "is:artifact tag:spec"
 
 # Combine negation with free text
 gest search "is:task -status:done fix auth"

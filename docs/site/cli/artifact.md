@@ -61,55 +61,63 @@ When `--body` and `--source` are both omitted and stdin is a terminal, `$EDITOR`
 interactive editing. When stdin is a pipe, the piped content is used as the body.
 
 ```text
-gest artifact create [OPTIONS]
+gest artifact create [OPTIONS] [TITLE]
 ```
+
+### Arguments
+
+| Argument  | Description                                                                                 |
+|-----------|---------------------------------------------------------------------------------------------|
+| `[TITLE]` | Artifact title (auto-extracted from the first `#` heading when piping stdin or `--source`)  |
 
 ### Options
 
-| Flag                              | Description                                                       |
-|-----------------------------------|-------------------------------------------------------------------|
-| `--batch`                         | Read NDJSON from stdin (one artifact per line)                    |
-| `-b, --body <BODY>`               | Body content as an inline string (skips editor and stdin)         |
-| `-i, --iteration <ITERATION>`     | Add the artifact to an iteration (ID or prefix)                   |
-| `-j, --json`                      | Output the created artifact as JSON                               |
-| `-k, --type <KIND>`               | Artifact type (e.g. `spec`, `adr`, `rfc`, `note`)                 |
-| `-m, --metadata <METADATA>`       | Key=value metadata pairs (repeatable)                             |
-| `-q, --quiet`                     | Print only the artifact ID                                        |
-| `-s, --source <SOURCE>`           | Read body content from a file path                                |
-| `--tag <TAG>`                     | Tag (repeatable, or comma-separated)                              |
-| `-t, --title <TITLE>`             | Artifact title (auto-extracted from first `#` heading if omitted) |
+| Flag                          | Description                                                                 |
+|-------------------------------|-----------------------------------------------------------------------------|
+| `--batch`                     | Read NDJSON from stdin (one artifact per line)                              |
+| `-b, --body <BODY>`           | Body content as an inline string (skips editor and stdin)                   |
+| `-i, --iteration <ITERATION>` | Add the artifact to an iteration (ID or prefix)                             |
+| `-j, --json`                  | Output the created artifact as JSON                                         |
+| `-m, --metadata <METADATA>`   | JSON metadata object (e.g. `--metadata '{"key":"value"}'`)                  |
+| `-q, --quiet`                 | Print only the artifact ID                                                  |
+| `-s, --source <SOURCE>`       | Read body content from a file path                                          |
+| `-t, --tag <TAG>`             | Tag (repeatable). Use tags like `spec`, `adr`, `rfc`, `note` to categorize. |
+
+Artifact categorization is tag-driven in v0.5.0. The `--type`/`-k` flag and `kind`
+field were removed — tag your artifacts with `spec`, `adr`, `rfc`, etc. and filter
+listings with `--tag`.
 
 ### Examples
 
 ```sh
 # Create from inline body
-gest artifact create -t "Auth Spec" -k spec -b "## Overview\nAuth flow details..."
+gest artifact create "Auth Spec" --tag spec --body "## Overview\nAuth flow details..."
 
-# Create from a file
-gest artifact create -k adr -s docs/decisions/001-storage.md
+# Create from a file (title extracted from the first heading)
+gest artifact create --tag adr --source docs/decisions/001-storage.md
 
 # Create interactively (opens $EDITOR)
-gest artifact create -k rfc --tag "backend,v2"
+gest artifact create "My RFC" --tag rfc --tag backend --tag v2
 
 # Add to an iteration
-gest artifact create -t "Sprint 3 Notes" -k note -i iter123
+gest artifact create "Sprint 3 Notes" --tag note -i iter123
 
 # Pipe body from stdin
-echo "# My Spec\nDetails..." | gest artifact create -k spec
+echo "# My Spec\nDetails..." | gest artifact create --tag spec
 
 # Batch-create artifacts from NDJSON
 cat artifacts.ndjson | gest artifact create --batch
 
 # Machine-readable output
-gest artifact create -t "Quick note" -k note --json
-gest artifact create -t "Quick note" -k note -q
+gest artifact create "Quick note" --tag note --json
+gest artifact create "Quick note" --tag note -q
 ```
 
 ---
 
 ## artifact list
 
-List artifacts, optionally filtered by type, tag, or archive status.
+List artifacts, optionally filtered by tag or archive status.
 
 ```text
 gest artifact list [OPTIONS]
@@ -117,13 +125,12 @@ gest artifact list [OPTIONS]
 
 ### Options
 
-| Flag                | Description                                         |
-|---------------------|-----------------------------------------------------|
-| `-a, --all`         | Include archived artifacts alongside active ones    |
-| `--archived`        | Show only archived artifacts                        |
-| `-j, --json`        | Output as JSON                                      |
-| `-k, --type <KIND>` | Filter by artifact type (e.g. `spec`, `adr`, `rfc`) |
-| `--tag <TAG>`       | Filter by tag                                       |
+| Flag              | Description                                      |
+|-------------------|--------------------------------------------------|
+| `-a, --all`       | Include archived artifacts alongside active ones |
+| `--archived`      | Show only archived artifacts                     |
+| `-j, --json`      | Output as JSON                                   |
+| `-t, --tag <TAG>` | Filter by tag                                    |
 
 ### Examples
 
@@ -131,8 +138,8 @@ gest artifact list [OPTIONS]
 # List active artifacts
 gest artifact list
 
-# Filter by type
-gest artifact list -k spec
+# Filter by tag (use category tags like `spec`, `adr`, `rfc`)
+gest artifact list --tag spec
 
 # Include archived
 gest artifact list --all
@@ -188,23 +195,24 @@ gest artifact update [OPTIONS] <ID>
 
 ### Options
 
-| Flag                  | Description                                       |
-|-----------------------|---------------------------------------------------|
-| `-b, --body <BODY>`   | Replace the body content                          |
-| `-j, --json`          | Output as JSON                                    |
-| `-k, --type <KIND>`   | Artifact type (e.g. `spec`, `adr`, `rfc`, `note`) |
-| `-q, --quiet`         | Print only the artifact ID                        |
-| `--tag <TAG>`         | Replace all tags (repeatable, or comma-separated) |
-| `-t, --title <TITLE>` | New title                                         |
+| Flag                  | Description                        |
+|-----------------------|------------------------------------|
+| `-b, --body <BODY>`   | Replace the body content           |
+| `-e, --edit`          | Open `$EDITOR` on the current body |
+| `-j, --json`          | Output as JSON                     |
+| `-m, --metadata <M>`  | Replace metadata (JSON object)     |
+| `-q, --quiet`         | Print only the artifact ID         |
+| `-t, --tag <TAG>`     | Replace all tags (repeatable)      |
+| `-T, --title <TITLE>` | New title                          |
 
 ### Examples
 
 ```sh
-gest artifact update abc123 -t "Updated Title"
-gest artifact update abc123 -k adr --tag "approved,backend"
+gest artifact update abc123 -T "Updated Title"
+gest artifact update abc123 --tag approved --tag backend
 
 # Machine-readable output
-gest artifact update abc123 -t "New Title" --json
+gest artifact update abc123 -T "New Title" --json
 ```
 
 ---

@@ -2,14 +2,16 @@
 
 Alias: `gest u`
 
-Undo the most recent mutating command(s) by restoring file snapshots.
+Undo the most recent mutating command(s) by replaying a transaction log in reverse.
 
-Every mutating CLI command (create, update, archive, link, etc.) is automatically recorded in a
-local event store. `gest undo` reverses the most recent operation by restoring files to their
-prior state. Non-mutating commands (show, list, search, version) are not recorded.
+Every mutating CLI command (create, update, archive, link, etc.) is wrapped in a database
+transaction whose row-level changes are recorded in the `transactions` and `transaction_events`
+tables. `gest undo` reverses the most recent transaction by applying the inverse of each
+recorded change. Non-mutating commands (show, list, search, version) are not recorded.
 
-The event store lives outside version control in the system state directory
-(`~/.local/state/gest/<project-hash>/`), so undo history is local to each machine.
+The transaction log lives inside the same SQLite database as your entity data, so undo history
+follows the database: local-only if you use the global store, and cross-machine if you point at
+a remote libsql database via `[database]`.
 
 ## Usage
 
@@ -46,13 +48,14 @@ gest undo 3
 
 ## How it works
 
-Before each mutating command runs, gest snapshots all files in the data directory. After the
-command completes, any files that changed are recorded as events grouped under a single
-transaction. `gest undo` reverses the most recent transaction:
+Each mutating command runs inside a database transaction. For every row the command inserts,
+updates, or deletes, gest captures a `transaction_events` record with the before-state. When
+`gest undo` runs, it walks the most recent transaction's events in reverse and applies the
+inverse of each:
 
-- **Created files** are deleted
-- **Modified files** are restored to their prior content
-- **Deleted files** are recreated
+- **Inserts** become deletes
+- **Updates** restore the captured before-row
+- **Deletes** re-insert the captured row
 
 Each undo step prints a summary of what was reversed, including the original command and how
 long ago it ran.
@@ -61,6 +64,6 @@ If you request more undo steps than are available, gest undoes as many as it can
 gracefully.
 
 ::: tip
-The undo command itself is not recorded in the event store, so repeated `gest undo` calls walk
-backwards through history without creating new entries.
+The undo command itself is not recorded in the transaction log, so repeated `gest undo` calls
+walk backwards through history without creating new entries.
 :::

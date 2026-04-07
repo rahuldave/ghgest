@@ -32,9 +32,8 @@ Here's a concrete example. You're adding a new CLI command with several moving p
 
 ```sh
 # Capture the design as an artifact
-gest artifact create \
-  --title "Add export command" \
-  --type spec \
+gest artifact create "Add export command" \
+  --tag spec \
   --body "Export tasks and artifacts to JSON or CSV for external tooling."
 
 # Create tasks with phase assignments

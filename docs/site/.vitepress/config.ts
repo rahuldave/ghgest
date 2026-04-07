@@ -33,6 +33,8 @@ export default defineConfig({
           { text: 'iteration', link: '/cli/iteration' },
           { text: 'tag', link: '/cli/tag' },
           { text: 'search', link: '/cli/search' },
+          { text: 'project', link: '/cli/project' },
+          { text: 'migrate', link: '/cli/migrate' },
           { text: 'undo', link: '/cli/undo' },
           { text: 'serve', link: '/cli/serve' },
           { text: 'config', link: '/cli/config' },
@@ -46,6 +48,12 @@ export default defineConfig({
         items: [
           { text: 'Config Reference', link: '/configuration/' },
           { text: 'Theming', link: '/configuration/theming' },
+        ],
+      },
+      {
+        text: 'Migration',
+        items: [
+          { text: 'v0.4 → v0.5', link: '/migration/v0-4-to-v0-5' },
         ],
       },
       {

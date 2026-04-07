@@ -34,97 +34,62 @@ deep-merged with files closer to the working directory taking precedence.
 
 ## Data storage: global vs local
 
-gest stores its data (tasks, artifacts, iterations) in a **project directory**
-inside a **global data root**. Each is resolved independently.
+gest stores entity data (tasks, artifacts, iterations, notes, events, and
+relationships) in a single SQLite database at `<data_dir>/gest.db`. Projects are
+rows inside that database, not separate directories on disk.
 
 ### Global data root
 
-The global data root is the parent directory that contains all project-specific
-subdirectories. It is resolved with this precedence:
+The global data root is the directory that contains `gest.db`. It is resolved with
+this precedence:
 
-1. `$GEST_DATA_DIR` environment variable (must be an absolute path)
+1. `$GEST_STORAGE__DATA_DIR` environment variable (must be an absolute path)
 2. `storage.data_dir` in config (must be an absolute path)
 3. The platform's global data home: `~/.local/share/gest/`
 
-### Project directory
+### Project resolution
 
-The project directory is where entity data for the current project is actually
-stored. It is resolved with this precedence:
+Projects are tracked in the `projects` table of the database, keyed on their root
+path. `gest init` records a new project row for the current working directory; after
+that, any `gest` invocation inside the tree walks up from `cwd` and matches against
+the `projects` table to find the active project.
 
-1. `$GEST_PROJECT_DIR` environment variable (must be an absolute path)
-2. `storage.project_dir` in config (must be an absolute path)
-3. A `.gest/` directory found by walking up from the working directory
-4. `<data_dir>/<hash>/` (a subdirectory of the global data root derived from a hash of your project path)
+There is no longer a separate "project directory" setting — entity data lives
+inside the single SQLite database, not in per-project subdirectories.
 
 ### Global store (default)
 
-By default, `gest init` sets up the **global store**. Data is kept under
-`~/.local/share/gest/` in a subdirectory derived from a hash of your project
-path. This keeps your project directory clean and works well for personal use.
+By default, `gest init` records the project with no `.gest/` directory. All entity
+data lives in the global SQLite database at `<data_dir>/gest.db`, which is shared
+across every project on the machine. This keeps your project directory clean and
+works well for personal use.
 
 ```sh
-# Initialize with the global store (default)
+# Initialize a project that uses the global store only (default)
 gest init
 ```
 
-### Local store
+### Local store (sync mirror)
 
-Use `gest init --local` to create a `.gest/` directory inside your project.
-This is useful when you want to commit gest data alongside your code or share
-it with collaborators.
+Use `gest init --local` to also create a `.gest/` directory inside your project.
+When this directory exists and `storage.sync` is enabled (the default), gest
+bidirectionally syncs the SQLite database with JSON/markdown files inside `.gest/`
+on every command invocation. This is useful when you want to commit gest data
+alongside your code or share it with collaborators — but the database is still the
+source of truth, not the files.
 
 ```sh
-# Initialize with a local .gest/ directory
+# Initialize with a local .gest/ sync mirror
 gest init --local
 ```
 
-## State storage (event store)
+## State storage
 
-Separately from entity data, gest maintains a **state directory** for local operational state
-such as the undo event store. The state directory is always global (never inside the repo) and
-is resolved with this precedence:
-
-1. `$GEST_STATE_DIR` environment variable (must be an absolute path)
-2. `storage.state_dir` in config (must be an absolute path)
-3. The platform's global state home: `~/.local/state/gest/<hash>/`
-
-The state directory is created automatically on first use. It is not version-controlled and does
-not sync between machines — undo history is local to each workstation.
-
-## Per-entity directory overrides
-
-By default, all entity types (artifacts, tasks, iterations) are stored under
-the resolved data directory. You can override the storage location for each
-entity type independently using environment variables or config settings.
-
-The resolution precedence for each entity type is:
-
-1. Entity-specific environment variable (e.g. `GEST_ARTIFACT_DIR`)
-2. Entity-specific config setting (e.g. `storage.artifact_dir`)
-3. `<project_dir>/<entity>/` (default fallback)
-
-For example, to keep artifacts in your project's `docs/` directory and tasks in
-`tasks/` while letting iterations use the default:
-
-```toml
-[storage]
-artifact_dir = "./docs"
-task_dir = "./tasks"
-```
-
-This produces the following layout:
-
-```text
-docs/<id>.md
-docs/archive/<id>.md
-tasks/<id>.toml
-tasks/resolved/<id>.toml
-<project_dir>/iterations/<id>.toml
-<project_dir>/iterations/resolved/<id>.toml
-```
-
-`gest init` respects these overrides and creates directories at the resolved
-paths.
+There is no separate state directory in v0.5.0. The undo log, transaction history,
+sync digests, and every other piece of operational state live inside the main
+SQLite database at `<data_dir>/gest.db`. Undo history is local to each database —
+if you point `gest` at a remote libsql URL via `[database]`, the undo log follows
+the database across machines.
 
 ## Configuration settings
 
@@ -133,14 +98,10 @@ For a dedicated guide to terminal UI color customization, see
 
 ### `[storage]`
 
-| Key             | Type                   | Default                    | Description                                                             |
-|-----------------|------------------------|----------------------------|-------------------------------------------------------------------------|
-| `data_dir`      | string (absolute path) | _(auto-resolved)_          | Override the global data root directory. Must be an absolute path.      |
-| `project_dir`   | string (absolute path) | _(auto-resolved)_          | Override the project-specific data directory. Must be an absolute path. |
-| `state_dir`     | string (absolute path) | _(auto-resolved)_          | Override the state directory (event store). Must be an absolute path.   |
-| `artifact_dir`  | string (path)          | `<project_dir>/artifacts`  | Override the artifact storage directory.                                |
-| `iteration_dir` | string (path)          | `<project_dir>/iterations` | Override the iteration storage directory.                               |
-| `task_dir`      | string (path)          | `<project_dir>/tasks`      | Override the task storage directory.                                    |
+| Key        | Type                   | Default           | Description                                                                                                         |
+|------------|------------------------|-------------------|---------------------------------------------------------------------------------------------------------------------|
+| `data_dir` | string (absolute path) | _(auto-resolved)_ | Override the global data root directory. Must be an absolute path.                                                  |
+| `sync`     | boolean                | `true`            | Enable bidirectional sync between the SQLite database and a `.gest/` directory when one exists in the project root. |
 
 ### `[database]`
 
@@ -152,15 +113,9 @@ gest v0.5.0 stores entity data in a SQLite database (via libsql). By default the
 | `url`        | string | _none_  | Optional libsql remote URL. When unset, a local SQLite file is used.           |
 | `auth_token` | string | _none_  | Auth token for the remote libsql database. Only used when `url` is set.        |
 
-### `[serve]`
-
-| Key            | Type                | Default       | Description                                                                                                          |
-|----------------|---------------------|---------------|----------------------------------------------------------------------------------------------------------------------|
-| `bind_address` | string (IP address) | `"127.0.0.1"` | IP address the web server binds to.                                                                                  |
-| `port`         | integer             | `2300`        | Port the web server listens on.                                                                                      |
-| `open`         | boolean             | `true`        | Whether to automatically open the browser when the server starts.                                                    |
-| `debounce_ms`  | integer             | `2000`        | File-watcher debounce window in milliseconds. Controls how long the server waits before triggering a live reload.    |
-| `log_level`    | string              | `"info"`      | Log level for the server process. Overrides the global `[log].level` when running `gest serve`. Same valid values.   |
+The `[serve]` config section was removed in v0.5.0. Web server options like
+`--bind`, `--port`, and `--no-open` are now specified as command-line flags on
+`gest serve` directly.
 
 ### `[log]`
 
@@ -179,15 +134,13 @@ the complete token list.
 
 ```toml
 [storage]
-project_dir = "/home/user/projects/myapp/.gest"
-artifact_dir = "./docs"
-task_dir = "./tasks"
+data_dir = "/home/user/.local/share/gest"
+sync = true
 
-[serve]
-port = 8080
-open = false
-debounce_ms = 1000
-log_level = "debug"
+[database]
+# Optional: point at a remote libsql database for multi-device sync.
+# url = "libsql://my-project.turso.io"
+# auth_token = "eyJhbGci..."
 
 [log]
 level = "info"
@@ -201,19 +154,17 @@ primary = "#5AB0FF"
 
 ## Environment variables
 
-| Variable             | Description                                                                                   |
-|----------------------|-----------------------------------------------------------------------------------------------|
-| `GEST_CONFIG`        | Override the path to the global config file.                                                  |
-| `GEST_DATA_DIR`      | Override the global data root directory (must be an absolute path).                           |
-| `GEST_PROJECT_DIR`   | Override the project-specific data directory (must be an absolute path).                      |
-| `GEST_STATE_DIR`     | Override the state directory for the event store (must be an absolute path).                  |
-| `GEST_ARTIFACT_DIR`  | Override the artifact storage directory.                                                      |
-| `GEST_ITERATION_DIR` | Override the iteration storage directory.                                                     |
-| `GEST_TASK_DIR`      | Override the task storage directory.                                                          |
-| `GEST_LOG__LEVEL`    | Override the log level filter (e.g. `debug`, `trace`). Takes precedence over the config file. |
-| `VISUAL`             | Preferred editor for interactive editing (checked before `EDITOR`).                           |
-| `EDITOR`             | Fallback editor for interactive editing.                                                      |
-| `PAGER`              | Preferred pager program (falls back to `less`).                                               |
+| Variable                    | Description                                                                                   |
+|-----------------------------|-----------------------------------------------------------------------------------------------|
+| `GEST_CONFIG`               | Override the path to the global config file.                                                  |
+| `GEST_STORAGE__DATA_DIR`    | Override the global data root directory (must be an absolute path).                           |
+| `GEST_STORAGE__SYNC`        | Enable or disable bidirectional sync to `.gest/` (`true`/`false`).                            |
+| `GEST_DATABASE__URL`        | Point at a remote libsql database. Overrides the local `<data_dir>/gest.db`.                  |
+| `GEST_DATABASE__AUTH_TOKEN` | Auth token for the remote libsql database.                                                    |
+| `GEST_LOG__LEVEL`           | Override the log level filter (e.g. `debug`, `trace`). Takes precedence over the config file. |
+| `VISUAL`                    | Preferred editor for interactive editing (checked before `EDITOR`).                           |
+| `EDITOR`                    | Fallback editor for interactive editing.                                                      |
+| `PAGER`                     | Preferred pager program (falls back to `less`).                                               |
 
 ## Managing config from the CLI
 
@@ -234,7 +185,7 @@ gest config show
 Retrieve a single value by its dot-delimited key:
 
 ```sh
-gest config get storage.project_dir
+gest config get storage.data_dir
 gest config get log.level
 ```
 

@@ -1,13 +1,14 @@
 # Core Concepts
 
 Gest manages three primary entity types -- tasks, artifacts, and iterations -- and connects them
-through links, tags, and metadata. All data is stored as plain files that you can inspect and
-version-control alongside your code.
+through links, tags, and metadata. Entity data lives in a local SQLite database (via libsql); for
+local-mode projects a sync layer mirrors every change to a `.gest/` directory as JSON/Markdown so
+you can commit the data alongside your code.
 
 ## Tasks
 
-A **task** represents a unit of work. Tasks are stored as TOML files and have the following
-properties:
+A **task** represents a unit of work. Tasks are rows in the `tasks` table with the following
+columns (and their JSON mirror in `.gest/tasks/<id>.json` when local sync is enabled):
 
 | Field         | Description                                   |
 |---------------|-----------------------------------------------|
@@ -18,7 +19,7 @@ properties:
 | `phase`       | Numeric execution phase for parallel grouping |
 | `assigned_to` | Actor responsible for the task                |
 | `tags`        | Freeform labels for filtering and grouping    |
-| `metadata`    | Arbitrary key-value pairs (TOML table)        |
+| `metadata`    | Arbitrary key-value pairs (JSON object)       |
 | `links`       | Relationships to other tasks or artifacts     |
 
 ### Task Statuses
@@ -47,39 +48,47 @@ phase numbers execute first.
 ## Artifacts
 
 An **artifact** is a document -- a spec, ADR, RFC, design note, or any other prose output
-generated during development. Artifacts are stored as Markdown files with YAML frontmatter.
+generated during development. Artifacts are rows in the `artifacts` table; when local sync is
+enabled they are also mirrored to `.gest/artifacts/<id>.md` as Markdown with YAML frontmatter.
 
-| Field         | Description                                                |
-|---------------|------------------------------------------------------------|
-| `title`       | Document title (extracted from `# heading` if not set)     |
-| `body`        | Markdown content                                           |
-| `type`        | Document kind (freeform string, e.g. `spec`, `adr`, `rfc`) |
-| `tags`        | Freeform labels for filtering                              |
-| `metadata`    | Arbitrary key-value pairs (YAML mapping)                   |
-| `archived_at` | Timestamp set when the artifact is archived                |
+| Field         | Description                                            |
+|---------------|--------------------------------------------------------|
+| `title`       | Document title (extracted from `# heading` if not set) |
+| `body`        | Markdown content                                       |
+| `tags`        | Freeform labels for filtering                          |
+| `metadata`    | Arbitrary key-value pairs (JSON object)                |
+| `archived_at` | Timestamp set when the artifact is archived            |
 
-### Artifact Types
+### Categorizing artifacts
 
-The `type` field is a freeform string. Common conventions include:
+Artifact categorization is tag-driven. Tag an artifact with `spec`, `adr`, `rfc`, `note`, or any
+other label that fits your workflow, then filter with `--tag`:
 
-| Type   | Description                      |
+```sh
+gest artifact create "Auth spec" --tag spec --body "..."
+gest artifact list --tag spec
+```
+
+Common conventions used in this project's own artifacts:
+
+| Tag    | Description                      |
 |--------|----------------------------------|
 | `spec` | Product or feature specification |
 | `adr`  | Architecture Decision Record     |
 | `rfc`  | Request for Comments             |
 | `note` | General-purpose document         |
 
-You are free to use any value that fits your workflow.
-
 ### Archiving
 
 Artifacts can be archived with `gest artifact archive <id>`. Archived artifacts are hidden from
-listings and searches by default, but remain on disk. Use `--all` to include them in queries.
+listings and searches by default, but remain in the database. Use `--all` to include them in
+queries.
 
 ## Iterations
 
-An **iteration** groups related tasks into an execution plan. Iterations are stored as TOML
-files and track which tasks belong to them, along with their phase assignments.
+An **iteration** groups related tasks into an execution plan. Iterations are rows in the
+`iterations` table; the `iteration_tasks` join table records which tasks belong to which
+iteration and at which phase.
 
 | Field         | Description                                    |
 |---------------|------------------------------------------------|
@@ -88,7 +97,7 @@ files and track which tasks belong to them, along with their phase assignments.
 | `status`      | Current state of the iteration                 |
 | `tasks`       | List of task IDs that belong to this iteration |
 | `tags`        | Freeform labels                                |
-| `metadata`    | Arbitrary key-value pairs (TOML table)         |
+| `metadata`    | Arbitrary key-value pairs (JSON object)        |
 | `links`       | Relationships to other entities                |
 
 ### Iteration Statuses
@@ -168,26 +177,30 @@ gest task meta set <id> complexity high
 gest task meta get <id> complexity
 ```
 
-Task and iteration metadata is stored as TOML. Artifact metadata is stored as YAML in the
-frontmatter.
+All metadata is stored as JSON in the database. When local sync is enabled, task and iteration
+metadata is mirrored as JSON in the entity's `.gest/` JSON file, and artifact metadata is
+mirrored as YAML frontmatter in the entity's `.gest/` Markdown file.
 
-## Global vs Local Stores
+## Storage modes
 
 Gest supports two storage modes:
 
-- **Global store** (default): Data lives in your system data directory
-  (`~/.local/share/gest/` on Linux, `~/Library/Application Support/gest/` on macOS). This is
-  shared across all projects on the machine.
-- **Local store**: Data lives in a `.gest/` directory inside your project. This is useful when
-  you want to version-control gest data alongside your code or keep tasks scoped to a single
-  repository.
+- **Global store** (default): Entity data lives in a single SQLite database at
+  `~/.local/share/gest/gest.db` (Linux) or `~/Library/Application Support/gest/gest.db` (macOS).
+  One database, shared across every project on the machine — projects are rows inside it.
+- **Local sync**: Same database, plus a `.gest/` directory inside your project. Every mutation
+  writes to the database first, then the sync layer exports the affected rows to JSON and
+  Markdown files in `.gest/`. On read commands the sync layer imports any files that are newer
+  than their database rows. This gives you an inspectable, git-commitable mirror without
+  giving up ACID guarantees, relational integrity, or efficient queries.
 
-Initialize with `gest init` for global or `gest init --local` for local. When a `.gest/`
-directory exists in the current project, gest uses it automatically; otherwise it falls back to
-the global store.
+Initialize with `gest init` for global-only or `gest init --local` to also create the
+`.gest/` mirror. Remote sync via libsql is opt-in through the `[database]` config section —
+see [Configuration](/configuration/) for details.
 
-### File Layout
+### Migrating from v0.4.x
 
-Tasks are stored as individual TOML files and artifacts as individual Markdown files with YAML
-frontmatter. This makes the data inspectable with standard tools, diffable in code review, and
-portable between machines.
+If you are coming from gest v0.4.x where data lived in per-entity-type directories under
+`.gest/`, run `gest migrate --from v0.4` to import your existing `.gest/` tree into the new
+SQLite database. See the [v0.4 → v0.5 migration guide](/migration/v0-4-to-v0-5) for a
+step-by-step walkthrough, or [gest migrate](/cli/migrate) for the short CLI reference.
