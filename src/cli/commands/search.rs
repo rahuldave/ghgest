@@ -43,8 +43,30 @@ impl Command {
       return Ok(());
     }
 
-    let view = SearchResults::new(self.query.clone(), results.tasks, results.artifacts, results.iterations)
-      .expanded(self.expand);
+    let (task_prefix_len, artifact_prefix_len, iteration_prefix_len) = if self.show_all {
+      (
+        repo::task::shortest_all_prefix(&conn, project_id).await?,
+        repo::artifact::shortest_all_prefix(&conn, project_id).await?,
+        repo::iteration::shortest_all_prefix(&conn, project_id).await?,
+      )
+    } else {
+      (
+        repo::task::shortest_active_prefix(&conn, project_id).await?,
+        repo::artifact::shortest_active_prefix(&conn, project_id).await?,
+        repo::iteration::shortest_active_prefix(&conn, project_id).await?,
+      )
+    };
+
+    let view = SearchResults::new(
+      self.query.clone(),
+      results.tasks,
+      results.artifacts,
+      results.iterations,
+      task_prefix_len,
+      artifact_prefix_len,
+      iteration_prefix_len,
+    )
+    .expanded(self.expand);
     println!("{view}");
 
     Ok(())

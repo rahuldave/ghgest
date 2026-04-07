@@ -13,10 +13,13 @@ use crate::{
 
 /// Complete search results view with grouped sections and summary.
 pub struct Component {
+  artifact_prefix_len: usize,
   artifacts: Vec<artifact::Model>,
   expanded: bool,
+  iteration_prefix_len: usize,
   iterations: Vec<iteration::Model>,
   query: String,
+  task_prefix_len: usize,
   tasks: Vec<task::Model>,
 }
 
@@ -27,12 +30,18 @@ impl Component {
     tasks: Vec<task::Model>,
     artifacts: Vec<artifact::Model>,
     iterations: Vec<iteration::Model>,
+    task_prefix_len: usize,
+    artifact_prefix_len: usize,
+    iteration_prefix_len: usize,
   ) -> Self {
     Self {
+      artifact_prefix_len,
       artifacts,
       expanded: false,
+      iteration_prefix_len,
       iterations,
       query,
+      task_prefix_len,
       tasks,
     }
   }
@@ -91,7 +100,7 @@ impl Display for Component {
             task.id().short(),
             task.title().to_string(),
             task.status().to_string(),
-            2
+            self.task_prefix_len,
           )
           .body(body)
           .expanded(self.expanded),
@@ -118,9 +127,13 @@ impl Display for Component {
         write!(
           f,
           "{}",
-          SearchResult::artifact(artifact.id().short(), artifact.title().to_string(), 2)
-            .body(body)
-            .expanded(self.expanded),
+          SearchResult::artifact(
+            artifact.id().short(),
+            artifact.title().to_string(),
+            self.artifact_prefix_len
+          )
+          .body(body)
+          .expanded(self.expanded),
         )?;
       }
     }
@@ -148,7 +161,7 @@ impl Display for Component {
             iteration.id().short(),
             iteration.title().to_string(),
             iteration.status().to_string(),
-            2,
+            self.iteration_prefix_len,
           )
           .body(body)
           .expanded(self.expanded),
