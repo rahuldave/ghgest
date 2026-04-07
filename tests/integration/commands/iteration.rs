@@ -1,5 +1,11 @@
+mod when_advancing;
 mod when_creating;
+mod when_linking;
 mod when_listing;
 mod when_managing_metadata;
+mod when_next;
 mod when_prefix_highlighting;
+mod when_removing;
+mod when_reopening;
 mod when_showing;
+mod when_untagging;
