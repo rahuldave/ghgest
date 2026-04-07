@@ -61,7 +61,18 @@ impl App {
       return Err(Error::UninitializedProject);
     }
 
-    command.call(context).await
+    let tx_before = latest_transaction_id(context).await?;
+
+    let result = command.call(context).await;
+
+    if result.is_ok() {
+      let tx_after = latest_transaction_id(context).await?;
+      if tx_after != tx_before {
+        notify_web_reload_if_possible(context).await;
+      }
+    }
+
+    result
   }
 }
 
@@ -208,6 +219,33 @@ impl Command {
       Self::Artifact(_) | Self::Iteration(_) | Self::Search(_) | Self::Serve(_) | Self::Task(_) => true,
     }
   }
+}
+
+/// Notify a running web server (if any) that a mutation occurred so it can refresh
+/// browser tabs via SSE. All errors are silently swallowed: server absence is the
+/// common case and CLI commands must never pay user-visible latency for this.
+async fn notify_web_reload_if_possible(context: &AppContext) {
+  let Ok(data_dir) = context.settings().storage().data_dir() else {
+    return;
+  };
+
+  let _ = web_notify::notify_web_reload(context.gest_dir().as_deref(), &data_dir).await;
+}
+
+/// Capture the most recent non-undone transaction id for the current project, if any.
+///
+/// Used as a watermark for change detection: comparing this value before and after a
+/// command runs reveals whether the command resulted in a committed mutation,
+/// regardless of which subcommand was invoked. Read-only commands never call
+/// `transaction::begin`, so the watermark stays unchanged for them.
+async fn latest_transaction_id(context: &AppContext) -> Result<Option<crate::store::model::primitives::Id>, Error> {
+  let Some(project_id) = context.project_id() else {
+    return Ok(None);
+  };
+
+  let conn = context.store().connect().await?;
+  let latest = crate::store::repo::transaction::latest_undoable(&conn, project_id).await?;
+  Ok(latest.map(|tx| tx.id().clone()))
 }
 
 /// Build the `--help` long description: banner, one-liner, docs link, and extended blurb.
