@@ -316,17 +316,20 @@ async fn build_iteration_list(
     .filter(|i| i.status() == IterationStatus::Cancelled)
     .count();
 
-  let current_status = status_param.clone().unwrap_or_default();
+  let current_status = status_param.clone().unwrap_or_else(|| "active".to_owned());
 
-  // Filter iterations based on status param
-  let filter = iteration::Filter {
-    all: current_status.is_empty() || current_status == "all",
-    status: if current_status.is_empty() || current_status == "all" {
-      None
-    } else {
-      current_status.parse::<IterationStatus>().ok()
+  // Filter iterations based on status param. Default (no param) shows active only;
+  // `all` shows every iteration; any other value is parsed as a concrete status.
+  let filter = match current_status.as_str() {
+    "all" => iteration::Filter {
+      all: true,
+      ..Default::default()
     },
-    ..Default::default()
+    s => iteration::Filter {
+      all: true,
+      status: s.parse::<IterationStatus>().ok(),
+      ..Default::default()
+    },
   };
 
   let iterations = repo::iteration::all(&conn, state.project_id(), &filter)
@@ -353,4 +356,111 @@ async fn build_iteration_list(
   }
 
   Ok((rows, active_count, completed_count, cancelled_count, current_status))
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::store::{self, model::Project};
+
+  async fn setup() -> AppState {
+    let (store, tmp) = store::open_temp().await.unwrap();
+    let conn = store.connect().await.unwrap();
+    let project = Project::new("/tmp/web-iter-test".into());
+    conn
+      .execute(
+        "INSERT INTO projects (id, root, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
+        [
+          project.id().to_string(),
+          project.root().to_string_lossy().into_owned(),
+          project.created_at().to_rfc3339(),
+          project.updated_at().to_rfc3339(),
+        ],
+      )
+      .await
+      .unwrap();
+    let project_id = project.id().clone();
+
+    // Seed two active, one completed, one cancelled.
+    for (title, status) in [
+      ("Active A", IterationStatus::Active),
+      ("Active B", IterationStatus::Active),
+      ("Completed", IterationStatus::Completed),
+      ("Cancelled", IterationStatus::Cancelled),
+    ] {
+      let new = iteration::New {
+        title: title.into(),
+        ..Default::default()
+      };
+      let it = repo::iteration::create(&conn, &project_id, &new).await.unwrap();
+      if status != IterationStatus::Active {
+        repo::iteration::update(
+          &conn,
+          it.id(),
+          &iteration::Patch {
+            status: Some(status),
+            ..Default::default()
+          },
+        )
+        .await
+        .unwrap();
+      }
+    }
+
+    std::mem::forget(tmp);
+    AppState::new(store, project_id)
+  }
+
+  mod build_iteration_list {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn it_defaults_to_active_when_no_status_given() {
+      let state = setup().await;
+
+      let (rows, active, completed, cancelled, current) = build_iteration_list(&state, &None).await.unwrap();
+
+      assert_eq!(current, "active");
+      assert_eq!(rows.len(), 2);
+      assert!(rows.iter().all(|r| r.iteration.status() == IterationStatus::Active));
+      assert_eq!((active, completed, cancelled), (2, 1, 1));
+    }
+
+    #[tokio::test]
+    async fn it_returns_every_iteration_when_status_is_all() {
+      let state = setup().await;
+
+      let (rows, active, completed, cancelled, current) =
+        build_iteration_list(&state, &Some("all".into())).await.unwrap();
+
+      assert_eq!(current, "all");
+      assert_eq!(rows.len(), 4);
+      assert_eq!((active, completed, cancelled), (2, 1, 1));
+    }
+
+    #[tokio::test]
+    async fn it_filters_to_a_specific_status() {
+      let state = setup().await;
+
+      let (rows, _, _, _, current) = build_iteration_list(&state, &Some("completed".into())).await.unwrap();
+
+      assert_eq!(current, "completed");
+      assert_eq!(rows.len(), 1);
+      assert_eq!(rows[0].iteration.status(), IterationStatus::Completed);
+    }
+
+    #[tokio::test]
+    async fn it_reports_counts_across_every_status_regardless_of_filter() {
+      let state = setup().await;
+
+      let (_, active_a, completed_a, cancelled_a, _) = build_iteration_list(&state, &None).await.unwrap();
+      let (_, active_b, completed_b, cancelled_b, _) =
+        build_iteration_list(&state, &Some("completed".into())).await.unwrap();
+
+      assert_eq!((active_a, completed_a, cancelled_a), (2, 1, 1));
+      assert_eq!((active_b, completed_b, cancelled_b), (2, 1, 1));
+    }
+  }
 }

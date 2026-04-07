@@ -6,10 +6,10 @@
 </div>
 
 <div class="summary" style="margin-bottom: 12px;">
-  {% if current_status.is_empty() %}
-    <strong>All</strong>
+  {% if current_status == "all" %}
+    <strong>All ({{ open_count + in_progress_count + done_count + cancelled_count }})</strong>
   {% else %}
-    <a href="/tasks">All</a>
+    <a href="/tasks?status=all">All ({{ open_count + in_progress_count + done_count + cancelled_count }})</a>
   {% endif %}
   &middot;
   {% if current_status == "open" %}

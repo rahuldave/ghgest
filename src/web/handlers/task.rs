@@ -253,20 +253,8 @@ pub async fn task_list(
   State(state): State<AppState>,
   Query(params): Query<TaskListParams>,
 ) -> Result<Html<String>, String> {
-  let conn = state.store().connect().await.map_err(|e| e.to_string())?;
-  let tasks = repo::task::all(&conn, state.project_id(), &Default::default())
-    .await
-    .map_err(|e| e.to_string())?;
-
-  let mut rows = build_task_rows(&conn, tasks).await?;
-  let (open_count, in_progress_count, done_count, cancelled_count) = count_statuses(&rows);
-  let current_status = params.status.clone().unwrap_or_default();
-
-  if let Some(ref status) = params.status
-    && !status.is_empty()
-  {
-    rows.retain(|r| r.task.status().to_string() == *status);
-  }
+  let (rows, open_count, in_progress_count, done_count, cancelled_count, current_status) =
+    build_task_list_data(&state, params.status).await?;
 
   let tmpl = TaskListTemplate {
     rows,
@@ -284,20 +272,8 @@ pub async fn task_list_fragment(
   State(state): State<AppState>,
   Query(params): Query<TaskListParams>,
 ) -> Result<Html<String>, String> {
-  let conn = state.store().connect().await.map_err(|e| e.to_string())?;
-  let tasks = repo::task::all(&conn, state.project_id(), &Default::default())
-    .await
-    .map_err(|e| e.to_string())?;
-
-  let mut rows = build_task_rows(&conn, tasks).await?;
-  let (open_count, in_progress_count, done_count, cancelled_count) = count_statuses(&rows);
-  let current_status = params.status.clone().unwrap_or_default();
-
-  if let Some(ref status) = params.status
-    && !status.is_empty()
-  {
-    rows.retain(|r| r.task.status().to_string() == *status);
-  }
+  let (rows, open_count, in_progress_count, done_count, cancelled_count, current_status) =
+    build_task_list_data(&state, params.status).await?;
 
   let tmpl = TaskListFragmentTemplate {
     rows,
@@ -411,6 +387,59 @@ fn build_display_links(task_id: &Id, rels: &[relationship::Model]) -> Vec<Displa
   links
 }
 
+/// Build task list data: rows filtered by status plus unfiltered per-status counts.
+///
+/// When `status_param` is `None`, defaults to `open`. The special value `all` bypasses
+/// status filtering. Count values are always computed across every task in the project
+/// so status-tab badges remain stable regardless of the current filter.
+async fn build_task_list_data(
+  state: &AppState,
+  status_param: Option<String>,
+) -> Result<(Vec<TaskRow>, usize, usize, usize, usize, String), String> {
+  let conn = state.store().connect().await.map_err(|e| e.to_string())?;
+
+  let all_tasks = repo::task::all(
+    &conn,
+    state.project_id(),
+    &task::Filter {
+      all: true,
+      ..Default::default()
+    },
+  )
+  .await
+  .map_err(|e| e.to_string())?;
+
+  let (open_count, in_progress_count, done_count, cancelled_count) = count_tasks_by_status(&all_tasks);
+
+  let current_status = status_param.unwrap_or_else(|| "open".to_owned());
+
+  let filter = match current_status.as_str() {
+    "all" => task::Filter {
+      all: true,
+      ..Default::default()
+    },
+    s => task::Filter {
+      all: true,
+      status: s.parse::<TaskStatus>().ok(),
+      ..Default::default()
+    },
+  };
+
+  let tasks = repo::task::all(&conn, state.project_id(), &filter)
+    .await
+    .map_err(|e| e.to_string())?;
+  let rows = build_task_rows(&conn, tasks).await?;
+
+  Ok((
+    rows,
+    open_count,
+    in_progress_count,
+    done_count,
+    cancelled_count,
+    current_status,
+  ))
+}
+
 /// Build enriched task rows from a list of tasks.
 async fn build_task_rows(conn: &Connection, tasks: Vec<task::Model>) -> Result<Vec<TaskRow>, String> {
   let mut rows = Vec::with_capacity(tasks.len());
@@ -466,14 +495,14 @@ fn compute_blocking(task_id: &Id, rels: &[relationship::Model]) -> (bool, bool, 
   (is_blocked, blocking, blocked_by_display)
 }
 
-/// Count tasks by status from a slice of task rows.
-fn count_statuses(rows: &[TaskRow]) -> (usize, usize, usize, usize) {
+/// Count tasks grouped by status, returned as `(open, in_progress, done, cancelled)`.
+fn count_tasks_by_status(tasks: &[task::Model]) -> (usize, usize, usize, usize) {
   let mut open = 0;
   let mut in_progress = 0;
   let mut done = 0;
   let mut cancelled = 0;
-  for row in rows {
-    match row.task.status() {
+  for task in tasks {
+    match task.status() {
       TaskStatus::Open => open += 1,
       TaskStatus::InProgress => in_progress += 1,
       TaskStatus::Done => done += 1,
@@ -511,4 +540,101 @@ async fn load_task_detail_data(
   let display_links = build_display_links(task_id, &rels);
 
   Ok((tags, notes, description_html, is_blocked, blocking, display_links))
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::store::{self, model::Project};
+
+  async fn setup() -> AppState {
+    let (store, tmp) = store::open_temp().await.unwrap();
+    let conn = store.connect().await.unwrap();
+    let project = Project::new("/tmp/web-task-test".into());
+    conn
+      .execute(
+        "INSERT INTO projects (id, root, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
+        [
+          project.id().to_string(),
+          project.root().to_string_lossy().into_owned(),
+          project.created_at().to_rfc3339(),
+          project.updated_at().to_rfc3339(),
+        ],
+      )
+      .await
+      .unwrap();
+    let project_id = project.id().clone();
+
+    // Seed: one task per status
+    for (title, status) in [
+      ("Open A", TaskStatus::Open),
+      ("Open B", TaskStatus::Open),
+      ("In progress", TaskStatus::InProgress),
+      ("Done", TaskStatus::Done),
+      ("Cancelled", TaskStatus::Cancelled),
+    ] {
+      let new = task::New {
+        title: title.into(),
+        status: Some(status),
+        ..Default::default()
+      };
+      repo::task::create(&conn, &project_id, &new).await.unwrap();
+    }
+    // Leak the tempdir for the duration of the test process
+    std::mem::forget(tmp);
+    AppState::new(store, project_id)
+  }
+
+  mod build_task_list_data {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn it_defaults_to_open_when_no_status_given() {
+      let state = setup().await;
+
+      let (rows, open, in_prog, done, cancelled, current) = build_task_list_data(&state, None).await.unwrap();
+
+      assert_eq!(current, "open");
+      assert_eq!(rows.len(), 2);
+      assert!(rows.iter().all(|r| r.task.status() == TaskStatus::Open));
+      assert_eq!((open, in_prog, done, cancelled), (2, 1, 1, 1));
+    }
+
+    #[tokio::test]
+    async fn it_returns_every_task_when_status_is_all() {
+      let state = setup().await;
+
+      let (rows, open, in_prog, done, cancelled, current) =
+        build_task_list_data(&state, Some("all".into())).await.unwrap();
+
+      assert_eq!(current, "all");
+      assert_eq!(rows.len(), 5);
+      assert_eq!((open, in_prog, done, cancelled), (2, 1, 1, 1));
+    }
+
+    #[tokio::test]
+    async fn it_filters_to_a_specific_status_at_the_db_layer() {
+      let state = setup().await;
+
+      let (rows, _, _, _, _, current) = build_task_list_data(&state, Some("done".into())).await.unwrap();
+
+      assert_eq!(current, "done");
+      assert_eq!(rows.len(), 1);
+      assert_eq!(rows[0].task.status(), TaskStatus::Done);
+    }
+
+    #[tokio::test]
+    async fn it_reports_counts_across_every_status_regardless_of_filter() {
+      let state = setup().await;
+
+      let (_, open_a, in_prog_a, done_a, cancelled_a, _) = build_task_list_data(&state, None).await.unwrap();
+      let (_, open_b, in_prog_b, done_b, cancelled_b, _) =
+        build_task_list_data(&state, Some("done".into())).await.unwrap();
+
+      assert_eq!((open_a, in_prog_a, done_a, cancelled_a), (2, 1, 1, 1));
+      assert_eq!((open_b, in_prog_b, done_b, cancelled_b), (2, 1, 1, 1));
+    }
+  }
 }

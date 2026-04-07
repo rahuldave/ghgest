@@ -1,6 +1,6 @@
 <h1 class="section-heading">Iterations</h1>
 <div class="summary">
-  <a href="/iterations?status=all"{% if current_status.is_empty() || current_status == "all" %} style="color:var(--silver);font-weight:500"{% endif %}>All ({{ active_count + completed_count + cancelled_count }})</a>
+  <a href="/iterations?status=all"{% if current_status == "all" %} style="color:var(--silver);font-weight:500"{% endif %}>All ({{ active_count + completed_count + cancelled_count }})</a>
   &nbsp;&middot;&nbsp;
   <a href="/iterations?status=active"{% if current_status == "active" %} style="color:var(--silver);font-weight:500"{% endif %}>Active ({{ active_count }})</a>
   &nbsp;&middot;&nbsp;
