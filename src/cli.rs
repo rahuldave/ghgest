@@ -120,6 +120,9 @@ pub enum Error {
   /// A task repository error.
   #[error(transparent)]
   TaskRepo(#[from] crate::store::repo::task::Error),
+  /// A TOML serialization error.
+  #[error(transparent)]
+  TomlSerialize(#[from] toml::ser::Error),
   /// A transaction repository error.
   #[error(transparent)]
   TransactionRepo(#[from] crate::store::repo::transaction::Error),
