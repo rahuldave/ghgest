@@ -13,14 +13,11 @@ mod m00006_create_iterations;
 mod m00007_create_tags;
 mod m00008_create_entity_tags;
 mod m00009_create_notes;
-mod m00010_create_events;
-mod m00011_create_relationships;
-mod m00012_create_iteration_tasks;
-mod m00013_create_transactions;
+mod m00010_create_relationships;
+mod m00011_create_iteration_tasks;
+mod m00012_create_transactions;
+mod m00013_create_transaction_events;
 mod m00014_create_sync_digests;
-mod m00015_extend_transaction_events;
-mod m00016_add_transaction_author;
-mod m00017_recreate_sync_digests_repo_relative;
 
 use libsql::{Connection, Error as DbError};
 
@@ -45,14 +42,11 @@ const MIGRATIONS: &[Migration] = &[
   m00007_create_tags::MIGRATION,
   m00008_create_entity_tags::MIGRATION,
   m00009_create_notes::MIGRATION,
-  m00010_create_events::MIGRATION,
-  m00011_create_relationships::MIGRATION,
-  m00012_create_iteration_tasks::MIGRATION,
-  m00013_create_transactions::MIGRATION,
+  m00010_create_relationships::MIGRATION,
+  m00011_create_iteration_tasks::MIGRATION,
+  m00012_create_transactions::MIGRATION,
+  m00013_create_transaction_events::MIGRATION,
   m00014_create_sync_digests::MIGRATION,
-  m00015_extend_transaction_events::MIGRATION,
-  m00016_add_transaction_author::MIGRATION,
-  m00017_recreate_sync_digests_repo_relative::MIGRATION,
 ];
 
 /// Run all pending migrations against the given connection.

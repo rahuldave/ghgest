@@ -6,8 +6,8 @@ pub const MIGRATION: Migration = Migration {
   sql: "
     CREATE TABLE project_workspaces (
       id         TEXT PRIMARY KEY NOT NULL,
-      path       TEXT NOT NULL,
       project_id TEXT NOT NULL REFERENCES projects(id),
+      path       TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
       updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
       UNIQUE(path, project_id)
