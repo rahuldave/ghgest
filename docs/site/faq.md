@@ -4,7 +4,7 @@
 
 Gest is a CLI tool for tracking tasks and artifacts generated during AI-assisted development.
 It stores data in a local SQLite database (via libsql) with an optional sync layer that
-mirrors everything to a `.gest/` directory as JSON and Markdown so your data stays
+mirrors everything to a `.gest/` directory as YAML and Markdown files so your data stays
 inspectable, portable, and version-control friendly. See the
 [quick start](/getting-started/quick-start) to get up and running.
 
@@ -32,7 +32,7 @@ separate subdirectories. Run `gest config show` to see the resolved data dir.
 
 If you initialized with `--local`, a `.gest/` directory is also created inside your
 project. When `storage.sync` is enabled (the default), gest bidirectionally syncs
-the database with JSON and Markdown files in `.gest/` on every invocation — so you
+the database with YAML and Markdown files in `.gest/` on every invocation — so you
 can commit the mirror alongside your code and still have inspectable, diff-friendly
 history.
 
@@ -47,7 +47,7 @@ history.
 **Local sync** (`gest init --local`):
 
 - Same SQLite database, plus a `.gest/` directory inside your project
-- The sync layer mirrors the database to `.gest/` as JSON/Markdown so the data is version-controlled
+- The sync layer mirrors the database to `.gest/` as YAML/Markdown files so the data is version-controlled
 - Best for project-specific tasks you want to share or track in git
 
 The database is always the source of truth. The `.gest/` mirror is rewritten from
@@ -92,18 +92,36 @@ reference lives at [gest migrate](/cli/migrate).
 ## What does the `.gest/` sync mirror look like?
 
 When `storage.sync` is enabled and a `.gest/` directory exists in the project root, gest
-writes JSON files for tasks, iterations, notes, events, and relationships, plus Markdown
-with YAML frontmatter for artifacts. This mirror is regenerated from the database on every
-command that mutates state and re-imported on every command that reads state (if the files
-are newer than the database row).
+writes a per-entity layout with one file per row, grouped into singular subdirectories:
 
-The configuration file (`gest.toml`) remains plain TOML and is never stored in the database.
+```text
+.gest/
+├── project.yaml
+├── artifact/       # <id>.md (body + YAML frontmatter)
+│   └── notes/      # <note_id>.yaml
+├── author/         # <id>.yaml
+├── event/          # <yyyy-mm>/<id>.yaml (sharded by month)
+├── iteration/      # <id>.yaml
+├── relationship/   # <id>.yaml
+├── tag/            # <id>.yaml
+└── task/           # <id>.yaml
+    └── notes/      # <note_id>.yaml
+```
+
+Most files are YAML; only artifact bodies are Markdown with YAML frontmatter. This mirror
+is regenerated from the database on every command that mutates state and re-imported on
+every command that reads state (if the files are newer than the database row).
+
+Configuration files (`.config/gest.toml`, `.gest.toml`, and the global config) are plain
+TOML and are loaded from the config search paths described in
+[Configuration](/configuration/) — they are never stored in the database, and gest does
+**not** look for a config file inside `.gest/`.
 
 ## How does search work?
 
 `gest search <QUERY>` performs a case-insensitive text match against titles, descriptions, and
-body content across both tasks and artifacts. See [gest search](/cli/search) for the full
-reference.
+body content across tasks, artifacts, and iterations. See [gest search](/cli/search) for the
+full reference.
 
 Useful flags:
 
