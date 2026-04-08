@@ -9,6 +9,7 @@ mod digest;
 mod entities;
 mod orchestrator;
 pub mod paths;
+pub mod tombstone;
 pub mod yaml;
 
 use std::{
