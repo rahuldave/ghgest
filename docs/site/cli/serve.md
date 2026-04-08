@@ -17,13 +17,14 @@ gest serve [OPTIONS]
 
 ## Options
 
-| Flag                   | Description                                                |
-|------------------------|------------------------------------------------------------|
-| `-b, --bind <ADDRESS>` | Address to bind to (overrides config, default `127.0.0.1`) |
-| `--port <PORT>`        | Port to listen on (overrides config, default `2300`)       |
-| `--no-open`            | Do not automatically open the browser                      |
-| `-v, --verbose`        | Increase verbosity (repeatable)                            |
-| `-h, --help`           | Print help                                                 |
+| Flag                          | Description                                                                 |
+|-------------------------------|-----------------------------------------------------------------------------|
+| `-b, --bind <BIND_ADDRESS>`   | Address to bind to (overrides `[serve].bind_address`, default `127.0.0.1`)  |
+| `--debounce-ms <DEBOUNCE_MS>` | File watcher debounce in milliseconds (overrides `[serve].debounce_ms`)     |
+| `--no-open`                   | Do not automatically open the browser                                       |
+| `-p, --port <PORT>`           | Port to listen on (overrides `[serve].port`, default `2300`)                |
+| `-v, --verbose`               | Increase verbosity (repeatable)                                             |
+| `-h, --help`                  | Print help                                                                  |
 
 ## Views
 
@@ -32,12 +33,12 @@ gest serve [OPTIONS]
 | `/`                     | Dashboard with entity counts and status breakdown        |
 | `/tasks`                | Task list with status, priority, tags, and blocking info |
 | `/tasks/:id`            | Task detail with description, links, and metadata        |
-| `/artifacts`            | Artifact list with kind, tags, and archive status        |
+| `/artifacts`            | Artifact list with tags and archive status               |
 | `/artifacts/:id`        | Artifact detail with rendered Markdown body              |
 | `/iterations`           | Iteration list with status and phase count               |
 | `/iterations/:id`       | Iteration detail with tasks grouped by phase             |
 | `/iterations/:id/board` | Kanban board with columns mapped to task status          |
-| `/search?q=...`         | Full-text search across tasks and artifacts              |
+| `/search?q=...`         | Full-text search across tasks, artifacts, and iterations |
 
 ## Examples
 
