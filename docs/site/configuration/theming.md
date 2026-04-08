@@ -134,7 +134,6 @@ These are the token keys currently recognized by gest.
 - `artifact.detail.separator`
 - `artifact.detail.value`
 - `artifact.list.archived.badge`
-- `artifact.list.kind`
 - `artifact.list.tag.archived`
 - `artifact.list.title`
 - `artifact.list.title.archived`
@@ -193,6 +192,9 @@ These are the token keys currently recognized by gest.
 - `iteration.graph.title`
 - `iteration.list.summary`
 - `iteration.list.title`
+- `iteration.status.label`
+- `iteration.status.progress`
+- `iteration.status.value`
 
 ### Lists
 
@@ -210,6 +212,11 @@ These are the token keys currently recognized by gest.
 
 ### Markdown Rendering
 
+- `markdown.alert.caution.border`
+- `markdown.alert.important.border`
+- `markdown.alert.note.border`
+- `markdown.alert.tip.border`
+- `markdown.alert.warning.border`
 - `markdown.blockquote`
 - `markdown.blockquote.border`
 - `markdown.code.block`
@@ -227,6 +234,28 @@ These are the token keys currently recognized by gest.
 - `message.success.icon`
 - `message.updated.label`
 
+### Meta
+
+- `meta.not_set`
+- `meta.value`
+
+### Migrate
+
+- `migrate.count`
+
+### Notes
+
+- `note.detail.label`
+- `note.detail.separator`
+- `note.detail.value`
+- `note.list.body`
+- `note.list.id`
+
+### Projects
+
+- `project.list.root`
+- `project.show.value`
+
 ### Search
 
 - `search.expand.separator`
@@ -234,6 +263,15 @@ These are the token keys currently recognized by gest.
 - `search.query`
 - `search.summary`
 - `search.type.label`
+
+### Serve
+
+- `serve.url`
+
+### Tags
+
+- `tag.list.count`
+- `tag.list.heading`
 
 ### Task And Iteration Status
 
@@ -261,18 +299,23 @@ These are the token keys currently recognized by gest.
 All `markdown.*` tokens have `md.*` shorthand aliases that you can use in
 `[colors.overrides]`:
 
-| Shorthand              | Resolves to                  |
-|------------------------|------------------------------|
-| `md.blockquote`        | `markdown.blockquote`        |
-| `md.blockquote.border` | `markdown.blockquote.border` |
-| `md.code.block`        | `markdown.code.block`        |
-| `md.code.border`       | `markdown.code.border`       |
-| `md.code`              | `markdown.code.inline`       |
-| `md.emphasis`          | `markdown.emphasis`          |
-| `md.heading`           | `markdown.heading`           |
-| `md.link`              | `markdown.link`              |
-| `md.rule`              | `markdown.rule`              |
-| `md.strong`            | `markdown.strong`            |
+| Shorthand                   | Resolves to                       |
+|-----------------------------|-----------------------------------|
+| `md.alert.caution.border`   | `markdown.alert.caution.border`   |
+| `md.alert.important.border` | `markdown.alert.important.border` |
+| `md.alert.note.border`      | `markdown.alert.note.border`      |
+| `md.alert.tip.border`       | `markdown.alert.tip.border`       |
+| `md.alert.warning.border`   | `markdown.alert.warning.border`   |
+| `md.blockquote`             | `markdown.blockquote`             |
+| `md.blockquote.border`      | `markdown.blockquote.border`      |
+| `md.code.block`             | `markdown.code.block`             |
+| `md.code.border`            | `markdown.code.border`            |
+| `md.code`                   | `markdown.code.inline`            |
+| `md.emphasis`               | `markdown.emphasis`               |
+| `md.heading`                | `markdown.heading`                |
+| `md.link`                   | `markdown.link`                   |
+| `md.rule`                   | `markdown.rule`                   |
+| `md.strong`                 | `markdown.strong`                 |
 
 ::: tip
 Note that `md.code` maps to `markdown.code.inline`, not `markdown.code`.
