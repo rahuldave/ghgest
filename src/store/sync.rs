@@ -1,11 +1,19 @@
 //! Local sync mirror for `.gest/` directories.
 //!
 //! When a project is in local mode (has a `.gest/` directory), this module
-//! handles bidirectional sync between SQLite and JSON/markdown files.
+//! handles bidirectional sync between SQLite and per-entity YAML/markdown
+//! files. The legacy shared-file reader/writer remain in place during the
+//! transition; the new per-entity orchestrator under [`orchestrator`] will
+//! replace them once all entity adapters are wired up (see ADR-0016).
 
 mod digest;
+mod entities;
+mod orchestrator;
+pub mod paths;
 mod reader;
+mod tombstone;
 mod writer;
+pub mod yaml;
 
 use std::{
   io::Error as IoError,
@@ -28,9 +36,12 @@ pub enum Error {
   /// A model conversion error.
   #[error(transparent)]
   Model(#[from] crate::store::model::Error),
-  /// A serialization error.
+  /// A JSON serialization error (used by the legacy shared-file sync).
   #[error(transparent)]
   Serialization(#[from] serde_json::Error),
+  /// A YAML serialization or deserialization error.
+  #[error(transparent)]
+  Yaml(#[from] yaml_serde::Error),
 }
 
 /// Sync state from the filesystem into the database.

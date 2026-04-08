@@ -49,6 +49,7 @@ tokio-stream = { features = ["sync"], version = "0.1" }
 toml = "1"
 typed-env = "0.3"
 unicode-width = "0.2"
+yaml_serde = "0.10"
 yansi = { features = ["detect-env", "detect-tty", "hyperlink"], version = "1" }
 
 [dependencies.libsql]
