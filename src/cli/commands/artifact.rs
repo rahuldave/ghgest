@@ -1,5 +1,6 @@
 mod archive;
 mod create;
+mod delete;
 mod list;
 mod meta;
 mod note;
@@ -26,6 +27,9 @@ enum Sub {
   /// Create a new artifact.
   #[command(visible_alias = "new")]
   Create(create::Command),
+  /// Delete an artifact and its dependent rows.
+  #[command(visible_alias = "rm")]
+  Delete(delete::Command),
   /// List artifacts.
   #[command(visible_alias = "ls")]
   List(list::Command),
@@ -51,6 +55,7 @@ impl Command {
     match &self.subcommand {
       Sub::Archive(cmd) => cmd.call(context).await,
       Sub::Create(cmd) => cmd.call(context).await,
+      Sub::Delete(cmd) => cmd.call(context).await,
       Sub::List(cmd) => cmd.call(context).await,
       Sub::Meta(cmd) => cmd.call(context).await,
       Sub::Note(cmd) => cmd.call(context).await,

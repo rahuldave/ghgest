@@ -1,5 +1,6 @@
 mod when_adding_notes;
 mod when_creating;
+mod when_deleting;
 mod when_deleting_notes;
 mod when_limiting;
 mod when_listing;

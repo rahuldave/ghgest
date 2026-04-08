@@ -10,8 +10,6 @@
 //! The file itself is never removed — it *is* the tombstone and is what
 //! downstream clones will read to learn about the deletion.
 
-#![allow(dead_code)]
-
 use std::{fs, path::Path};
 
 use chrono::{DateTime, Utc};
@@ -44,12 +42,14 @@ pub fn tombstone_artifact(gest_dir: Option<&Path>, id: &Id, deleted_at: DateTime
 
 /// Tombstone the on-disk file for an iteration. No-op if `gest_dir` is
 /// `None` or the file is missing.
+#[allow(dead_code)]
 pub fn tombstone_iteration(gest_dir: Option<&Path>, id: &Id, deleted_at: DateTime<Utc>) -> Result<(), Error> {
   tombstone_yaml(gest_dir.map(|d| paths::iteration_path(d, id)).as_deref(), deleted_at)
 }
 
 /// Tombstone the on-disk file for a task. No-op if `gest_dir` is `None` or
 /// the file is missing.
+#[allow(dead_code)]
 pub fn tombstone_task(gest_dir: Option<&Path>, id: &Id, deleted_at: DateTime<Utc>) -> Result<(), Error> {
   tombstone_yaml(gest_dir.map(|d| paths::task_path(d, id)).as_deref(), deleted_at)
 }
@@ -98,6 +98,7 @@ fn split_frontmatter(raw: &str) -> Result<(&str, &str), Error> {
   Ok((front, body))
 }
 
+#[allow(dead_code)]
 fn tombstone_yaml(path: Option<&Path>, deleted_at: DateTime<Utc>) -> Result<(), Error> {
   let Some(path) = path else { return Ok(()) };
   if !path.exists() {

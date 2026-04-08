@@ -174,7 +174,9 @@ pub async fn write_all(conn: &Connection, project_id: &Id, gest_dir: &Path) -> R
     alive_notes.insert(id.to_string());
   }
 
-  // Clean up orphaned artifact and artifact-note files.
+  // Clean up orphaned artifact and artifact-note files. Tombstoned files
+  // (frontmatter with `deleted_at` set) are left in place — the tombstone is
+  // the delete signal that downstream clones read on import.
   let artifact_dir = gest_dir.join(paths::ARTIFACT_DIR);
   let notes_dir = artifact_dir.join(paths::NOTES_DIR);
   yaml::cleanup_orphans(conn, project_id, gest_dir, &notes_dir, "yaml", &alive_notes).await?;
@@ -182,7 +184,7 @@ pub async fn write_all(conn: &Connection, project_id: &Id, gest_dir: &Path) -> R
     let path = entry.path();
     if path.is_file() && path.extension().is_some_and(|ext| ext == "md") {
       let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-      if !alive_artifacts.contains(stem) {
+      if !alive_artifacts.contains(stem) && !is_tombstoned_artifact_file(&path) {
         let relative = paths::relative(gest_dir, &path).unwrap_or_default();
         std::fs::remove_file(&path)?;
         conn
@@ -196,6 +198,25 @@ pub async fn write_all(conn: &Connection, project_id: &Id, gest_dir: &Path) -> R
   }
 
   Ok(())
+}
+
+/// Return `true` if the artifact file at `path` carries a tombstone in its
+/// YAML frontmatter. Errors and missing files are treated as "not tombstoned"
+/// so cleanup can fall back to its normal path.
+fn is_tombstoned_artifact_file(path: &Path) -> bool {
+  let Ok(raw) = fs::read_to_string(path) else {
+    return false;
+  };
+  let Ok((front, _body)) = split_frontmatter(&raw) else {
+    return false;
+  };
+  let Ok(value) = yaml_serde::from_str::<yaml_serde::Value>(front) else {
+    return false;
+  };
+  value
+    .as_mapping()
+    .and_then(|m| m.get(yaml_serde::Value::String("deleted_at".into())))
+    .is_some_and(|v| !v.is_null())
 }
 
 fn compose_artifact_file(front: &ArtifactFrontmatter, body: &str) -> Result<String, Error> {

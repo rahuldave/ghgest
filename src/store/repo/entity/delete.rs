@@ -14,8 +14,6 @@
 //! This module does **not** write tombstone files, prompt the user, or
 //! begin a transaction — those concerns belong to the caller.
 
-#![allow(dead_code)]
-
 use libsql::{Connection, Error as DbError};
 use serde_json::{Map, Value as JsonValue};
 

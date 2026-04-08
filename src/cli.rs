@@ -104,6 +104,9 @@ pub enum Error {
   /// A configuration loading or validation error.
   #[error(transparent)]
   Config(#[from] crate::config::Error),
+  /// A cascade delete repository error.
+  #[error(transparent)]
+  EntityDelete(#[from] crate::store::repo::entity::delete::Error),
   /// An editor launch error.
   #[error("{0}")]
   Editor(String),
@@ -137,6 +140,9 @@ pub enum Error {
   /// An error opening or connecting to the store.
   #[error(transparent)]
   Store(#[from] crate::store::Error),
+  /// A sync layer error.
+  #[error(transparent)]
+  Sync(#[from] crate::store::sync::Error),
   /// A tag repository error.
   #[error(transparent)]
   TagRepo(#[from] crate::store::repo::tag::Error),

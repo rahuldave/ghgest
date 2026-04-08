@@ -112,6 +112,12 @@ pub async fn cleanup_orphans(
     if alive_ids.contains(stem) {
       continue;
     }
+    if is_tombstoned_yaml_file(&path) {
+      // Tombstoned files are intentional delete markers; leave them on disk
+      // so that downstream clones can pick up the deletion on their next
+      // import.
+      continue;
+    }
     let relative = paths::relative(gest_dir, &path).ok_or_else(|| {
       Error::Io(std::io::Error::other(format!(
         "path {} is outside {}",
@@ -128,6 +134,22 @@ pub async fn cleanup_orphans(
       .await?;
   }
   Ok(())
+}
+
+/// Return `true` if the YAML file at `path` carries a `deleted_at` tombstone
+/// key at the top level. Parse errors and missing files are treated as "not
+/// tombstoned" so cleanup callers fall back to their normal behavior.
+fn is_tombstoned_yaml_file(path: &Path) -> bool {
+  let Ok(raw) = fs::read_to_string(path) else {
+    return false;
+  };
+  let Ok(value) = yaml_serde::from_str::<yaml_serde::Value>(&raw) else {
+    return false;
+  };
+  value
+    .as_mapping()
+    .and_then(|m| m.get(yaml_serde::Value::String("deleted_at".into())))
+    .is_some_and(|v| !v.is_null())
 }
 
 /// Walk a directory recursively and return every file path matching `extension`.
