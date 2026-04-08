@@ -7,6 +7,75 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [v0.5.0]
+
+### Added
+
+- `gest migrate --from v0.4` imports an existing v0.4.x flat-file `.gest/` directory into the new
+  SQLite-backed store in a single command, preserving IDs, tags, links, notes, and iteration membership
+- `gest project` command group for managing project identity across checkouts, with `attach`, `detach`,
+  and `list` subcommands so multiple worktrees can share a single project row
+- `gest task delete` and `gest artifact delete` for hard deletion (with `--yes` to skip the confirmation
+  prompt and `--force` on task delete to remove iteration membership first)
+- `gest task claim` shortcut that assigns the task to the current author and marks it in-progress in a
+  single step
+- `gest artifact note add|list|show|update|delete` subcommands, bringing full note management to
+  artifacts alongside tasks
+- Remote database support via a new `[database]` config section with `url`, `host`, `port`, `scheme`,
+  `username`, `password`, and `auth_token` fields for connecting to hosted libsql/Turso instances
+- `storage.sync` config field (and `GEST_STORAGE__SYNC` env var) controlling whether the database is
+  mirrored to a `.gest/` directory of YAML/Markdown files for git-committable inspection
+- `--raw` (`-r`) output flag on entity commands for script-friendly plain output without themed styling
+- `--limit <N>` flag on `task list`, `iteration list`, `artifact list`, and `search` for capping
+  result counts
+- `--metadata-json` flag on create/update commands for merging JSON metadata objects on top of
+  `--metadata key=value` pairs
+- `-i`/`--iteration` flag on `artifact create` for linking a new artifact to an iteration inline
+- `-s`/`--source` flag on `artifact create` for reading the body from a file
+
+### Changed
+
+- **SQLite-first storage.** Entity data now lives in a single libsql database at `<data_dir>/gest.db`.
+  For local-mode projects, `.gest/` becomes a sync mirror that is regenerated from the database on
+  every mutation, with entities grouped into singular per-entity subdirectories (`task/`, `artifact/`,
+  `iteration/`) instead of the old plural layout
+- **Project identity is explicit.** Projects are rows in the database keyed by an assigned ID rather
+  than by hashing the current working directory, so multiple worktrees of the same repo can attach to
+  the same project and share a live view of tasks, artifacts, and iterations
+- **Destructive commands prompt by default.** `task delete`, `artifact delete`, `task note delete`,
+  and other removal commands now confirm interactively; pass `--yes` to skip the prompt in scripts
+- Complete theme overhaul with a new token hierarchy and richer palette semantics — see the
+  [theming reference](https://gest.aaronmallen.dev/configuration/theming) for the full token list
+
+### Fixed
+
+- `gest search` now supports `--limit <N>` so you can cap large result sets without relying on pager
+  navigation
+- `config get storage.data_dir` returns the resolved path instead of `null` when no explicit override
+  is set, matching the fix landed for `storage.project_dir` in v0.4.4
+
+### Breaking
+
+- **Storage format changed to SQLite.** Existing v0.4.x projects must be imported with
+  `gest migrate --from v0.4` — see the
+  [v0.4 → v0.5 migration guide](https://gest.aaronmallen.dev/migration/v0-4-to-v0-5) for step-by-step
+  instructions, rollback procedure, and data mapping
+- **Artifact `kind` field removed.** Artifact categorization is now tag-driven. The migrator converts
+  existing `kind: "spec"` values into a `spec` tag automatically
+- **`artifact create` CLI reshaped.** The command now takes a positional `[TITLE]` argument; the
+  `--title` and `--type` flags have been removed, and `-t` is now a shortcut for `--tag` instead of
+  `--type`
+- **`type:` search filter removed.** Use `tag:<name>` instead (e.g. `gest search 'tag:spec'`)
+- **Environment variables renamed or removed.** `GEST_LOG_LEVEL` is now `GEST_LOG__LEVEL` (double
+  underscore); `GEST_DATA_DIR` is now `GEST_STORAGE__DATA_DIR`; and `GEST_PROJECT_DIR`,
+  `GEST_STATE_DIR`, `GEST_ARTIFACT_DIR`, `GEST_TASK_DIR`, and `GEST_ITERATION_DIR` have all been
+  removed — there are no per-entity directory overrides in the new storage model
+- **Config fields removed.** `storage.project_dir`, `storage.state_dir`, `storage.artifact_dir`,
+  `storage.task_dir`, and `storage.iteration_dir` are no longer honored and should be deleted from
+  existing `gest.toml` files
+- **Undo state lives in the database.** There is no longer a separate state directory; undo history
+  follows whichever database the command ran against
+
 ## [v0.4.4] - 2026-04-04
 
 ### Added
@@ -300,7 +369,7 @@ Initial release
 
 [#31]: https://github.com/aaronmallen/gest/issues/31
 
-[Unreleased]: https://github.com/aaronmallen/gest/compare/0.4.4...main
+[Unreleased]: https://github.com/aaronmallen/gest/compare/0.5.0...main
 [v0.2.0]: https://github.com/aaronmallen/gest/compare/0.1.0...0.2.0
 [v0.2.1]: https://github.com/aaronmallen/gest/compare/0.2.0...0.2.1
 [v0.2.2]: https://github.com/aaronmallen/gest/compare/0.2.1...0.2.2
@@ -316,3 +385,4 @@ Initial release
 [v0.4.2]: https://github.com/aaronmallen/gest/compare/0.4.1...0.4.2
 [v0.4.3]: https://github.com/aaronmallen/gest/compare/0.4.2...0.4.3
 [v0.4.4]: https://github.com/aaronmallen/gest/compare/0.4.3...0.4.4
+[v0.5.0]: https://github.com/aaronmallen/gest/compare/0.4.4...0.5.0

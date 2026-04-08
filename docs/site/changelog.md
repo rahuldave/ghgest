@@ -2,6 +2,129 @@
 
 What's new in gest — told version by version.
 
+## v0.5.0
+
+v0.5.0 is the storage rewrite. Entity data moves from flat TOML/Markdown files under `.gest/` into a
+single SQLite database (via libsql), and project identity becomes explicit so multiple worktrees of
+the same repo can share a live view of the same tasks, artifacts, and iterations. Existing v0.4.x
+projects import in one shot — see the
+[v0.4 → v0.5 migration guide](/migration/v0-4-to-v0-5) for the full upgrade path, data mapping, and
+rollback procedure.
+
+### SQLite-First Storage
+
+Entity data now lives in `<data_dir>/gest.db` — a single libsql database that holds tasks, artifacts,
+iterations, notes, relationships, tags, events, and undo history in one place. Multi-entity writes
+are atomic (so a task plus its tags plus its relationships land together or not at all), and
+concurrent agents can hit the same store without fighting over flat-file locks.
+
+For local-mode projects, `.gest/` sticks around as a **sync mirror**: the database is the source of
+truth, but every mutation rewrites a set of human-readable YAML/Markdown files under `.gest/task/`,
+`.gest/artifact/`, and `.gest/iteration/` (singular subdirectories, a small rename from the v0.4.x
+plural layout) so the data stays inspectable and git-committable. Disable the mirror with
+`storage.sync = false` or `GEST_STORAGE__SYNC=false` if you want the database only.
+
+A new `[database]` config section lets you point gest at a remote libsql/Turso instance. Set `url`
+directly, or provide `scheme`, `host`, `port`, `username`, `password`, and `auth_token`
+individually:
+
+```toml
+[database]
+url = "libsql://my-project.turso.io"
+auth_token = "..."
+```
+
+Existing v0.4.x projects are imported with `gest migrate --from v0.4`. The migrator auto-discovers
+both the local-mode `.gest/` layout and the global-mode `~/.local/share/gest/<hash>/` layout, preserves
+every ID so external references (commit messages, PR bodies) keep working, and prints a summary of
+what it imported. The guide walks through the details.
+
+### Workspaces
+
+In v0.4.x, two worktrees of the same repo produced two entirely separate stores: local mode wrote to
+the worktree's own `.gest/`, and global mode keyed the project row by hashing the current working
+directory, so each checkout got a different hash. Parallel agents couldn't share a project.
+
+v0.5.0 makes project identity explicit. A project is a row in the database, identified by an assigned
+ID. Additional checkouts opt in by **attaching** as a workspace:
+
+```sh
+# In the original checkout, find the project ID
+gest project
+
+# In a second worktree, attach to it
+cd ../myapp-feature-a
+gest project attach <project-id>
+```
+
+After attaching, both checkouts resolve to the same project row and share the same tasks, artifacts,
+and iterations in real time. `gest project detach` reverses the operation, and `gest project list`
+shows all known projects across your machine.
+
+### Artifact Notes
+
+Artifacts now support the same note management surface as tasks. Use `gest artifact note add`,
+`list`, `show`, `update`, and `delete` to attach human- or agent-authored annotations to a spec, ADR,
+or RFC over time. Notes appear in `artifact show` output and on the web UI artifact detail page,
+with the same Gravatar avatars and agent badges you already get on task notes.
+
+### Entity Deletion
+
+Tasks and artifacts can now be hard-deleted from the store. `gest task delete <id>` and
+`gest artifact delete <id>` remove the entity and all its dependent rows (notes, relationships, tags,
+events). Both commands prompt for confirmation interactively; pass `--yes` to skip the prompt in
+scripts. `task delete` additionally requires `--force` when the task is still a member of one or more
+iterations — this keeps active sprint members from being removed by accident.
+
+Destructive note commands (`task note delete`, `artifact note delete`) now prompt by default as well,
+with the same `--yes` escape hatch.
+
+### Theme Overhaul
+
+The theme system has been rebuilt around a new token hierarchy and richer palette semantics, and the
+default palette has been retuned across the CLI and web UI. Rather than inlining the full token list
+here, see the [theming reference](/configuration/theming) for the complete set of tokens, the palette
+slots they cascade from, and examples for overriding them in your `gest.toml`.
+
+### New Flags and Ergonomics
+
+- **`gest task claim <id>`** assigns the task to the current author and marks it in-progress in a
+  single step — handy when picking up the next available task from an iteration
+- **`--raw` (`-r`) output flag** on entity commands produces script-friendly plain output without
+  themed styling, giving you a third output mode alongside the default human-readable and `--json`
+  shapes
+- **`--limit <N>`** on `task list`, `iteration list`, `artifact list`, and `gest search` caps result
+  counts for faster scanning of large projects
+- **`--metadata-json`** on create and update commands merges a JSON object into metadata on top of
+  any `--metadata key=value` pairs, so you can set structured values in one shot without repeated
+  `-m` flags
+- **`gest artifact create`** gained `-i`/`--iteration` (link a new artifact to an iteration inline)
+  and `-s`/`--source` (read the body from a file path instead of stdin or `$EDITOR`)
+- **`gest config get storage.data_dir`** returns the resolved path instead of `null` when no explicit
+  override is set
+
+### Breaking Changes
+
+- **Storage format changed to SQLite.** Existing v0.4.x projects must be imported with
+  `gest migrate --from v0.4`. The migrator never touches the source files, so your old `.gest/` stays
+  intact as a backup until you remove it yourself. Follow the
+  [migration guide](/migration/v0-4-to-v0-5) for details.
+- **Artifact `kind` field removed.** Categorization is tag-driven now. The migrator converts
+  `kind: "spec"` into a `spec` tag automatically.
+- **`artifact create` CLI reshaped.** The command takes a positional `[TITLE]` argument; the `--title`
+  and `--type` flags are gone, and `-t` is now a shortcut for `--tag` instead of `--type`.
+- **`type:` search filter removed.** Use `tag:<name>` instead (e.g. `gest search 'tag:spec'`). If you
+  had `type:` queries in personal aliases or scripts, update them.
+- **Environment variables renamed or removed.** `GEST_LOG_LEVEL` is now `GEST_LOG__LEVEL` (double
+  underscore). `GEST_DATA_DIR` is now `GEST_STORAGE__DATA_DIR`. `GEST_PROJECT_DIR`, `GEST_STATE_DIR`,
+  `GEST_ARTIFACT_DIR`, `GEST_TASK_DIR`, and `GEST_ITERATION_DIR` are all gone — the new storage model
+  has no per-entity directory overrides.
+- **Config fields removed.** `storage.project_dir`, `storage.state_dir`, `storage.artifact_dir`,
+  `storage.task_dir`, and `storage.iteration_dir` are no longer honored; delete them from existing
+  `gest.toml` files.
+- **Undo state lives in the database.** There is no longer a separate state directory; undo history
+  follows whichever database the command ran against.
+
 ## v0.4.4
 
 <span style="opacity: 0.5">2026-04-04</span>
