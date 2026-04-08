@@ -35,6 +35,7 @@ impl Component {
   }
 
   /// Set an explicit maximum width for all rows.
+  #[cfg(test)]
   pub fn max_width(mut self, width: usize) -> Self {
     self.max_width = Some(width);
     self

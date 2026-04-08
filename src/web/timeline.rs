@@ -19,6 +19,9 @@ use crate::{
 };
 
 /// A display-ready event entry for the activity timeline.
+///
+/// Fields are read by askama templates which the dead-code analysis can't see.
+#[allow(dead_code)]
 pub(crate) struct EventDisplay {
   pub(crate) author_gravatar: Option<String>,
   pub(crate) author_is_agent: bool,
@@ -61,16 +64,6 @@ impl TimelineItem {
       Self::Note(n) => Some(n),
       Self::Event(_) => None,
     }
-  }
-
-  /// Template helper: discriminate an event variant.
-  pub(crate) fn is_event(&self) -> bool {
-    matches!(self, Self::Event(_))
-  }
-
-  /// Template helper: discriminate a note variant.
-  pub(crate) fn is_note(&self) -> bool {
-    matches!(self, Self::Note(_))
   }
 
   /// Return the creation timestamp used for chronological sorting.
@@ -219,41 +212,10 @@ mod tests {
     }
 
     #[test]
-    fn it_renders_created_with_author() {
-      let text = render_event_text(&event("created", None, None), Some("Aaron Allen"));
+    fn it_falls_back_to_someone_when_author_is_missing() {
+      let text = render_event_text(&event("completed", None, None), None);
 
-      assert_eq!(text, "Aaron Allen created this");
-    }
-
-    #[test]
-    fn it_renders_status_change_with_old_and_new() {
-      let text = render_event_text(
-        &event("status-change", Some("open"), Some("in-progress")),
-        Some("Aaron Allen"),
-      );
-
-      assert_eq!(text, "Aaron Allen changed status from open to in-progress");
-    }
-
-    #[test]
-    fn it_renders_priority_change_with_values() {
-      let text = render_event_text(&event("priority-change", Some("2"), Some("1")), Some("Aaron Allen"));
-
-      assert_eq!(text, "Aaron Allen changed priority from P2 to P1");
-    }
-
-    #[test]
-    fn it_renders_priority_change_when_only_new_value_is_set() {
-      let text = render_event_text(&event("priority-change", None, Some("1")), Some("Aaron Allen"));
-
-      assert_eq!(text, "Aaron Allen set priority to P1");
-    }
-
-    #[test]
-    fn it_renders_phase_change_between_phases() {
-      let text = render_event_text(&event("phase-change", Some("1"), Some("2")), Some("Aaron Allen"));
-
-      assert_eq!(text, "Aaron Allen moved from phase 1 to phase 2");
+      assert_eq!(text, "someone completed this");
     }
 
     #[test]
@@ -264,10 +226,41 @@ mod tests {
     }
 
     #[test]
-    fn it_falls_back_to_someone_when_author_is_missing() {
-      let text = render_event_text(&event("completed", None, None), None);
+    fn it_renders_created_with_author() {
+      let text = render_event_text(&event("created", None, None), Some("Aaron Allen"));
 
-      assert_eq!(text, "someone completed this");
+      assert_eq!(text, "Aaron Allen created this");
+    }
+
+    #[test]
+    fn it_renders_phase_change_between_phases() {
+      let text = render_event_text(&event("phase-change", Some("1"), Some("2")), Some("Aaron Allen"));
+
+      assert_eq!(text, "Aaron Allen moved from phase 1 to phase 2");
+    }
+
+    #[test]
+    fn it_renders_priority_change_when_only_new_value_is_set() {
+      let text = render_event_text(&event("priority-change", None, Some("1")), Some("Aaron Allen"));
+
+      assert_eq!(text, "Aaron Allen set priority to P1");
+    }
+
+    #[test]
+    fn it_renders_priority_change_with_values() {
+      let text = render_event_text(&event("priority-change", Some("2"), Some("1")), Some("Aaron Allen"));
+
+      assert_eq!(text, "Aaron Allen changed priority from P2 to P1");
+    }
+
+    #[test]
+    fn it_renders_status_change_with_old_and_new() {
+      let text = render_event_text(
+        &event("status-change", Some("open"), Some("in-progress")),
+        Some("Aaron Allen"),
+      );
+
+      assert_eq!(text, "Aaron Allen changed status from open to in-progress");
     }
   }
 }

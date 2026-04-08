@@ -105,15 +105,13 @@ mod tests {
     }
 
     #[test]
-    fn it_walks_ancestors() {
+    fn it_ignores_gest_dir_without_legacy_subdirs() {
       let tmp = tempfile::tempdir().unwrap();
       let gest = tmp.path().join(".gest");
-      std::fs::create_dir_all(gest.join("artifacts")).unwrap();
-      let child = tmp.path().join("sub/dir");
-      std::fs::create_dir_all(&child).unwrap();
+      std::fs::create_dir_all(&gest).unwrap();
 
-      let result = find_legacy_dir(&child).unwrap();
-      assert_eq!(result, gest);
+      let result = find_legacy_dir(tmp.path());
+      assert!(result.is_err());
     }
 
     #[test]
@@ -124,13 +122,15 @@ mod tests {
     }
 
     #[test]
-    fn it_ignores_gest_dir_without_legacy_subdirs() {
+    fn it_walks_ancestors() {
       let tmp = tempfile::tempdir().unwrap();
       let gest = tmp.path().join(".gest");
-      std::fs::create_dir_all(&gest).unwrap();
+      std::fs::create_dir_all(gest.join("artifacts")).unwrap();
+      let child = tmp.path().join("sub/dir");
+      std::fs::create_dir_all(&child).unwrap();
 
-      let result = find_legacy_dir(tmp.path());
-      assert!(result.is_err());
+      let result = find_legacy_dir(&child).unwrap();
+      assert_eq!(result, gest);
     }
   }
 
@@ -138,17 +138,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_produces_16_char_hex_string() {
-      let hash = path_hash(Path::new("/tmp/test"));
-      assert_eq!(hash.len(), 16);
-      assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
-    }
-
-    #[test]
     fn it_is_deterministic() {
       let a = path_hash(Path::new("/some/path"));
       let b = path_hash(Path::new("/some/path"));
       assert_eq!(a, b);
+    }
+
+    #[test]
+    fn it_produces_16_char_hex_string() {
+      let hash = path_hash(Path::new("/tmp/test"));
+      assert_eq!(hash.len(), 16);
+      assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
     }
   }
 }

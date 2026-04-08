@@ -7,7 +7,8 @@
 use pulldown_cmark::{BlockQuoteKind, HeadingLevel};
 
 /// A top-level markdown block.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[allow(clippy::enum_variant_names)]
 pub enum Block {
   BlockQuote {
     blocks: Vec<Block>,
@@ -30,7 +31,7 @@ pub enum Block {
 }
 
 /// An inline element inside a block.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Inline {
   Code(String),
   Emphasis(Vec<Inline>),

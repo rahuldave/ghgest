@@ -49,6 +49,15 @@ mod tests {
     use super::*;
 
     #[test]
+    fn it_does_not_truncate_when_pad_is_smaller_than_text() {
+      let component = Component::new("Priority", plain()).pad_to(3);
+
+      let output = component.to_string();
+
+      assert!(output.contains("Priority"));
+    }
+
+    #[test]
     fn it_pads_to_requested_width() {
       let component = Component::new("Status", plain()).pad_to(12);
 
@@ -56,15 +65,6 @@ mod tests {
 
       assert!(output.contains("Status"));
       assert!(output.ends_with("      "));
-    }
-
-    #[test]
-    fn it_does_not_truncate_when_pad_is_smaller_than_text() {
-      let component = Component::new("Priority", plain()).pad_to(3);
-
-      let output = component.to_string();
-
-      assert!(output.contains("Priority"));
     }
   }
 }

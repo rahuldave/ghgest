@@ -77,6 +77,84 @@ impl Settings {
 mod tests {
   use super::*;
 
+  mod data_dir {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn it_falls_back_to_xdg_data_home() {
+      let settings = Settings {
+        data_dir: None,
+        sync: None,
+      };
+
+      temp_env::with_var("GEST_STORAGE__DATA_DIR", None::<&str>, || {
+        let result = settings.data_dir().unwrap();
+        let expected = dir_spec::data_home().unwrap().join("gest");
+
+        assert_eq!(result, expected);
+      });
+    }
+
+    #[test]
+    fn it_ignores_relative_config_value() {
+      let settings = Settings {
+        data_dir: Some(PathBuf::from("relative/path")),
+        sync: None,
+      };
+
+      temp_env::with_var("GEST_STORAGE__DATA_DIR", None::<&str>, || {
+        let result = settings.data_dir().unwrap();
+        let expected = dir_spec::data_home().unwrap().join("gest");
+
+        assert_eq!(result, expected);
+      });
+    }
+
+    #[test]
+    fn it_ignores_relative_env_var() {
+      let settings = Settings {
+        data_dir: Some(PathBuf::from("/from/config")),
+        sync: None,
+      };
+
+      temp_env::with_var("GEST_STORAGE__DATA_DIR", Some("relative/path"), || {
+        let result = settings.data_dir().unwrap();
+
+        assert_eq!(result, PathBuf::from("/from/config"));
+      });
+    }
+
+    #[test]
+    fn it_prefers_env_var_over_config_and_xdg() {
+      let settings = Settings {
+        data_dir: Some(PathBuf::from("/from/config")),
+        sync: None,
+      };
+
+      temp_env::with_var("GEST_STORAGE__DATA_DIR", Some("/from/env"), || {
+        let result = settings.data_dir().unwrap();
+
+        assert_eq!(result, PathBuf::from("/from/env"));
+      });
+    }
+
+    #[test]
+    fn it_uses_config_value_when_env_var_is_unset() {
+      let settings = Settings {
+        data_dir: Some(PathBuf::from("/from/config")),
+        sync: None,
+      };
+
+      temp_env::with_var("GEST_STORAGE__DATA_DIR", None::<&str>, || {
+        let result = settings.data_dir().unwrap();
+
+        assert_eq!(result, PathBuf::from("/from/config"));
+      });
+    }
+  }
+
   mod sync_enabled {
     use super::*;
 
@@ -86,6 +164,30 @@ mod tests {
 
       temp_env::with_var("GEST_STORAGE__SYNC", None::<&str>, || {
         assert!(settings.sync_enabled());
+      });
+    }
+
+    #[test]
+    fn it_env_var_can_enable_over_config() {
+      let settings = Settings {
+        data_dir: None,
+        sync: Some(false),
+      };
+
+      temp_env::with_var("GEST_STORAGE__SYNC", Some("true"), || {
+        assert!(settings.sync_enabled());
+      });
+    }
+
+    #[test]
+    fn it_env_var_overrides_config() {
+      let settings = Settings {
+        data_dir: None,
+        sync: Some(true),
+      };
+
+      temp_env::with_var("GEST_STORAGE__SYNC", Some("false"), || {
+        assert!(!settings.sync_enabled());
       });
     }
 
@@ -110,108 +212,6 @@ mod tests {
 
       temp_env::with_var("GEST_STORAGE__SYNC", None::<&str>, || {
         assert!(settings.sync_enabled());
-      });
-    }
-
-    #[test]
-    fn it_env_var_overrides_config() {
-      let settings = Settings {
-        data_dir: None,
-        sync: Some(true),
-      };
-
-      temp_env::with_var("GEST_STORAGE__SYNC", Some("false"), || {
-        assert!(!settings.sync_enabled());
-      });
-    }
-
-    #[test]
-    fn it_env_var_can_enable_over_config() {
-      let settings = Settings {
-        data_dir: None,
-        sync: Some(false),
-      };
-
-      temp_env::with_var("GEST_STORAGE__SYNC", Some("true"), || {
-        assert!(settings.sync_enabled());
-      });
-    }
-  }
-
-  mod data_dir {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn it_prefers_env_var_over_config_and_xdg() {
-      let settings = Settings {
-        data_dir: Some(PathBuf::from("/from/config")),
-        sync: None,
-      };
-
-      temp_env::with_var("GEST_STORAGE__DATA_DIR", Some("/from/env"), || {
-        let result = settings.data_dir().unwrap();
-
-        assert_eq!(result, PathBuf::from("/from/env"));
-      });
-    }
-
-    #[test]
-    fn it_ignores_relative_env_var() {
-      let settings = Settings {
-        data_dir: Some(PathBuf::from("/from/config")),
-        sync: None,
-      };
-
-      temp_env::with_var("GEST_STORAGE__DATA_DIR", Some("relative/path"), || {
-        let result = settings.data_dir().unwrap();
-
-        assert_eq!(result, PathBuf::from("/from/config"));
-      });
-    }
-
-    #[test]
-    fn it_uses_config_value_when_env_var_is_unset() {
-      let settings = Settings {
-        data_dir: Some(PathBuf::from("/from/config")),
-        sync: None,
-      };
-
-      temp_env::with_var("GEST_STORAGE__DATA_DIR", None::<&str>, || {
-        let result = settings.data_dir().unwrap();
-
-        assert_eq!(result, PathBuf::from("/from/config"));
-      });
-    }
-
-    #[test]
-    fn it_ignores_relative_config_value() {
-      let settings = Settings {
-        data_dir: Some(PathBuf::from("relative/path")),
-        sync: None,
-      };
-
-      temp_env::with_var("GEST_STORAGE__DATA_DIR", None::<&str>, || {
-        let result = settings.data_dir().unwrap();
-        let expected = dir_spec::data_home().unwrap().join("gest");
-
-        assert_eq!(result, expected);
-      });
-    }
-
-    #[test]
-    fn it_falls_back_to_xdg_data_home() {
-      let settings = Settings {
-        data_dir: None,
-        sync: None,
-      };
-
-      temp_env::with_var("GEST_STORAGE__DATA_DIR", None::<&str>, || {
-        let result = settings.data_dir().unwrap();
-        let expected = dir_spec::data_home().unwrap().join("gest");
-
-        assert_eq!(result, expected);
       });
     }
   }

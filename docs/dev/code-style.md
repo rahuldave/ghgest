@@ -67,6 +67,20 @@ Order items within a module by:
 Type groups are ordered **alphabetically** by type name, with **public types before private types** (each visibility
 group sorted alphabetically).
 
+### Derive Attributes
+
+Traits listed in `#[derive(...)]` attributes should be ordered **alphabetically**.
+
+```rust
+// Good
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct Foo;
+
+// Bad
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Foo;
+```
+
 ### Enumeration Variants
 
 Enumeration variants should be ordered **alphabetically**.

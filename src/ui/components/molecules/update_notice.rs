@@ -44,21 +44,21 @@ mod tests {
   use super::*;
 
   #[test]
-  fn it_renders_the_update_message() {
-    let notice = Component::new("9.9.9".to_string());
-
-    let output = notice.to_string();
-
-    assert!(output.contains("a newer version is available"));
-  }
-
-  #[test]
   fn it_renders_the_new_version() {
     let notice = Component::new("9.9.9".to_string());
 
     let output = notice.to_string();
 
     assert!(output.contains("9.9.9"));
+  }
+
+  #[test]
+  fn it_renders_the_update_message() {
+    let notice = Component::new("9.9.9".to_string());
+
+    let output = notice.to_string();
+
+    assert!(output.contains("a newer version is available"));
   }
 
   #[test]

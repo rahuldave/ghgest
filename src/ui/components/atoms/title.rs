@@ -24,12 +24,14 @@ impl Component {
   }
 
   /// Truncate the title to at most `width` visible characters, appending `…` if needed.
+  #[cfg(test)]
   pub fn max_width(mut self, width: usize) -> Self {
     self.max_width = Some(width);
     self
   }
 
   /// Right-pad with spaces so the title occupies at least `width` visible columns.
+  #[cfg(test)]
   pub fn pad_to(mut self, width: usize) -> Self {
     self.pad_to = Some(width);
     self
@@ -87,16 +89,6 @@ mod tests {
   }
 
   #[test]
-  fn it_truncates_with_ellipsis() {
-    let title = Component::new("long title text here", plain()).max_width(6);
-
-    let out = render(&title);
-
-    assert!(out.starts_with("long "));
-    assert!(out.contains('\u{2026}'));
-  }
-
-  #[test]
   fn it_pads_to_minimum_width() {
     let title = Component::new("hi", plain()).pad_to(10);
 
@@ -113,5 +105,15 @@ mod tests {
 
     // 5 chars + ellipsis = 6 visible, padded to 10
     assert_eq!(row::display_width(&out), 10);
+  }
+
+  #[test]
+  fn it_truncates_with_ellipsis() {
+    let title = Component::new("long title text here", plain()).max_width(6);
+
+    let out = render(&title);
+
+    assert!(out.starts_with("long "));
+    assert!(out.contains('\u{2026}'));
   }
 }

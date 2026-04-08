@@ -76,20 +76,6 @@ mod tests {
   }
 
   #[test]
-  fn it_defaults_to_port_2300() {
-    let settings = Settings::default();
-
-    assert_eq!(settings.port(), 2300);
-  }
-
-  #[test]
-  fn it_defaults_to_open_true() {
-    let settings = Settings::default();
-
-    assert!(settings.open());
-  }
-
-  #[test]
   fn it_defaults_to_debounce_ms_2000() {
     let settings = Settings::default();
 
@@ -104,27 +90,25 @@ mod tests {
   }
 
   #[test]
+  fn it_defaults_to_open_true() {
+    let settings = Settings::default();
+
+    assert!(settings.open());
+  }
+
+  #[test]
+  fn it_defaults_to_port_2300() {
+    let settings = Settings::default();
+
+    assert_eq!(settings.port(), 2300);
+  }
+
+  #[test]
   fn it_deserializes_bind_address() {
     let toml_str = r#"bind_address = "0.0.0.0""#;
     let settings: Settings = toml::from_str(toml_str).unwrap();
 
     assert_eq!(settings.bind_address(), IpAddr::V4(Ipv4Addr::UNSPECIFIED));
-  }
-
-  #[test]
-  fn it_deserializes_port() {
-    let toml_str = "port = 8080";
-    let settings: Settings = toml::from_str(toml_str).unwrap();
-
-    assert_eq!(settings.port(), 8080);
-  }
-
-  #[test]
-  fn it_deserializes_open() {
-    let toml_str = "open = false";
-    let settings: Settings = toml::from_str(toml_str).unwrap();
-
-    assert!(!settings.open());
   }
 
   #[test]
@@ -141,6 +125,22 @@ mod tests {
     let settings: Settings = toml::from_str(toml_str).unwrap();
 
     assert_eq!(settings.log_level(), Some(LevelFilter::Debug));
+  }
+
+  #[test]
+  fn it_deserializes_open() {
+    let toml_str = "open = false";
+    let settings: Settings = toml::from_str(toml_str).unwrap();
+
+    assert!(!settings.open());
+  }
+
+  #[test]
+  fn it_deserializes_port() {
+    let toml_str = "port = 8080";
+    let settings: Settings = toml::from_str(toml_str).unwrap();
+
+    assert_eq!(settings.port(), 8080);
   }
 
   #[test]

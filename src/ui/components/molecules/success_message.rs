@@ -53,6 +53,7 @@ impl Component {
   }
 
   /// Append a pre-styled label-value pair below the action line.
+  #[cfg(test)]
   pub fn styled_field(mut self, label: impl Into<String>, value: impl Display) -> Self {
     self.fields = self.fields.styled_field(label, value);
     self.has_fields = true;
@@ -102,18 +103,6 @@ mod tests {
     }
 
     #[test]
-    fn it_renders_action_with_id() {
-      let component = Component::new("created project").id("xqnuktro");
-
-      let output = component.to_string();
-
-      assert!(output.contains('✓'));
-      assert!(output.contains("created project"));
-      assert!(output.contains("xq"));
-      assert!(output.contains("nuktro"));
-    }
-
-    #[test]
     fn it_renders_action_with_fields() {
       let component = Component::new("initialized gest")
         .field("data dir", ".gest/")
@@ -127,6 +116,18 @@ mod tests {
       assert!(output.contains(".gest/"));
       assert!(output.contains("config"));
       assert!(output.contains(".gest/config.toml"));
+    }
+
+    #[test]
+    fn it_renders_action_with_id() {
+      let component = Component::new("created project").id("xqnuktro");
+
+      let output = component.to_string();
+
+      assert!(output.contains('✓'));
+      assert!(output.contains("created project"));
+      assert!(output.contains("xq"));
+      assert!(output.contains("nuktro"));
     }
 
     #[test]

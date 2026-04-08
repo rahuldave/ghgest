@@ -9,7 +9,6 @@ mod digest;
 mod entities;
 mod orchestrator;
 pub mod paths;
-mod tombstone;
 pub mod yaml;
 
 use std::{
@@ -49,16 +48,6 @@ pub async fn import(conn: &Connection, project_id: &Id, gest_dir: &Path) -> Resu
 /// Sync state from the database out to `.gest/`.
 pub async fn export(conn: &Connection, project_id: &Id, gest_dir: &Path) -> Result<(), Error> {
   orchestrator::export_all(conn, project_id, gest_dir).await
-}
-
-/// Perform a full bidirectional sync for a project in local mode.
-///
-/// 1. Import: read files, import any newer than DB
-/// 2. Export: write DB state to files
-pub async fn sync(conn: &Connection, project_id: &Id, gest_dir: &Path) -> Result<(), Error> {
-  import(conn, project_id, gest_dir).await?;
-  export(conn, project_id, gest_dir).await?;
-  Ok(())
 }
 
 /// Find the `.gest` directory for a project, if it exists.

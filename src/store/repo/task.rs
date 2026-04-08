@@ -125,6 +125,7 @@ pub async fn create(conn: &Connection, project_id: &Id, new: &New) -> Result<Mod
 }
 
 /// Delete a task by its ID. Returns true if the task was deleted.
+#[cfg(test)]
 pub async fn delete(conn: &Connection, id: &Id) -> Result<bool, Error> {
   log::debug!("repo::task::delete");
   let affected = conn
@@ -293,27 +294,6 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn it_returns_non_terminal_tasks_by_default() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let open = New {
-        title: "Open task".into(),
-        ..Default::default()
-      };
-      let done = New {
-        title: "Done task".into(),
-        status: Some(TaskStatus::Done),
-        ..Default::default()
-      };
-      create(&conn, &pid, &open).await.unwrap();
-      create(&conn, &pid, &done).await.unwrap();
-
-      let tasks = all(&conn, &pid, &Filter::default()).await.unwrap();
-      assert_eq!(tasks.len(), 1);
-      assert_eq!(tasks[0].title(), "Open task");
-    }
-
-    #[tokio::test]
     async fn it_returns_all_tasks_when_all_flag_set() {
       let (_store, conn, _tmp, pid) = setup().await;
 
@@ -340,6 +320,275 @@ mod tests {
       .await
       .unwrap();
       assert_eq!(tasks.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn it_returns_non_terminal_tasks_by_default() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let open = New {
+        title: "Open task".into(),
+        ..Default::default()
+      };
+      let done = New {
+        title: "Done task".into(),
+        status: Some(TaskStatus::Done),
+        ..Default::default()
+      };
+      create(&conn, &pid, &open).await.unwrap();
+      create(&conn, &pid, &done).await.unwrap();
+
+      let tasks = all(&conn, &pid, &Filter::default()).await.unwrap();
+      assert_eq!(tasks.len(), 1);
+      assert_eq!(tasks[0].title(), "Open task");
+    }
+  }
+
+  mod create_fn {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn it_creates_a_task() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let new = New {
+        title: "My task".into(),
+        description: "Do something".into(),
+        priority: Some(1),
+        ..Default::default()
+      };
+      let task = create(&conn, &pid, &new).await.unwrap();
+
+      assert_eq!(task.title(), "My task");
+      assert_eq!(task.description(), "Do something");
+      assert_eq!(task.priority(), Some(1));
+      assert_eq!(task.status(), TaskStatus::Open);
+      assert!(task.resolved_at().is_none());
+    }
+
+    #[tokio::test]
+    async fn it_sets_resolved_at_for_terminal_status() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let new = New {
+        title: "Done".into(),
+        status: Some(TaskStatus::Done),
+        ..Default::default()
+      };
+      let task = create(&conn, &pid, &new).await.unwrap();
+
+      assert!(task.resolved_at().is_some());
+    }
+  }
+
+  mod delete_fn {
+    use super::*;
+
+    #[tokio::test]
+    async fn it_deletes_a_task() {
+      let (_store, conn, _tmp, pid) = setup().await;
+      let task = create(
+        &conn,
+        &pid,
+        &New {
+          title: "Delete me".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+
+      let deleted = delete(&conn, task.id()).await.unwrap();
+      assert!(deleted);
+
+      let found = find_by_id(&conn, task.id().clone()).await.unwrap();
+      assert!(found.is_none());
+    }
+
+    #[tokio::test]
+    async fn it_returns_false_when_not_found() {
+      let (_store, conn, _tmp, _pid) = setup().await;
+
+      let deleted = delete(&conn, &Id::new()).await.unwrap();
+      assert!(!deleted);
+    }
+  }
+
+  mod find_by_id_fn {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn it_returns_none_when_not_found() {
+      let (_store, conn, _tmp, _pid) = setup().await;
+
+      let found = find_by_id(&conn, Id::new()).await.unwrap();
+      assert_eq!(found, None);
+    }
+  }
+
+  mod semantic_events {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+    use crate::store::repo::transaction;
+
+    async fn semantic_row(conn: &Connection, tx_id: &Id) -> (String, Option<String>, Option<String>, Option<String>) {
+      let mut rows = conn
+        .query(
+          "SELECT event_type, semantic_type, old_value, new_value \
+            FROM transaction_events WHERE transaction_id = ?1",
+          [tx_id.to_string()],
+        )
+        .await
+        .unwrap();
+      let row = rows.next().await.unwrap().unwrap();
+      (
+        row.get(0).unwrap(),
+        row.get(1).unwrap(),
+        row.get(2).unwrap(),
+        row.get(3).unwrap(),
+      )
+    }
+
+    #[tokio::test]
+    async fn it_records_a_created_event_when_creating_a_task() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let tx = transaction::begin(&conn, &pid, "task create").await.unwrap();
+      let task = create(
+        &conn,
+        &pid,
+        &New {
+          title: "Task".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      transaction::record_semantic_event(
+        &conn,
+        tx.id(),
+        "tasks",
+        &task.id().to_string(),
+        "created",
+        None,
+        Some("created"),
+        None,
+        None,
+      )
+      .await
+      .unwrap();
+
+      let (event_type, semantic, old, new) = semantic_row(&conn, tx.id()).await;
+
+      assert_eq!(event_type, "created");
+      assert_eq!(semantic.as_deref(), Some("created"));
+      assert_eq!(old, None);
+      assert_eq!(new, None);
+    }
+
+    #[tokio::test]
+    async fn it_records_a_priority_change_event_when_updating_task_priority() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let task = create(
+        &conn,
+        &pid,
+        &New {
+          title: "Task".into(),
+          priority: Some(3),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      let before = serde_json::to_value(&task).unwrap();
+
+      let tx = transaction::begin(&conn, &pid, "task update").await.unwrap();
+      let updated = update(
+        &conn,
+        task.id(),
+        &Patch {
+          priority: Some(Some(1)),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      let old = task.priority().map(|p| p.to_string()).unwrap();
+      let new = updated.priority().map(|p| p.to_string()).unwrap();
+      transaction::record_semantic_event(
+        &conn,
+        tx.id(),
+        "tasks",
+        &task.id().to_string(),
+        "modified",
+        Some(&before),
+        Some("priority-change"),
+        Some(&old),
+        Some(&new),
+      )
+      .await
+      .unwrap();
+
+      let (_event_type, semantic, old, new) = semantic_row(&conn, tx.id()).await;
+
+      assert_eq!(semantic.as_deref(), Some("priority-change"));
+      assert_eq!(old.as_deref(), Some("3"));
+      assert_eq!(new.as_deref(), Some("1"));
+    }
+
+    #[tokio::test]
+    async fn it_records_a_status_change_event_when_updating_task_status() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let task = create(
+        &conn,
+        &pid,
+        &New {
+          title: "Task".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      let before = serde_json::to_value(&task).unwrap();
+
+      let tx = transaction::begin(&conn, &pid, "task claim").await.unwrap();
+      let updated = update(
+        &conn,
+        task.id(),
+        &Patch {
+          status: Some(TaskStatus::InProgress),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      transaction::record_semantic_event(
+        &conn,
+        tx.id(),
+        "tasks",
+        &task.id().to_string(),
+        "modified",
+        Some(&before),
+        Some("status-change"),
+        Some(&task.status().to_string()),
+        Some(&updated.status().to_string()),
+      )
+      .await
+      .unwrap();
+
+      let (event_type, semantic, old, new) = semantic_row(&conn, tx.id()).await;
+
+      assert_eq!(event_type, "modified");
+      assert_eq!(semantic.as_deref(), Some("status-change"));
+      assert_eq!(old.as_deref(), Some("open"));
+      assert_eq!(new.as_deref(), Some("in-progress"));
     }
   }
 
@@ -444,91 +693,10 @@ mod tests {
     }
   }
 
-  mod create_fn {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn it_creates_a_task() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let new = New {
-        title: "My task".into(),
-        description: "Do something".into(),
-        priority: Some(1),
-        ..Default::default()
-      };
-      let task = create(&conn, &pid, &new).await.unwrap();
-
-      assert_eq!(task.title(), "My task");
-      assert_eq!(task.description(), "Do something");
-      assert_eq!(task.priority(), Some(1));
-      assert_eq!(task.status(), TaskStatus::Open);
-      assert!(task.resolved_at().is_none());
-    }
-
-    #[tokio::test]
-    async fn it_sets_resolved_at_for_terminal_status() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let new = New {
-        title: "Done".into(),
-        status: Some(TaskStatus::Done),
-        ..Default::default()
-      };
-      let task = create(&conn, &pid, &new).await.unwrap();
-
-      assert!(task.resolved_at().is_some());
-    }
-  }
-
-  mod find_by_id_fn {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn it_returns_none_when_not_found() {
-      let (_store, conn, _tmp, _pid) = setup().await;
-
-      let found = find_by_id(&conn, Id::new()).await.unwrap();
-      assert_eq!(found, None);
-    }
-  }
-
   mod update_fn {
     use pretty_assertions::assert_eq;
 
     use super::*;
-
-    #[tokio::test]
-    async fn it_updates_title() {
-      let (_store, conn, _tmp, pid) = setup().await;
-      let task = create(
-        &conn,
-        &pid,
-        &New {
-          title: "Old".into(),
-          ..Default::default()
-        },
-      )
-      .await
-      .unwrap();
-
-      let updated = update(
-        &conn,
-        task.id(),
-        &Patch {
-          title: Some("New".into()),
-          ..Default::default()
-        },
-      )
-      .await
-      .unwrap();
-
-      assert_eq!(updated.title(), "New");
-    }
 
     #[tokio::test]
     async fn it_sets_resolved_at_when_completing() {
@@ -558,200 +726,33 @@ mod tests {
       assert!(updated.resolved_at().is_some());
       assert_eq!(updated.status(), TaskStatus::Done);
     }
-  }
-
-  mod semantic_events {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-    use crate::store::repo::transaction;
-
-    async fn semantic_row(conn: &Connection, tx_id: &Id) -> (String, Option<String>, Option<String>, Option<String>) {
-      let mut rows = conn
-        .query(
-          "SELECT event_type, semantic_type, old_value, new_value \
-            FROM transaction_events WHERE transaction_id = ?1",
-          [tx_id.to_string()],
-        )
-        .await
-        .unwrap();
-      let row = rows.next().await.unwrap().unwrap();
-      (
-        row.get(0).unwrap(),
-        row.get(1).unwrap(),
-        row.get(2).unwrap(),
-        row.get(3).unwrap(),
-      )
-    }
 
     #[tokio::test]
-    async fn it_records_a_created_event_when_creating_a_task() {
+    async fn it_updates_title() {
       let (_store, conn, _tmp, pid) = setup().await;
-
-      let tx = transaction::begin(&conn, &pid, "task create").await.unwrap();
       let task = create(
         &conn,
         &pid,
         &New {
-          title: "Task".into(),
+          title: "Old".into(),
           ..Default::default()
         },
       )
       .await
       .unwrap();
-      transaction::record_semantic_event(
-        &conn,
-        tx.id(),
-        "tasks",
-        &task.id().to_string(),
-        "created",
-        None,
-        Some("created"),
-        None,
-        None,
-      )
-      .await
-      .unwrap();
 
-      let (event_type, semantic, old, new) = semantic_row(&conn, tx.id()).await;
-
-      assert_eq!(event_type, "created");
-      assert_eq!(semantic.as_deref(), Some("created"));
-      assert_eq!(old, None);
-      assert_eq!(new, None);
-    }
-
-    #[tokio::test]
-    async fn it_records_a_status_change_event_when_updating_task_status() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let task = create(
-        &conn,
-        &pid,
-        &New {
-          title: "Task".into(),
-          ..Default::default()
-        },
-      )
-      .await
-      .unwrap();
-      let before = serde_json::to_value(&task).unwrap();
-
-      let tx = transaction::begin(&conn, &pid, "task claim").await.unwrap();
       let updated = update(
         &conn,
         task.id(),
         &Patch {
-          status: Some(TaskStatus::InProgress),
-          ..Default::default()
-        },
-      )
-      .await
-      .unwrap();
-      transaction::record_semantic_event(
-        &conn,
-        tx.id(),
-        "tasks",
-        &task.id().to_string(),
-        "modified",
-        Some(&before),
-        Some("status-change"),
-        Some(&task.status().to_string()),
-        Some(&updated.status().to_string()),
-      )
-      .await
-      .unwrap();
-
-      let (event_type, semantic, old, new) = semantic_row(&conn, tx.id()).await;
-
-      assert_eq!(event_type, "modified");
-      assert_eq!(semantic.as_deref(), Some("status-change"));
-      assert_eq!(old.as_deref(), Some("open"));
-      assert_eq!(new.as_deref(), Some("in-progress"));
-    }
-
-    #[tokio::test]
-    async fn it_records_a_priority_change_event_when_updating_task_priority() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let task = create(
-        &conn,
-        &pid,
-        &New {
-          title: "Task".into(),
-          priority: Some(3),
-          ..Default::default()
-        },
-      )
-      .await
-      .unwrap();
-      let before = serde_json::to_value(&task).unwrap();
-
-      let tx = transaction::begin(&conn, &pid, "task update").await.unwrap();
-      let updated = update(
-        &conn,
-        task.id(),
-        &Patch {
-          priority: Some(Some(1)),
-          ..Default::default()
-        },
-      )
-      .await
-      .unwrap();
-      let old = task.priority().map(|p| p.to_string()).unwrap();
-      let new = updated.priority().map(|p| p.to_string()).unwrap();
-      transaction::record_semantic_event(
-        &conn,
-        tx.id(),
-        "tasks",
-        &task.id().to_string(),
-        "modified",
-        Some(&before),
-        Some("priority-change"),
-        Some(&old),
-        Some(&new),
-      )
-      .await
-      .unwrap();
-
-      let (_event_type, semantic, old, new) = semantic_row(&conn, tx.id()).await;
-
-      assert_eq!(semantic.as_deref(), Some("priority-change"));
-      assert_eq!(old.as_deref(), Some("3"));
-      assert_eq!(new.as_deref(), Some("1"));
-    }
-  }
-
-  mod delete_fn {
-    use super::*;
-
-    #[tokio::test]
-    async fn it_deletes_a_task() {
-      let (_store, conn, _tmp, pid) = setup().await;
-      let task = create(
-        &conn,
-        &pid,
-        &New {
-          title: "Delete me".into(),
+          title: Some("New".into()),
           ..Default::default()
         },
       )
       .await
       .unwrap();
 
-      let deleted = delete(&conn, task.id()).await.unwrap();
-      assert!(deleted);
-
-      let found = find_by_id(&conn, task.id().clone()).await.unwrap();
-      assert!(found.is_none());
-    }
-
-    #[tokio::test]
-    async fn it_returns_false_when_not_found() {
-      let (_store, conn, _tmp, _pid) = setup().await;
-
-      let deleted = delete(&conn, &Id::new()).await.unwrap();
-      assert!(!deleted);
+      assert_eq!(updated.title(), "New");
     }
   }
 }

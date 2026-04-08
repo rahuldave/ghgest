@@ -71,20 +71,6 @@ impl GestCmd {
     );
   }
 
-  /// Advance an iteration to its next phase.
-  pub fn advance_iteration(&self, id: &str) {
-    let output = self
-      .cmd()
-      .args(["iteration", "advance", id])
-      .output()
-      .expect("iteration advance failed to run");
-    assert!(
-      output.status.success(),
-      "iteration advance exited non-zero: {}",
-      String::from_utf8_lossy(&output.stderr)
-    );
-  }
-
   /// Attach a tag to an entity via the entity-specific `<entity> tag` subcommand
   /// (e.g. `gest task tag <id> <label>`).
   pub fn attach_tag(&self, entity: &str, id: &str, label: &str) {
@@ -341,11 +327,6 @@ impl GestCmd {
       "iteration reopen exited non-zero: {}",
       String::from_utf8_lossy(&output.stderr)
     );
-  }
-
-  /// Shorthand for `cmd().args(args).assert()`.
-  pub fn run(&self, args: &[&str]) -> assert_cmd::assert::Assert {
-    self.cmd().args(args).assert()
   }
 
   /// Return the temp directory path.

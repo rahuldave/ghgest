@@ -35,12 +35,8 @@ impl Model {
     &self.created_at
   }
 
-  /// The entity this note is attached to.
-  pub fn entity_id(&self) -> &Id {
-    &self.entity_id
-  }
-
   /// The type of entity this note is attached to.
+  #[cfg(test)]
   pub fn entity_type(&self) -> EntityType {
     self.entity_type
   }

@@ -211,14 +211,14 @@ mod tests {
     }
 
     #[test]
-    fn it_formats_strings_unquoted() {
-      assert_eq!(format_meta_value(&Value::String("hello".to_string())), "hello");
-    }
-
-    #[test]
     fn it_formats_other_scalars_as_json() {
       assert_eq!(format_meta_value(&json!(42)), "42");
       assert_eq!(format_meta_value(&json!(true)), "true");
+    }
+
+    #[test]
+    fn it_formats_strings_unquoted() {
+      assert_eq!(format_meta_value(&Value::String("hello".to_string())), "hello");
     }
   }
 
@@ -349,6 +349,15 @@ mod tests {
     }
 
     #[test]
+    fn it_removes_top_level_key() {
+      let mut value = json!({ "a": 1, "b": 2 });
+
+      assert!(unset_path(&mut value, "a"));
+
+      assert_eq!(value, json!({ "b": 2 }));
+    }
+
+    #[test]
     fn it_returns_false_when_intermediate_missing() {
       let mut value = json!({ "a": 1 });
 
@@ -360,15 +369,6 @@ mod tests {
       let mut value = json!({});
 
       assert!(!unset_path(&mut value, "missing"));
-    }
-
-    #[test]
-    fn it_removes_top_level_key() {
-      let mut value = json!({ "a": 1, "b": 2 });
-
-      assert!(unset_path(&mut value, "a"));
-
-      assert_eq!(value, json!({ "b": 2 }));
     }
   }
 }

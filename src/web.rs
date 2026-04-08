@@ -5,7 +5,6 @@ mod forms;
 mod gravatar;
 mod handlers;
 mod markdown;
-mod note_display;
 mod reload_ipc;
 mod request_log;
 mod security_headers;
@@ -29,6 +28,17 @@ use crate::{io::git, store::Db};
 
 /// File name of the unix domain socket used for the web reload IPC channel.
 pub const RELOAD_SOCKET_FILE: &str = "web.sock";
+
+/// Errors that can occur in the web server.
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+  /// An I/O error.
+  #[error(transparent)]
+  Io(#[from] IoError),
+  /// File watcher error.
+  #[error(transparent)]
+  Notify(#[from] NotifyError),
+}
 
 /// Resolve the unix domain socket path used by the web server's reload listener.
 ///
@@ -208,15 +218,4 @@ fn router(state: AppState) -> Router {
     .layer(middleware::from_fn(request_log::log_request))
     .layer(middleware::from_fn(security_headers::add_security_headers))
     .with_state(state)
-}
-
-/// Errors that can occur in the web server.
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-  /// An I/O error.
-  #[error(transparent)]
-  Io(#[from] IoError),
-  /// File watcher error.
-  #[error(transparent)]
-  Notify(#[from] NotifyError),
 }

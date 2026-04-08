@@ -462,18 +462,12 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn it_returns_n_most_recent() {
+    async fn it_returns_empty_when_none() {
       let (_store, conn, _tmp, pid) = setup().await;
 
-      begin(&conn, &pid, "first").await.unwrap();
-      begin(&conn, &pid, "second").await.unwrap();
-      begin(&conn, &pid, "third").await.unwrap();
+      let results = latest_undoable_n(&conn, &pid, 3).await.unwrap();
 
-      let results = latest_undoable_n(&conn, &pid, 2).await.unwrap();
-
-      assert_eq!(results.len(), 2);
-      assert_eq!(results[0].command(), "third");
-      assert_eq!(results[1].command(), "second");
+      assert!(results.is_empty());
     }
 
     #[tokio::test]
@@ -489,12 +483,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn it_returns_empty_when_none() {
+    async fn it_returns_n_most_recent() {
       let (_store, conn, _tmp, pid) = setup().await;
 
-      let results = latest_undoable_n(&conn, &pid, 3).await.unwrap();
+      begin(&conn, &pid, "first").await.unwrap();
+      begin(&conn, &pid, "second").await.unwrap();
+      begin(&conn, &pid, "third").await.unwrap();
 
-      assert!(results.is_empty());
+      let results = latest_undoable_n(&conn, &pid, 2).await.unwrap();
+
+      assert_eq!(results.len(), 2);
+      assert_eq!(results[0].command(), "third");
+      assert_eq!(results[1].command(), "second");
     }
   }
 
@@ -550,110 +550,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn it_persists_created_semantic_type() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let tx = begin(&conn, &pid, "task create").await.unwrap();
-      record_semantic_event(
-        &conn,
-        tx.id(),
-        "tasks",
-        "abc",
-        "created",
-        None,
-        Some("created"),
-        None,
-        None,
-      )
-      .await
-      .unwrap();
-
-      let (semantic, old, new) = semantic_row(&conn, tx.id()).await;
-
-      assert_eq!(semantic.as_deref(), Some("created"));
-      assert_eq!(old, None);
-      assert_eq!(new, None);
-    }
-
-    #[tokio::test]
-    async fn it_persists_status_change_with_old_and_new_values() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let tx = begin(&conn, &pid, "task update").await.unwrap();
-      record_semantic_event(
-        &conn,
-        tx.id(),
-        "tasks",
-        "abc",
-        "modified",
-        None,
-        Some("status-change"),
-        Some("open"),
-        Some("in-progress"),
-      )
-      .await
-      .unwrap();
-
-      let (semantic, old, new) = semantic_row(&conn, tx.id()).await;
-
-      assert_eq!(semantic.as_deref(), Some("status-change"));
-      assert_eq!(old.as_deref(), Some("open"));
-      assert_eq!(new.as_deref(), Some("in-progress"));
-    }
-
-    #[tokio::test]
-    async fn it_persists_priority_change_with_old_and_new_values() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let tx = begin(&conn, &pid, "task update").await.unwrap();
-      record_semantic_event(
-        &conn,
-        tx.id(),
-        "tasks",
-        "abc",
-        "modified",
-        None,
-        Some("priority-change"),
-        Some("2"),
-        Some("1"),
-      )
-      .await
-      .unwrap();
-
-      let (semantic, old, new) = semantic_row(&conn, tx.id()).await;
-
-      assert_eq!(semantic.as_deref(), Some("priority-change"));
-      assert_eq!(old.as_deref(), Some("2"));
-      assert_eq!(new.as_deref(), Some("1"));
-    }
-
-    #[tokio::test]
-    async fn it_persists_phase_change_with_old_and_new_values() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let tx = begin(&conn, &pid, "task update").await.unwrap();
-      record_semantic_event(
-        &conn,
-        tx.id(),
-        "iteration_tasks",
-        "abc",
-        "modified",
-        None,
-        Some("phase-change"),
-        Some("1"),
-        Some("2"),
-      )
-      .await
-      .unwrap();
-
-      let (semantic, old, new) = semantic_row(&conn, tx.id()).await;
-
-      assert_eq!(semantic.as_deref(), Some("phase-change"));
-      assert_eq!(old.as_deref(), Some("1"));
-      assert_eq!(new.as_deref(), Some("2"));
-    }
-
-    #[tokio::test]
     async fn it_persists_archived_semantic_type() {
       let (_store, conn, _tmp, pid) = setup().await;
 
@@ -675,6 +571,30 @@ mod tests {
       let (semantic, _, _) = semantic_row(&conn, tx.id()).await;
 
       assert_eq!(semantic.as_deref(), Some("archived"));
+    }
+
+    #[tokio::test]
+    async fn it_persists_cancelled_semantic_type() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let tx = begin(&conn, &pid, "task cancel").await.unwrap();
+      record_semantic_event(
+        &conn,
+        tx.id(),
+        "tasks",
+        "abc",
+        "modified",
+        None,
+        Some("cancelled"),
+        Some("open"),
+        Some("cancelled"),
+      )
+      .await
+      .unwrap();
+
+      let (semantic, _, _) = semantic_row(&conn, tx.id()).await;
+
+      assert_eq!(semantic.as_deref(), Some("cancelled"));
     }
 
     #[tokio::test]
@@ -704,10 +624,62 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn it_persists_cancelled_semantic_type() {
+    async fn it_persists_created_semantic_type() {
       let (_store, conn, _tmp, pid) = setup().await;
 
-      let tx = begin(&conn, &pid, "task cancel").await.unwrap();
+      let tx = begin(&conn, &pid, "task create").await.unwrap();
+      record_semantic_event(
+        &conn,
+        tx.id(),
+        "tasks",
+        "abc",
+        "created",
+        None,
+        Some("created"),
+        None,
+        None,
+      )
+      .await
+      .unwrap();
+
+      let (semantic, old, new) = semantic_row(&conn, tx.id()).await;
+
+      assert_eq!(semantic.as_deref(), Some("created"));
+      assert_eq!(old, None);
+      assert_eq!(new, None);
+    }
+
+    #[tokio::test]
+    async fn it_persists_phase_change_with_old_and_new_values() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let tx = begin(&conn, &pid, "task update").await.unwrap();
+      record_semantic_event(
+        &conn,
+        tx.id(),
+        "iteration_tasks",
+        "abc",
+        "modified",
+        None,
+        Some("phase-change"),
+        Some("1"),
+        Some("2"),
+      )
+      .await
+      .unwrap();
+
+      let (semantic, old, new) = semantic_row(&conn, tx.id()).await;
+
+      assert_eq!(semantic.as_deref(), Some("phase-change"));
+      assert_eq!(old.as_deref(), Some("1"));
+      assert_eq!(new.as_deref(), Some("2"));
+    }
+
+    #[tokio::test]
+    async fn it_persists_priority_change_with_old_and_new_values() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let tx = begin(&conn, &pid, "task update").await.unwrap();
       record_semantic_event(
         &conn,
         tx.id(),
@@ -715,16 +687,44 @@ mod tests {
         "abc",
         "modified",
         None,
-        Some("cancelled"),
-        Some("open"),
-        Some("cancelled"),
+        Some("priority-change"),
+        Some("2"),
+        Some("1"),
       )
       .await
       .unwrap();
 
-      let (semantic, _, _) = semantic_row(&conn, tx.id()).await;
+      let (semantic, old, new) = semantic_row(&conn, tx.id()).await;
 
-      assert_eq!(semantic.as_deref(), Some("cancelled"));
+      assert_eq!(semantic.as_deref(), Some("priority-change"));
+      assert_eq!(old.as_deref(), Some("2"));
+      assert_eq!(new.as_deref(), Some("1"));
+    }
+
+    #[tokio::test]
+    async fn it_persists_status_change_with_old_and_new_values() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let tx = begin(&conn, &pid, "task update").await.unwrap();
+      record_semantic_event(
+        &conn,
+        tx.id(),
+        "tasks",
+        "abc",
+        "modified",
+        None,
+        Some("status-change"),
+        Some("open"),
+        Some("in-progress"),
+      )
+      .await
+      .unwrap();
+
+      let (semantic, old, new) = semantic_row(&conn, tx.id()).await;
+
+      assert_eq!(semantic.as_deref(), Some("status-change"));
+      assert_eq!(old.as_deref(), Some("open"));
+      assert_eq!(new.as_deref(), Some("in-progress"));
     }
   }
 

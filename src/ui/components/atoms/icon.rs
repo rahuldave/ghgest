@@ -25,14 +25,6 @@ impl Component {
     }
   }
 
-  /// Phase diamond icon.
-  pub fn phase() -> Self {
-    Self {
-      ch: '\u{25C6}',
-      style: *crate::ui::style::global().iteration_graph_phase_icon(),
-    } // ◆
-  }
-
   /// Status icon for the given status string.
   pub fn status(status: &str) -> Self {
     let theme = crate::ui::style::global();

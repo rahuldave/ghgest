@@ -50,11 +50,6 @@ impl Model {
     &self.metadata
   }
 
-  /// The project this artifact belongs to.
-  pub fn project_id(&self) -> &Id {
-    &self.project_id
-  }
-
   /// The artifact's title.
   pub fn title(&self) -> &str {
     &self.title

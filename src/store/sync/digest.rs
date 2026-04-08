@@ -68,6 +68,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn it_returns_64_char_hex_string() {
+      let d = compute(b"test");
+
+      assert_eq!(d.len(), 64);
+      assert!(d.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
     fn it_returns_consistent_digest() {
       let d1 = compute(b"hello world");
       let d2 = compute(b"hello world");
@@ -81,14 +89,6 @@ mod tests {
       let d2 = compute(b"world");
 
       assert_ne!(d1, d2);
-    }
-
-    #[test]
-    fn it_returns_64_char_hex_string() {
-      let d = compute(b"test");
-
-      assert_eq!(d.len(), 64);
-      assert!(d.chars().all(|c| c.is_ascii_hexdigit()));
     }
   }
 }

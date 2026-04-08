@@ -158,35 +158,31 @@ mod tests {
     id
   }
 
-  mod write_all {
-    use super::*;
-
-    #[tokio::test]
-    async fn it_writes_one_yaml_file_per_author() {
-      let (db, _root, pid, gest_dir) = setup().await;
-      let conn = db.connect().await.unwrap();
-      let id_a = insert_author(&conn, "Alice", Some("alice@example.com")).await;
-      let id_b = insert_author(&conn, "Bob", None).await;
-
-      write_all(&conn, &pid, &gest_dir).await.unwrap();
-
-      let path_a = paths::author_path(&gest_dir, &id_a);
-      let path_b = paths::author_path(&gest_dir, &id_b);
-      assert!(path_a.exists());
-      assert!(path_b.exists());
-      let raw_a = std::fs::read_to_string(&path_a).unwrap();
-      assert!(raw_a.contains("name: Alice"));
-      assert!(raw_a.contains("email: alice@example.com"));
-      let raw_b = std::fs::read_to_string(&path_b).unwrap();
-      assert!(raw_b.contains("name: Bob"));
-      assert!(!raw_b.contains("email:"));
-    }
-  }
-
   mod read_all {
     use pretty_assertions::assert_eq;
 
     use super::*;
+
+    #[tokio::test]
+    async fn it_hard_deletes_for_a_tombstoned_file() {
+      let (db, _root, pid, gest_dir) = setup().await;
+      let conn = db.connect().await.unwrap();
+      let id = insert_author(&conn, "Dave", None).await;
+      write_all(&conn, &pid, &gest_dir).await.unwrap();
+
+      let path = paths::author_path(&gest_dir, &id);
+      let mut content = std::fs::read_to_string(&path).unwrap();
+      content.insert_str(0, "deleted_at: 2026-04-08T12:00:00Z\n");
+      std::fs::write(&path, content).unwrap();
+
+      read_all(&conn, &pid, &gest_dir).await.unwrap();
+
+      let mut rows = conn
+        .query("SELECT id FROM authors WHERE id = ?1", [id.to_string()])
+        .await
+        .unwrap();
+      assert!(rows.next().await.unwrap().is_none());
+    }
 
     #[tokio::test]
     async fn it_roundtrips_authors_through_disk() {
@@ -211,26 +207,30 @@ mod tests {
       assert_eq!(name, "Carol");
       assert_eq!(email, "carol@example.com");
     }
+  }
+
+  mod write_all {
+    use super::*;
 
     #[tokio::test]
-    async fn it_hard_deletes_for_a_tombstoned_file() {
+    async fn it_writes_one_yaml_file_per_author() {
       let (db, _root, pid, gest_dir) = setup().await;
       let conn = db.connect().await.unwrap();
-      let id = insert_author(&conn, "Dave", None).await;
+      let id_a = insert_author(&conn, "Alice", Some("alice@example.com")).await;
+      let id_b = insert_author(&conn, "Bob", None).await;
+
       write_all(&conn, &pid, &gest_dir).await.unwrap();
 
-      let path = paths::author_path(&gest_dir, &id);
-      let mut content = std::fs::read_to_string(&path).unwrap();
-      content.insert_str(0, "deleted_at: 2026-04-08T12:00:00Z\n");
-      std::fs::write(&path, content).unwrap();
-
-      read_all(&conn, &pid, &gest_dir).await.unwrap();
-
-      let mut rows = conn
-        .query("SELECT id FROM authors WHERE id = ?1", [id.to_string()])
-        .await
-        .unwrap();
-      assert!(rows.next().await.unwrap().is_none());
+      let path_a = paths::author_path(&gest_dir, &id_a);
+      let path_b = paths::author_path(&gest_dir, &id_b);
+      assert!(path_a.exists());
+      assert!(path_b.exists());
+      let raw_a = std::fs::read_to_string(&path_a).unwrap();
+      assert!(raw_a.contains("name: Alice"));
+      assert!(raw_a.contains("email: alice@example.com"));
+      let raw_b = std::fs::read_to_string(&path_b).unwrap();
+      assert!(raw_b.contains("name: Bob"));
+      assert!(!raw_b.contains("email:"));
     }
   }
 }

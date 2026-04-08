@@ -40,20 +40,6 @@ impl Flags {
     Ok(())
   }
 
-  /// Print a JSON-serializable value for JSON mode, nothing for quiet mode,
-  /// or the normal display for human mode.
-  pub fn print_json_or<T: Serialize>(&self, value: &T, normal: impl FnOnce() -> String) -> Result<(), Error> {
-    if self.json {
-      let json = serde_json::to_string_pretty(value)?;
-      println!("{json}");
-    } else if self.quiet {
-      // quiet on list commands: print nothing
-    } else {
-      println!("{}", normal());
-    }
-    Ok(())
-  }
-
   /// Print a value with explicit support for `--raw`.
   ///
   /// Mode precedence: `--json` (serialized) > `--raw` (script-friendly plain
@@ -90,27 +76,6 @@ impl Flags {
       return Ok(None);
     }
     Ok(Some(normal()))
-  }
-
-  /// Print a list of entities. In JSON mode the list is serialized; in quiet mode
-  /// only IDs are printed (one per line); otherwise `normal` is called.
-  pub fn print_list<T: Serialize>(
-    &self,
-    entities: &[T],
-    ids: &[String],
-    normal: impl FnOnce() -> String,
-  ) -> Result<(), Error> {
-    if self.json {
-      let json = serde_json::to_string_pretty(entities)?;
-      println!("{json}");
-    } else if self.quiet {
-      for id in ids {
-        println!("{id}");
-      }
-    } else {
-      println!("{}", normal());
-    }
-    Ok(())
   }
 
   /// Print nothing (for delete in quiet mode), or the normal message.

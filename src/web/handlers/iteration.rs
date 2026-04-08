@@ -516,6 +516,58 @@ mod tests {
     }
   }
 
+  mod build_iteration_list {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn it_defaults_to_all_when_no_status_given() {
+      let state = setup().await;
+
+      let (rows, active, completed, cancelled, current) = build_iteration_list(&state, &None).await.unwrap();
+
+      assert_eq!(current, "all");
+      assert_eq!(rows.len(), 4);
+      assert_eq!((active, completed, cancelled), (2, 1, 1));
+    }
+
+    #[tokio::test]
+    async fn it_filters_to_a_specific_status() {
+      let state = setup().await;
+
+      let (rows, _, _, _, current) = build_iteration_list(&state, &Some("completed".into())).await.unwrap();
+
+      assert_eq!(current, "completed");
+      assert_eq!(rows.len(), 1);
+      assert_eq!(rows[0].iteration.status(), IterationStatus::Completed);
+    }
+
+    #[tokio::test]
+    async fn it_reports_counts_across_every_status_regardless_of_filter() {
+      let state = setup().await;
+
+      let (_, active_a, completed_a, cancelled_a, _) = build_iteration_list(&state, &None).await.unwrap();
+      let (_, active_b, completed_b, cancelled_b, _) =
+        build_iteration_list(&state, &Some("completed".into())).await.unwrap();
+
+      assert_eq!((active_a, completed_a, cancelled_a), (2, 1, 1));
+      assert_eq!((active_b, completed_b, cancelled_b), (2, 1, 1));
+    }
+
+    #[tokio::test]
+    async fn it_returns_every_iteration_when_status_is_all() {
+      let state = setup().await;
+
+      let (rows, active, completed, cancelled, current) =
+        build_iteration_list(&state, &Some("all".into())).await.unwrap();
+
+      assert_eq!(current, "all");
+      assert_eq!(rows.len(), 4);
+      assert_eq!((active, completed, cancelled), (2, 1, 1));
+    }
+  }
+
   mod iteration_detail_timeline {
     use pretty_assertions::assert_eq;
 
@@ -597,58 +649,6 @@ mod tests {
       assert_eq!(items.len(), 2);
       assert!(items[0].as_event().is_some());
       assert!(items[1].as_note().is_some());
-    }
-  }
-
-  mod build_iteration_list {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn it_defaults_to_all_when_no_status_given() {
-      let state = setup().await;
-
-      let (rows, active, completed, cancelled, current) = build_iteration_list(&state, &None).await.unwrap();
-
-      assert_eq!(current, "all");
-      assert_eq!(rows.len(), 4);
-      assert_eq!((active, completed, cancelled), (2, 1, 1));
-    }
-
-    #[tokio::test]
-    async fn it_returns_every_iteration_when_status_is_all() {
-      let state = setup().await;
-
-      let (rows, active, completed, cancelled, current) =
-        build_iteration_list(&state, &Some("all".into())).await.unwrap();
-
-      assert_eq!(current, "all");
-      assert_eq!(rows.len(), 4);
-      assert_eq!((active, completed, cancelled), (2, 1, 1));
-    }
-
-    #[tokio::test]
-    async fn it_filters_to_a_specific_status() {
-      let state = setup().await;
-
-      let (rows, _, _, _, current) = build_iteration_list(&state, &Some("completed".into())).await.unwrap();
-
-      assert_eq!(current, "completed");
-      assert_eq!(rows.len(), 1);
-      assert_eq!(rows[0].iteration.status(), IterationStatus::Completed);
-    }
-
-    #[tokio::test]
-    async fn it_reports_counts_across_every_status_regardless_of_filter() {
-      let state = setup().await;
-
-      let (_, active_a, completed_a, cancelled_a, _) = build_iteration_list(&state, &None).await.unwrap();
-      let (_, active_b, completed_b, cancelled_b, _) =
-        build_iteration_list(&state, &Some("completed".into())).await.unwrap();
-
-      assert_eq!((active_a, completed_a, cancelled_a), (2, 1, 1));
-      assert_eq!((active_b, completed_b, cancelled_b), (2, 1, 1));
     }
   }
 }

@@ -23,9 +23,9 @@ use crate::store::model::primitives::Id;
 
 /// Thin wrapper around a [`libsql::Database`] with optional transparent sync.
 pub struct Db {
-  inner: Database,
   /// Whether the initial sync import has already run this process.
   imported: AtomicBool,
+  inner: Database,
   /// Sync context set after project resolution: `(project_id, gest_dir)`.
   sync_ctx: OnceLock<(Id, PathBuf)>,
 }

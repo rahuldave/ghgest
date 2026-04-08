@@ -46,13 +46,8 @@ impl<'a> Component<'a> {
     }
   }
 
-  /// Sets the highlighted prefix length used for the heading and link IDs.
-  pub fn id_prefix_len(mut self, len: usize) -> Self {
-    self.id_prefix_len = len;
-    self
-  }
-
   /// Sets the assignee for this task.
+  #[cfg(test)]
   pub fn assigned(mut self, a: Option<&'a str>) -> Self {
     self.assigned = a;
     self
@@ -64,13 +59,21 @@ impl<'a> Component<'a> {
     self
   }
 
+  /// Sets the highlighted prefix length used for the heading and link IDs.
+  pub fn id_prefix_len(mut self, len: usize) -> Self {
+    self.id_prefix_len = len;
+    self
+  }
+
   /// Sets task relationship links as `(relation, id)` pairs (e.g. `("blocked-by", "abc123")`).
+  #[cfg(test)]
   pub fn links(mut self, l: Vec<(&'a str, &'a str)>) -> Self {
     self.links = l;
     self
   }
 
   /// Sets the iteration phase as `(number, optional_name)`.
+  #[cfg(test)]
   pub fn phase(mut self, phase: Option<(u32, Option<&'a str>)>) -> Self {
     self.phase = phase;
     self

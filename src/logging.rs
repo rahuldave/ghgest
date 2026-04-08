@@ -154,6 +154,13 @@ mod tests {
     }
 
     #[test]
+    fn it_is_case_insensitive() {
+      assert_eq!(parse("DEBUG").unwrap(), LevelFilter::Debug);
+      assert_eq!(parse("Info").unwrap(), LevelFilter::Info);
+      assert_eq!(parse("WARN").unwrap(), LevelFilter::Warn);
+    }
+
+    #[test]
     fn it_parses_all_named_levels() {
       let cases = [
         ("debug", LevelFilter::Debug),
@@ -186,23 +193,16 @@ mod tests {
     }
 
     #[test]
-    fn it_is_case_insensitive() {
-      assert_eq!(parse("DEBUG").unwrap(), LevelFilter::Debug);
-      assert_eq!(parse("Info").unwrap(), LevelFilter::Info);
-      assert_eq!(parse("WARN").unwrap(), LevelFilter::Warn);
+    fn it_rejects_invalid_values() {
+      assert!(parse("invalid").is_err());
+      assert!(parse("6").is_err());
+      assert!(parse("").is_err());
     }
 
     #[test]
     fn it_trims_whitespace() {
       assert_eq!(parse("  debug  ").unwrap(), LevelFilter::Debug);
       assert_eq!(parse("\ttrace\n").unwrap(), LevelFilter::Trace);
-    }
-
-    #[test]
-    fn it_rejects_invalid_values() {
-      assert!(parse("invalid").is_err());
-      assert!(parse("6").is_err());
-      assert!(parse("").is_err());
     }
   }
 
@@ -215,6 +215,14 @@ mod tests {
     #[derive(Debug, Deserialize, PartialEq, Serialize)]
     struct Wrapper {
       level: LevelFilter,
+    }
+
+    #[test]
+    fn it_deserializes_lowercase_names() {
+      let toml_str = "level = \"debug\"";
+      let wrapper: Wrapper = toml::from_str(toml_str).unwrap();
+
+      assert_eq!(wrapper.level, LevelFilter::Debug);
     }
 
     #[test]
@@ -237,14 +245,6 @@ mod tests {
 
         assert_eq!(deserialized, wrapper, "roundtrip failed for {variant:?}");
       }
-    }
-
-    #[test]
-    fn it_deserializes_lowercase_names() {
-      let toml_str = "level = \"debug\"";
-      let wrapper: Wrapper = toml::from_str(toml_str).unwrap();
-
-      assert_eq!(wrapper.level, LevelFilter::Debug);
     }
   }
 }

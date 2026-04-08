@@ -168,6 +168,30 @@ mod tests {
     }
   }
 
+  mod delete_fn {
+    use super::*;
+
+    #[tokio::test]
+    async fn it_deletes_a_relationship() {
+      let (_store, conn, _tmp, t1, t2) = setup().await;
+
+      let rel = create(
+        &conn,
+        RelationshipType::Blocks,
+        EntityType::Task,
+        &t1,
+        EntityType::Task,
+        &t2,
+      )
+      .await
+      .unwrap();
+
+      let deleted = delete(&conn, rel.id()).await.unwrap();
+
+      assert!(deleted);
+    }
+  }
+
   mod for_entity_fn {
     use pretty_assertions::assert_eq;
 
@@ -195,30 +219,6 @@ mod tests {
       let rels_t2 = for_entity(&conn, EntityType::Task, &t2).await.unwrap();
 
       assert_eq!(rels_t2.len(), 1);
-    }
-  }
-
-  mod delete_fn {
-    use super::*;
-
-    #[tokio::test]
-    async fn it_deletes_a_relationship() {
-      let (_store, conn, _tmp, t1, t2) = setup().await;
-
-      let rel = create(
-        &conn,
-        RelationshipType::Blocks,
-        EntityType::Task,
-        &t1,
-        EntityType::Task,
-        &t2,
-      )
-      .await
-      .unwrap();
-
-      let deleted = delete(&conn, rel.id()).await.unwrap();
-
-      assert!(deleted);
     }
   }
 }

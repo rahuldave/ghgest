@@ -160,51 +160,10 @@ mod tests {
     (db, project_root, id, gest_dir)
   }
 
-  mod write_all {
-    use super::*;
-
-    #[tokio::test]
-    async fn it_writes_project_yaml_with_synced_fields_only() {
-      let (db, _root, id, gest_dir) = setup().await;
-      let conn = db.connect().await.unwrap();
-
-      write_all(&conn, &id, &gest_dir).await.unwrap();
-
-      let path = gest_dir.join("project.yaml");
-      assert!(path.exists());
-      let raw = std::fs::read_to_string(&path).unwrap();
-      assert!(raw.contains(&format!("id: {}", id)));
-      assert!(raw.contains("created_at:"));
-      assert!(raw.contains("updated_at:"));
-      // local-only field must not leak
-      assert!(!raw.contains("root:"));
-    }
-  }
-
   mod read_all {
     use pretty_assertions::assert_eq;
 
     use super::*;
-
-    #[tokio::test]
-    async fn it_roundtrips_a_project_through_disk() {
-      let (db, _root, id, gest_dir) = setup().await;
-      let conn = db.connect().await.unwrap();
-
-      write_all(&conn, &id, &gest_dir).await.unwrap();
-      conn
-        .execute("DELETE FROM projects WHERE id = ?1", [id.to_string()])
-        .await
-        .unwrap();
-
-      read_all(&conn, &id, &gest_dir).await.unwrap();
-
-      let mut rows = conn
-        .query("SELECT id FROM projects WHERE id = ?1", [id.to_string()])
-        .await
-        .unwrap();
-      assert!(rows.next().await.unwrap().is_some());
-    }
 
     #[tokio::test]
     async fn it_hard_deletes_the_row_for_a_tombstoned_file() {
@@ -242,6 +201,47 @@ mod tests {
         .await
         .unwrap();
       assert_eq!(rows.next().await.unwrap().is_some(), true);
+    }
+
+    #[tokio::test]
+    async fn it_roundtrips_a_project_through_disk() {
+      let (db, _root, id, gest_dir) = setup().await;
+      let conn = db.connect().await.unwrap();
+
+      write_all(&conn, &id, &gest_dir).await.unwrap();
+      conn
+        .execute("DELETE FROM projects WHERE id = ?1", [id.to_string()])
+        .await
+        .unwrap();
+
+      read_all(&conn, &id, &gest_dir).await.unwrap();
+
+      let mut rows = conn
+        .query("SELECT id FROM projects WHERE id = ?1", [id.to_string()])
+        .await
+        .unwrap();
+      assert!(rows.next().await.unwrap().is_some());
+    }
+  }
+
+  mod write_all {
+    use super::*;
+
+    #[tokio::test]
+    async fn it_writes_project_yaml_with_synced_fields_only() {
+      let (db, _root, id, gest_dir) = setup().await;
+      let conn = db.connect().await.unwrap();
+
+      write_all(&conn, &id, &gest_dir).await.unwrap();
+
+      let path = gest_dir.join("project.yaml");
+      assert!(path.exists());
+      let raw = std::fs::read_to_string(&path).unwrap();
+      assert!(raw.contains(&format!("id: {}", id)));
+      assert!(raw.contains("created_at:"));
+      assert!(raw.contains("updated_at:"));
+      // local-only field must not leak
+      assert!(!raw.contains("root:"));
     }
   }
 }

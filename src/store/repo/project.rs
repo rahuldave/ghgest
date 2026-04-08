@@ -212,6 +212,14 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn it_returns_an_empty_vec_when_empty() {
+      let (_store, conn, _tmp) = setup().await;
+
+      let projects = all(&conn).await.unwrap();
+      assert_eq!(projects.len(), 0);
+    }
+
+    #[tokio::test]
     async fn it_returns_projects_newest_first() {
       let (_store, conn, _tmp) = setup().await;
 
@@ -223,14 +231,6 @@ mod tests {
       assert_eq!(projects[0].id(), p2.id());
       assert_eq!(projects[1].id(), p1.id());
     }
-
-    #[tokio::test]
-    async fn it_returns_an_empty_vec_when_empty() {
-      let (_store, conn, _tmp) = setup().await;
-
-      let projects = all(&conn).await.unwrap();
-      assert_eq!(projects.len(), 0);
-    }
   }
 
   mod create {
@@ -239,11 +239,44 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn it_does_not_write_yaml_when_no_gest_dir() {
+      let tmp = tempfile::tempdir().unwrap();
+      let root = tmp.path().to_path_buf();
+
+      let (_store, conn, _tmp) = setup().await;
+      create(&conn, &root).await.unwrap();
+
+      assert!(!root.join(".gest/project.yaml").exists());
+    }
+
+    #[tokio::test]
     async fn it_persists_the_project() {
       let (_store, conn, _tmp) = setup().await;
 
       let created = create(&conn, "/tmp/created").await.unwrap();
       assert_eq!(created.root(), &PathBuf::from("/tmp/created"));
+    }
+
+    #[tokio::test]
+    async fn it_reads_id_from_file_when_project_yaml_exists() {
+      let tmp = tempfile::tempdir().unwrap();
+      let root = tmp.path().to_path_buf();
+      std::fs::create_dir_all(root.join(".gest")).unwrap();
+
+      let existing = Project::new(root.clone());
+      let stored = ProjectFile {
+        id: existing.id().clone(),
+        created_at: *existing.created_at(),
+        updated_at: *existing.updated_at(),
+      };
+      let yaml = yaml_serde::to_string(&stored).unwrap();
+      std::fs::write(root.join(".gest/project.yaml"), yaml).unwrap();
+
+      let (_store, conn, _tmp) = setup().await;
+      let created = create(&conn, &root).await.unwrap();
+
+      assert_eq!(created.id(), existing.id());
+      assert_eq!(created.root(), existing.root());
     }
 
     #[tokio::test]
@@ -288,39 +321,6 @@ mod tests {
       let yaml_path = ancestor.join(".gest/project.yaml");
       assert!(yaml_path.exists());
     }
-
-    #[tokio::test]
-    async fn it_reads_id_from_file_when_project_yaml_exists() {
-      let tmp = tempfile::tempdir().unwrap();
-      let root = tmp.path().to_path_buf();
-      std::fs::create_dir_all(root.join(".gest")).unwrap();
-
-      let existing = Project::new(root.clone());
-      let stored = ProjectFile {
-        id: existing.id().clone(),
-        created_at: *existing.created_at(),
-        updated_at: *existing.updated_at(),
-      };
-      let yaml = yaml_serde::to_string(&stored).unwrap();
-      std::fs::write(root.join(".gest/project.yaml"), yaml).unwrap();
-
-      let (_store, conn, _tmp) = setup().await;
-      let created = create(&conn, &root).await.unwrap();
-
-      assert_eq!(created.id(), existing.id());
-      assert_eq!(created.root(), existing.root());
-    }
-
-    #[tokio::test]
-    async fn it_does_not_write_yaml_when_no_gest_dir() {
-      let tmp = tempfile::tempdir().unwrap();
-      let root = tmp.path().to_path_buf();
-
-      let (_store, conn, _tmp) = setup().await;
-      create(&conn, &root).await.unwrap();
-
-      assert!(!root.join(".gest/project.yaml").exists());
-    }
   }
 
   mod find_by_id {
@@ -350,6 +350,14 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use super::*;
+
+    #[tokio::test]
+    async fn it_returns_none_when_no_match() {
+      let (_store, conn, _tmp) = setup().await;
+
+      let found = find_by_path(&conn, Path::new("/does/not/exist")).await.unwrap();
+      assert_eq!(found, None);
+    }
 
     #[tokio::test]
     async fn it_returns_the_project_when_matching_root() {
@@ -384,14 +392,6 @@ mod tests {
 
       let found = find_by_path(&conn, Path::new("/tmp/my-workspace")).await.unwrap();
       assert_eq!(found.as_ref().map(|p| p.id()), Some(project.id()));
-    }
-
-    #[tokio::test]
-    async fn it_returns_none_when_no_match() {
-      let (_store, conn, _tmp) = setup().await;
-
-      let found = find_by_path(&conn, Path::new("/does/not/exist")).await.unwrap();
-      assert_eq!(found, None);
     }
   }
 

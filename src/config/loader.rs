@@ -4,6 +4,30 @@ use toml::{Value, value::Table};
 
 use super::{Error, Settings, env::GEST_CONFIG};
 
+/// Return the active global config file path, if one exists on disk.
+pub fn active_global_config_path() -> Option<PathBuf> {
+  let path = global_config_path().ok()?;
+  path.is_file().then_some(path)
+}
+
+/// Return the active per-directory config file paths in load order, walking from
+/// filesystem root down to `$CWD`. Only files that exist on disk are included.
+pub fn active_project_config_paths() -> Vec<PathBuf> {
+  let cwd = env::current_dir().unwrap_or_default();
+  let mut ancestors: Vec<PathBuf> = cwd.ancestors().map(PathBuf::from).collect();
+  ancestors.reverse();
+
+  let mut paths = Vec::new();
+  for dir in ancestors {
+    for candidate in [dir.join(".config/gest.toml"), dir.join(".gest.toml")] {
+      if candidate.is_file() {
+        paths.push(candidate);
+      }
+    }
+  }
+  paths
+}
+
 /// Load and merge configuration from all sources.
 ///
 /// Resolution order (each layer overrides the previous):
@@ -39,30 +63,6 @@ pub fn load() -> Result<Settings, Error> {
   let settings: Settings = Value::Table(merged).try_into()?;
 
   Ok(settings)
-}
-
-/// Return the active global config file path, if one exists on disk.
-pub fn active_global_config_path() -> Option<PathBuf> {
-  let path = global_config_path().ok()?;
-  path.is_file().then_some(path)
-}
-
-/// Return the active per-directory config file paths in load order, walking from
-/// filesystem root down to `$CWD`. Only files that exist on disk are included.
-pub fn active_project_config_paths() -> Vec<PathBuf> {
-  let cwd = env::current_dir().unwrap_or_default();
-  let mut ancestors: Vec<PathBuf> = cwd.ancestors().map(PathBuf::from).collect();
-  ancestors.reverse();
-
-  let mut paths = Vec::new();
-  for dir in ancestors {
-    for candidate in [dir.join(".config/gest.toml"), dir.join(".gest.toml")] {
-      if candidate.is_file() {
-        paths.push(candidate);
-      }
-    }
-  }
-  paths
 }
 
 /// Resolve the path to the global config file, preferring `$GEST_CONFIG` over the XDG default.
@@ -314,16 +314,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_returns_none_for_missing_file() {
-      let dir = TempDir::new().unwrap();
-      let path = dir.path().join("nonexistent.toml");
-
-      let result = read_toml(&path).unwrap();
-
-      assert!(result.is_none());
-    }
-
-    #[test]
     fn it_parses_a_valid_toml_file() {
       let dir = TempDir::new().unwrap();
       let path = dir.path().join("config.toml");
@@ -348,6 +338,16 @@ mod tests {
       let result = read_toml(&path);
 
       assert!(result.is_err());
+    }
+
+    #[test]
+    fn it_returns_none_for_missing_file() {
+      let dir = TempDir::new().unwrap();
+      let path = dir.path().join("nonexistent.toml");
+
+      let result = read_toml(&path).unwrap();
+
+      assert!(result.is_none());
     }
   }
 }

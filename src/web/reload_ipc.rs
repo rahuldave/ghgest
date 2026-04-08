@@ -126,29 +126,6 @@ mod tests {
     }
   }
 
-  mod spawn_reload_listener {
-    use super::*;
-
-    #[tokio::test]
-    async fn it_forwards_connections_as_reload_signals() {
-      use tokio::net::UnixStream;
-
-      let tmp = tempfile::tempdir().unwrap();
-      let path = tmp.path().join("web.sock");
-      let listener = bind_reload_socket(&path).unwrap();
-      let (tx, mut rx) = tokio::sync::broadcast::channel::<()>(4);
-      let handle = spawn_reload_listener(listener, tx);
-
-      let _client = UnixStream::connect(&path).await.unwrap();
-      let recv = tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
-        .await
-        .expect("reload signal should arrive");
-
-      assert!(recv.is_ok());
-      handle.abort();
-    }
-  }
-
   mod reload_socket_guard {
     use super::*;
 
@@ -173,6 +150,29 @@ mod tests {
       drop(guard);
 
       assert!(!path.exists());
+    }
+  }
+
+  mod spawn_reload_listener {
+    use super::*;
+
+    #[tokio::test]
+    async fn it_forwards_connections_as_reload_signals() {
+      use tokio::net::UnixStream;
+
+      let tmp = tempfile::tempdir().unwrap();
+      let path = tmp.path().join("web.sock");
+      let listener = bind_reload_socket(&path).unwrap();
+      let (tx, mut rx) = tokio::sync::broadcast::channel::<()>(4);
+      let handle = spawn_reload_listener(listener, tx);
+
+      let _client = UnixStream::connect(&path).await.unwrap();
+      let recv = tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
+        .await
+        .expect("reload signal should arrive");
+
+      assert!(recv.is_ok());
+      handle.abort();
     }
   }
 }

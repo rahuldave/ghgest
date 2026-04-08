@@ -233,130 +233,37 @@ mod tests {
     s.parse().unwrap()
   }
 
-  mod resolve_id_fn {
+  mod resolve_entity_fn {
     use pretty_assertions::assert_eq;
 
     use super::*;
 
     #[tokio::test]
-    async fn it_resolves_a_full_id() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let id = Id::new();
-      insert_task(&conn, &pid, &id, "open").await;
-
-      let resolved = resolve_id(&conn, "tasks", &id.to_string()).await.unwrap();
-      assert_eq!(resolved, id);
-    }
-
-    #[tokio::test]
-    async fn it_resolves_a_prefix() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let id = Id::new();
-      insert_task(&conn, &pid, &id, "open").await;
-
-      let resolved = resolve_id(&conn, "tasks", &id.short()).await.unwrap();
-      assert_eq!(resolved, id);
-    }
-
-    #[tokio::test]
-    async fn it_returns_error_when_not_found() {
-      let (_store, conn, _tmp, _pid) = setup().await;
-
-      let result = resolve_id(&conn, "tasks", "kkkkkkkk").await;
-      assert!(matches!(result, Err(Error::NotFound(_))));
-    }
-
-    #[tokio::test]
-    async fn it_returns_error_when_invalid_prefix() {
-      let (_store, conn, _tmp, _pid) = setup().await;
-
-      let result = resolve_id(&conn, "tasks", "invalid!").await;
-      assert!(matches!(result, Err(Error::InvalidPrefix(_))));
-    }
-
-    #[tokio::test]
-    async fn it_returns_unique_active_match() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let active = Id::new();
-      insert_task(&conn, &pid, &active, "open").await;
-
-      let resolved = resolve_id(&conn, "tasks", &active.short()).await.unwrap();
-      assert_eq!(resolved, active);
-    }
-
-    #[tokio::test]
-    async fn it_falls_back_to_terminal_when_no_active_match() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let done = Id::new();
-      insert_task(&conn, &pid, &done, "done").await;
-
-      let resolved = resolve_id(&conn, "tasks", &done.short()).await.unwrap();
-      assert_eq!(resolved, done);
-    }
-
-    #[tokio::test]
-    async fn it_falls_back_to_archived_artifact_when_no_active_match() {
+    async fn it_falls_back_across_types_to_archived_match() {
       let (_store, conn, _tmp, pid) = setup().await;
 
       let archived = Id::new();
       insert_artifact(&conn, &pid, &archived, true).await;
 
-      let resolved = resolve_id(&conn, "artifacts", &archived.short()).await.unwrap();
+      let (entity_type, resolved) = resolve_entity(&conn, &archived.short()).await.unwrap();
+      assert_eq!(entity_type, EntityType::Artifact);
       assert_eq!(resolved, archived);
     }
 
     #[tokio::test]
-    async fn it_prefers_active_over_archived_silently_on_collision() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      // Two artifacts with a shared 4-char prefix: one active, one archived.
-      let prefix = "klmn";
-      let active = id("klmnopqrstuvwxyzkkkkkkkkkkkkkkkk");
-      let archived = id("klmnopqrstuvwxyzllllllllllllllll");
-      insert_artifact(&conn, &pid, &active, false).await;
-      insert_artifact(&conn, &pid, &archived, true).await;
-
-      let resolved = resolve_id(&conn, "artifacts", prefix).await.unwrap();
-      assert_eq!(resolved, active);
-    }
-
-    #[tokio::test]
-    async fn it_returns_ambiguous_within_active_set() {
+    async fn it_prefers_active_over_terminal_silently_across_types() {
       let (_store, conn, _tmp, pid) = setup().await;
 
       let prefix = "klmn";
-      let a = id("klmnopqrstuvwxyzkkkkkkkkkkkkkkkk");
-      let b = id("klmnopqrstuvwxyzllllllllllllllll");
-      insert_task(&conn, &pid, &a, "open").await;
-      insert_task(&conn, &pid, &b, "open").await;
+      let active_task = id("klmnopqrstuvwxyzkkkkkkkkkkkkkkkk");
+      let archived_artifact = id("klmnopqrstuvwxyzllllllllllllllll");
+      insert_task(&conn, &pid, &active_task, "open").await;
+      insert_artifact(&conn, &pid, &archived_artifact, true).await;
 
-      let result = resolve_id(&conn, "tasks", prefix).await;
-      assert!(matches!(result, Err(Error::Ambiguous(_, 2))));
+      let (entity_type, resolved) = resolve_entity(&conn, prefix).await.unwrap();
+      assert_eq!(entity_type, EntityType::Task);
+      assert_eq!(resolved, active_task);
     }
-
-    #[tokio::test]
-    async fn it_returns_ambiguous_within_terminal_when_zero_active() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let prefix = "klmn";
-      let a = id("klmnopqrstuvwxyzkkkkkkkkkkkkkkkk");
-      let b = id("klmnopqrstuvwxyzllllllllllllllll");
-      insert_task(&conn, &pid, &a, "done").await;
-      insert_task(&conn, &pid, &b, "cancelled").await;
-
-      let result = resolve_id(&conn, "tasks", prefix).await;
-      assert!(matches!(result, Err(Error::Ambiguous(_, 2))));
-    }
-  }
-
-  mod resolve_entity_fn {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
 
     #[tokio::test]
     async fn it_resolves_a_task() {
@@ -409,15 +316,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn it_returns_error_when_not_found() {
-      let (_store, conn, _tmp, _pid) = setup().await;
-
-      let result = resolve_entity(&conn, "kkkkkkkk").await;
-
-      assert!(matches!(result, Err(Error::NotFound(_))));
-    }
-
-    #[tokio::test]
     async fn it_returns_error_when_invalid_prefix() {
       let (_store, conn, _tmp, _pid) = setup().await;
 
@@ -427,30 +325,132 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn it_falls_back_across_types_to_archived_match() {
+    async fn it_returns_error_when_not_found() {
+      let (_store, conn, _tmp, _pid) = setup().await;
+
+      let result = resolve_entity(&conn, "kkkkkkkk").await;
+
+      assert!(matches!(result, Err(Error::NotFound(_))));
+    }
+  }
+
+  mod resolve_id_fn {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn it_falls_back_to_archived_artifact_when_no_active_match() {
       let (_store, conn, _tmp, pid) = setup().await;
 
       let archived = Id::new();
       insert_artifact(&conn, &pid, &archived, true).await;
 
-      let (entity_type, resolved) = resolve_entity(&conn, &archived.short()).await.unwrap();
-      assert_eq!(entity_type, EntityType::Artifact);
+      let resolved = resolve_id(&conn, "artifacts", &archived.short()).await.unwrap();
       assert_eq!(resolved, archived);
     }
 
     #[tokio::test]
-    async fn it_prefers_active_over_terminal_silently_across_types() {
+    async fn it_falls_back_to_terminal_when_no_active_match() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let done = Id::new();
+      insert_task(&conn, &pid, &done, "done").await;
+
+      let resolved = resolve_id(&conn, "tasks", &done.short()).await.unwrap();
+      assert_eq!(resolved, done);
+    }
+
+    #[tokio::test]
+    async fn it_prefers_active_over_archived_silently_on_collision() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      // Two artifacts with a shared 4-char prefix: one active, one archived.
+      let prefix = "klmn";
+      let active = id("klmnopqrstuvwxyzkkkkkkkkkkkkkkkk");
+      let archived = id("klmnopqrstuvwxyzllllllllllllllll");
+      insert_artifact(&conn, &pid, &active, false).await;
+      insert_artifact(&conn, &pid, &archived, true).await;
+
+      let resolved = resolve_id(&conn, "artifacts", prefix).await.unwrap();
+      assert_eq!(resolved, active);
+    }
+
+    #[tokio::test]
+    async fn it_resolves_a_full_id() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let id = Id::new();
+      insert_task(&conn, &pid, &id, "open").await;
+
+      let resolved = resolve_id(&conn, "tasks", &id.to_string()).await.unwrap();
+      assert_eq!(resolved, id);
+    }
+
+    #[tokio::test]
+    async fn it_resolves_a_prefix() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let id = Id::new();
+      insert_task(&conn, &pid, &id, "open").await;
+
+      let resolved = resolve_id(&conn, "tasks", &id.short()).await.unwrap();
+      assert_eq!(resolved, id);
+    }
+
+    #[tokio::test]
+    async fn it_returns_ambiguous_within_active_set() {
       let (_store, conn, _tmp, pid) = setup().await;
 
       let prefix = "klmn";
-      let active_task = id("klmnopqrstuvwxyzkkkkkkkkkkkkkkkk");
-      let archived_artifact = id("klmnopqrstuvwxyzllllllllllllllll");
-      insert_task(&conn, &pid, &active_task, "open").await;
-      insert_artifact(&conn, &pid, &archived_artifact, true).await;
+      let a = id("klmnopqrstuvwxyzkkkkkkkkkkkkkkkk");
+      let b = id("klmnopqrstuvwxyzllllllllllllllll");
+      insert_task(&conn, &pid, &a, "open").await;
+      insert_task(&conn, &pid, &b, "open").await;
 
-      let (entity_type, resolved) = resolve_entity(&conn, prefix).await.unwrap();
-      assert_eq!(entity_type, EntityType::Task);
-      assert_eq!(resolved, active_task);
+      let result = resolve_id(&conn, "tasks", prefix).await;
+      assert!(matches!(result, Err(Error::Ambiguous(_, 2))));
+    }
+
+    #[tokio::test]
+    async fn it_returns_ambiguous_within_terminal_when_zero_active() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let prefix = "klmn";
+      let a = id("klmnopqrstuvwxyzkkkkkkkkkkkkkkkk");
+      let b = id("klmnopqrstuvwxyzllllllllllllllll");
+      insert_task(&conn, &pid, &a, "done").await;
+      insert_task(&conn, &pid, &b, "cancelled").await;
+
+      let result = resolve_id(&conn, "tasks", prefix).await;
+      assert!(matches!(result, Err(Error::Ambiguous(_, 2))));
+    }
+
+    #[tokio::test]
+    async fn it_returns_error_when_invalid_prefix() {
+      let (_store, conn, _tmp, _pid) = setup().await;
+
+      let result = resolve_id(&conn, "tasks", "invalid!").await;
+      assert!(matches!(result, Err(Error::InvalidPrefix(_))));
+    }
+
+    #[tokio::test]
+    async fn it_returns_error_when_not_found() {
+      let (_store, conn, _tmp, _pid) = setup().await;
+
+      let result = resolve_id(&conn, "tasks", "kkkkkkkk").await;
+      assert!(matches!(result, Err(Error::NotFound(_))));
+    }
+
+    #[tokio::test]
+    async fn it_returns_unique_active_match() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let active = Id::new();
+      insert_task(&conn, &pid, &active, "open").await;
+
+      let resolved = resolve_id(&conn, "tasks", &active.short()).await.unwrap();
+      assert_eq!(resolved, active);
     }
   }
 }

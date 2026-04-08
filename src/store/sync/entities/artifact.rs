@@ -417,64 +417,10 @@ mod tests {
     id
   }
 
-  mod write_all {
-    use super::*;
-
-    #[tokio::test]
-    async fn it_writes_artifact_md_with_frontmatter_and_body() {
-      let (db, _root, pid, gest_dir) = setup().await;
-      let conn = db.connect().await.unwrap();
-      let id = insert_artifact(&conn, &pid, "Spec", "# Heading\n\nbody text\n").await;
-
-      write_all(&conn, &pid, &gest_dir).await.unwrap();
-
-      let path = paths::artifact_path(&gest_dir, &id);
-      assert!(path.exists());
-      let raw = std::fs::read_to_string(&path).unwrap();
-      assert!(raw.starts_with("---\n"));
-      assert!(raw.contains("title: Spec"));
-      assert!(raw.contains("# Heading"));
-      assert!(raw.contains("body text"));
-    }
-
-    #[tokio::test]
-    async fn it_does_not_create_a_legacy_index_json_aggregate() {
-      let (db, _root, pid, gest_dir) = setup().await;
-      let conn = db.connect().await.unwrap();
-      insert_artifact(&conn, &pid, "Spec", "body").await;
-
-      write_all(&conn, &pid, &gest_dir).await.unwrap();
-
-      assert!(!gest_dir.join("artifacts/index.json").exists());
-      assert!(!gest_dir.join("artifact/index.json").exists());
-    }
-  }
-
   mod read_all {
     use pretty_assertions::assert_eq;
 
     use super::*;
-
-    #[tokio::test]
-    async fn it_roundtrips_artifact_through_disk_preserving_body() {
-      let (db, _root, pid, gest_dir) = setup().await;
-      let conn = db.connect().await.unwrap();
-      let id = insert_artifact(&conn, &pid, "Spec", "# Heading\n\nbody text\n").await;
-      write_all(&conn, &pid, &gest_dir).await.unwrap();
-      conn.execute("DELETE FROM artifacts", ()).await.unwrap();
-
-      read_all(&conn, &pid, &gest_dir).await.unwrap();
-
-      let mut rows = conn
-        .query("SELECT title, body FROM artifacts WHERE id = ?1", [id.to_string()])
-        .await
-        .unwrap();
-      let row = rows.next().await.unwrap().unwrap();
-      let title: String = row.get(0).unwrap();
-      let body: String = row.get(1).unwrap();
-      assert_eq!(title, "Spec");
-      assert_eq!(body, "# Heading\n\nbody text\n");
-    }
 
     #[tokio::test]
     async fn it_hard_deletes_for_a_tombstoned_file() {
@@ -497,12 +443,42 @@ mod tests {
         .unwrap();
       assert!(rows.next().await.unwrap().is_none());
     }
+
+    #[tokio::test]
+    async fn it_roundtrips_artifact_through_disk_preserving_body() {
+      let (db, _root, pid, gest_dir) = setup().await;
+      let conn = db.connect().await.unwrap();
+      let id = insert_artifact(&conn, &pid, "Spec", "# Heading\n\nbody text\n").await;
+      write_all(&conn, &pid, &gest_dir).await.unwrap();
+      conn.execute("DELETE FROM artifacts", ()).await.unwrap();
+
+      read_all(&conn, &pid, &gest_dir).await.unwrap();
+
+      let mut rows = conn
+        .query("SELECT title, body FROM artifacts WHERE id = ?1", [id.to_string()])
+        .await
+        .unwrap();
+      let row = rows.next().await.unwrap().unwrap();
+      let title: String = row.get(0).unwrap();
+      let body: String = row.get(1).unwrap();
+      assert_eq!(title, "Spec");
+      assert_eq!(body, "# Heading\n\nbody text\n");
+    }
   }
 
   mod split_frontmatter {
     use pretty_assertions::assert_eq;
 
     use super::*;
+
+    #[test]
+    fn it_errors_when_the_leading_delimiter_is_missing() {
+      let raw = "title: x\n---\nbody\n";
+
+      let result = split_frontmatter(raw);
+
+      assert!(result.is_err());
+    }
 
     #[test]
     fn it_separates_frontmatter_from_body() {
@@ -513,14 +489,38 @@ mod tests {
       assert_eq!(front, "title: x\n");
       assert_eq!(body, "hello world\n");
     }
+  }
 
-    #[test]
-    fn it_errors_when_the_leading_delimiter_is_missing() {
-      let raw = "title: x\n---\nbody\n";
+  mod write_all {
+    use super::*;
 
-      let result = split_frontmatter(raw);
+    #[tokio::test]
+    async fn it_does_not_create_a_legacy_index_json_aggregate() {
+      let (db, _root, pid, gest_dir) = setup().await;
+      let conn = db.connect().await.unwrap();
+      insert_artifact(&conn, &pid, "Spec", "body").await;
 
-      assert!(result.is_err());
+      write_all(&conn, &pid, &gest_dir).await.unwrap();
+
+      assert!(!gest_dir.join("artifacts/index.json").exists());
+      assert!(!gest_dir.join("artifact/index.json").exists());
+    }
+
+    #[tokio::test]
+    async fn it_writes_artifact_md_with_frontmatter_and_body() {
+      let (db, _root, pid, gest_dir) = setup().await;
+      let conn = db.connect().await.unwrap();
+      let id = insert_artifact(&conn, &pid, "Spec", "# Heading\n\nbody text\n").await;
+
+      write_all(&conn, &pid, &gest_dir).await.unwrap();
+
+      let path = paths::artifact_path(&gest_dir, &id);
+      assert!(path.exists());
+      let raw = std::fs::read_to_string(&path).unwrap();
+      assert!(raw.starts_with("---\n"));
+      assert!(raw.contains("title: Spec"));
+      assert!(raw.contains("# Heading"));
+      assert!(raw.contains("body text"));
     }
   }
 }

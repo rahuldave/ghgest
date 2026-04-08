@@ -34,6 +34,17 @@ mod tests {
     use super::*;
 
     #[test]
+    fn it_falls_back_to_config_value_when_env_var_is_invalid() {
+      let settings = Settings {
+        level: LevelFilter::Info,
+      };
+
+      temp_env::with_var("GEST_LOG__LEVEL", Some("not_a_level"), || {
+        assert_eq!(settings.level(), LevelFilter::Info);
+      });
+    }
+
+    #[test]
     fn it_prefers_env_var_over_config_value() {
       let settings = Settings {
         level: LevelFilter::Warn,
@@ -52,17 +63,6 @@ mod tests {
 
       temp_env::with_var("GEST_LOG__LEVEL", None::<&str>, || {
         assert_eq!(settings.level(), LevelFilter::Error);
-      });
-    }
-
-    #[test]
-    fn it_falls_back_to_config_value_when_env_var_is_invalid() {
-      let settings = Settings {
-        level: LevelFilter::Info,
-      };
-
-      temp_env::with_var("GEST_LOG__LEVEL", Some("not_a_level"), || {
-        assert_eq!(settings.level(), LevelFilter::Info);
       });
     }
   }

@@ -39,12 +39,6 @@ shell-words = "1"
 tempfile = "3"
 terminal_size = "0.4"
 thiserror = "2"
-tokio = { version = "1", features = [
-  "macros",
-  "net",
-  "rt-multi-thread",
-  "time",
-] }
 tokio-stream = { features = ["sync"], version = "0.1" }
 toml = "1"
 typed-env = "0.3"
@@ -62,9 +56,12 @@ default-features = false
 features = ["archive-tar", "compression-flate2", "reqwest", "rustls"]
 version = "0.44"
 
+[dependencies.tokio]
+features = ["macros", "net", "rt-multi-thread", "time"]
+version = "1"
+
 [dev-dependencies]
 assert_cmd = "2"
-predicates = "3"
 pretty_assertions = "1"
 temp-env = "0.3"
 tempfile = "3"

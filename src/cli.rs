@@ -286,6 +286,28 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn it_dispatches_to_subcommand() {
+      let app = App {
+        command: Some(Command::Version(commands::version::Command)),
+        no_color: false,
+        no_pager: false,
+        print_version: false,
+        verbosity_level: 0,
+      };
+      let context = AppContext {
+        gest_dir: None,
+        no_pager: false,
+        project_id: None,
+        settings: crate::config::Settings::default(),
+        store: crate::store::open_temp().await.unwrap().0,
+      };
+
+      let result = app.call(&context).await;
+
+      assert!(result.is_ok());
+    }
+
+    #[tokio::test]
     async fn it_dispatches_version_flag() {
       let app = App {
         command: None,
@@ -328,16 +350,13 @@ mod tests {
 
       assert!(result.is_ok());
     }
+  }
+
+  mod app_context_no_pager {
+    use super::*;
 
     #[tokio::test]
-    async fn it_dispatches_to_subcommand() {
-      let app = App {
-        command: Some(Command::Version(commands::version::Command)),
-        no_color: false,
-        no_pager: false,
-        print_version: false,
-        verbosity_level: 0,
-      };
+    async fn it_defaults_no_pager_accessor_to_false() {
       let context = AppContext {
         gest_dir: None,
         no_pager: false,
@@ -346,9 +365,20 @@ mod tests {
         store: crate::store::open_temp().await.unwrap().0,
       };
 
-      let result = app.call(&context).await;
+      assert!(!*context.no_pager());
+    }
 
-      assert!(result.is_ok());
+    #[tokio::test]
+    async fn it_exposes_no_pager_accessor() {
+      let context = AppContext {
+        gest_dir: None,
+        no_pager: true,
+        project_id: None,
+        settings: crate::config::Settings::default(),
+        store: crate::store::open_temp().await.unwrap().0,
+      };
+
+      assert!(*context.no_pager());
     }
   }
 
@@ -374,36 +404,6 @@ mod tests {
       let app = App::try_parse_from(["gest", "version", "--no-pager"]).unwrap();
 
       assert!(*app.no_pager());
-    }
-  }
-
-  mod app_context_no_pager {
-    use super::*;
-
-    #[tokio::test]
-    async fn it_exposes_no_pager_accessor() {
-      let context = AppContext {
-        gest_dir: None,
-        no_pager: true,
-        project_id: None,
-        settings: crate::config::Settings::default(),
-        store: crate::store::open_temp().await.unwrap().0,
-      };
-
-      assert!(*context.no_pager());
-    }
-
-    #[tokio::test]
-    async fn it_defaults_no_pager_accessor_to_false() {
-      let context = AppContext {
-        gest_dir: None,
-        no_pager: false,
-        project_id: None,
-        settings: crate::config::Settings::default(),
-        store: crate::store::open_temp().await.unwrap().0,
-      };
-
-      assert!(!*context.no_pager());
     }
   }
 }

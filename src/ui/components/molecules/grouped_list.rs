@@ -23,12 +23,6 @@ impl<'a> Component<'a> {
     self.rows.push(row.into());
     self
   }
-
-  /// Add multiple pre-rendered rows.
-  pub fn rows(mut self, rows: impl IntoIterator<Item = impl Into<String>>) -> Self {
-    self.rows.extend(rows.into_iter().map(Into::into));
-    self
-  }
 }
 
 impl Display for Component<'_> {

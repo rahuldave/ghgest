@@ -59,12 +59,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_returns_base_when_no_inputs() {
-      let base = Some(json!({"k": 1}));
+    fn it_errors_on_non_object_metadata_json() {
+      let blobs = vec!["[1,2,3]".to_string()];
 
-      let out = build_metadata(base.clone(), &[], &[]).unwrap();
+      assert!(build_metadata(None, &[], &blobs).is_err());
+    }
 
-      assert_eq!(out, base);
+    #[test]
+    fn it_errors_on_pair_without_equals() {
+      let pairs = vec!["bad".to_string()];
+
+      assert!(build_metadata(None, &pairs, &[]).is_err());
     }
 
     #[test]
@@ -99,17 +104,12 @@ mod tests {
     }
 
     #[test]
-    fn it_errors_on_pair_without_equals() {
-      let pairs = vec!["bad".to_string()];
+    fn it_returns_base_when_no_inputs() {
+      let base = Some(json!({"k": 1}));
 
-      assert!(build_metadata(None, &pairs, &[]).is_err());
-    }
+      let out = build_metadata(base.clone(), &[], &[]).unwrap();
 
-    #[test]
-    fn it_errors_on_non_object_metadata_json() {
-      let blobs = vec!["[1,2,3]".to_string()];
-
-      assert!(build_metadata(None, &[], &blobs).is_err());
+      assert_eq!(out, base);
     }
   }
 }

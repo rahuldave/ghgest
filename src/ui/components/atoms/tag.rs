@@ -42,20 +42,20 @@ mod tests {
   }
 
   #[test]
-  fn it_uses_double_space_between_tags() {
-    let tags = Component::new(vec!["bug".into(), "ui".into(), "v2".into()], Style::default());
-
-    let out = render(&tags);
-
-    assert_eq!(out, "#bug  #ui  #v2");
-  }
-
-  #[test]
   fn it_renders_single_tag_without_spacing() {
     let tags = Component::new(vec!["core".into()], Style::default());
 
     let out = render(&tags);
 
     assert_eq!(out, "#core");
+  }
+
+  #[test]
+  fn it_uses_double_space_between_tags() {
+    let tags = Component::new(vec!["bug".into(), "ui".into(), "v2".into()], Style::default());
+
+    let out = render(&tags);
+
+    assert_eq!(out, "#bug  #ui  #v2");
   }
 }

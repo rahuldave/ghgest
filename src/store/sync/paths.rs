@@ -146,19 +146,6 @@ mod tests {
     s.parse().unwrap()
   }
 
-  mod artifact_path {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn it_places_artifact_under_artifact_directory_with_md_extension() {
-      let path = artifact_path(&gest_dir(), &id("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"));
-
-      assert_eq!(path, gest_dir().join("artifact/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk.md"));
-    }
-  }
-
   mod artifact_note_path {
     use pretty_assertions::assert_eq;
 
@@ -172,6 +159,19 @@ mod tests {
         path,
         gest_dir().join("artifact/notes/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk.yaml")
       );
+    }
+  }
+
+  mod artifact_path {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn it_places_artifact_under_artifact_directory_with_md_extension() {
+      let path = artifact_path(&gest_dir(), &id("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"));
+
+      assert_eq!(path, gest_dir().join("artifact/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk.md"));
     }
   }
 
@@ -209,21 +209,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_strips_the_gest_dir_prefix() {
-      let path = task_path(&gest_dir(), &id("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"));
-
-      let rel = relative(&gest_dir(), &path);
-
-      assert_eq!(rel.as_deref(), Some("task/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk.yaml"));
-    }
-
-    #[test]
     fn it_returns_none_for_paths_outside_the_gest_dir() {
       let outside = PathBuf::from("/etc/passwd");
 
       let rel = relative(&gest_dir(), &outside);
 
       assert!(rel.is_none());
+    }
+
+    #[test]
+    fn it_strips_the_gest_dir_prefix() {
+      let path = task_path(&gest_dir(), &id("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"));
+
+      let rel = relative(&gest_dir(), &path);
+
+      assert_eq!(rel.as_deref(), Some("task/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk.yaml"));
     }
 
     #[test]

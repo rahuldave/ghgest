@@ -14,7 +14,7 @@
 const KNOWN_PREFIXES: &[&str] = &["is", "status", "tag"];
 
 /// A single filter extracted from the query.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Filter {
   Is(String),
   Status(String),
@@ -22,7 +22,7 @@ pub enum Filter {
 }
 
 /// The result of parsing a search query string.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ParsedQuery {
   pub exclude: Vec<Filter>,
   pub include: Vec<Filter>,
@@ -218,9 +218,9 @@ mod tests {
     }
 
     #[test]
-    fn it_is_not_empty_with_text() {
+    fn it_is_not_empty_with_filters() {
       let q = ParsedQuery {
-        text: vec!["hello".into()],
+        include: vec![Filter::Tag("foo".into())],
         ..Default::default()
       };
 
@@ -228,9 +228,9 @@ mod tests {
     }
 
     #[test]
-    fn it_is_not_empty_with_filters() {
+    fn it_is_not_empty_with_text() {
       let q = ParsedQuery {
-        include: vec![Filter::Tag("foo".into())],
+        text: vec!["hello".into()],
         ..Default::default()
       };
 

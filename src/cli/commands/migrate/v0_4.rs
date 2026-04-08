@@ -550,6 +550,7 @@ struct LegacyTask {
   notes: Option<Vec<LegacyNote>>,
   #[serde(default)]
   priority: Option<u8>,
+  #[cfg_attr(not(test), allow(dead_code))]
   #[serde(default)]
   resolved_at: Option<String>,
   status: String,
@@ -660,57 +661,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn it_imports_tasks_with_notes_and_metadata() {
-      let tmp = tempfile::tempdir().unwrap();
-      let source = tmp.path().join("legacy");
-      setup_legacy_dir(&source);
-
-      let task_toml = r#"
-        id = "zyxwvutsrqponmlkzyxwvutsrqponmlk"
-        title = "Test task"
-        description = "A description"
-        status = "open"
-        priority = 1
-        assigned_to = "agent-1"
-        tags = ["bug", "urgent"]
-        created_at = "2026-01-01T00:00:00Z"
-        updated_at = "2026-01-02T00:00:00Z"
-
-        [metadata]
-        custom_key = "value"
-
-        [[notes]]
-        author = "alice"
-        author_email = "alice@example.com"
-        body = "A note on this task"
-      "#;
-      std::fs::write(source.join("tasks/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml"), task_toml).unwrap();
-
-      let (store, project_id, _db_tmp) = setup_db().await;
-      let conn = store.connect().await.unwrap();
-      let mut counts = MigrationCounts::default();
-      let id_map = migrate_tasks(&conn, &project_id, &source, &mut counts).await.unwrap();
-
-      assert_eq!(counts.tasks, 1);
-      assert_eq!(counts.notes, 1);
-      assert_eq!(id_map.len(), 1);
-
-      let new_id = id_map.get("zyxwvutsrqponmlkzyxwvutsrqponmlk").unwrap();
-      let task = repo::task::find_by_id(&conn, new_id.clone()).await.unwrap().unwrap();
-      assert_eq!(task.title(), "Test task");
-      assert_eq!(task.description(), "A description");
-      assert_eq!(task.priority(), Some(1));
-
-      // Verify metadata
-      assert_eq!(task.metadata()["custom_key"], "value");
-
-      // Verify notes
-      let notes = repo::note::for_entity(&conn, EntityType::Task, new_id).await.unwrap();
-      assert_eq!(notes.len(), 1);
-      assert_eq!(notes[0].body(), "A note on this task");
-    }
-
-    #[tokio::test]
     async fn it_imports_iterations_with_task_associations() {
       let tmp = tempfile::tempdir().unwrap();
       let source = tmp.path().join("legacy");
@@ -774,6 +724,57 @@ mod tests {
         .await
         .unwrap();
       assert_eq!(tasks.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn it_imports_tasks_with_notes_and_metadata() {
+      let tmp = tempfile::tempdir().unwrap();
+      let source = tmp.path().join("legacy");
+      setup_legacy_dir(&source);
+
+      let task_toml = r#"
+        id = "zyxwvutsrqponmlkzyxwvutsrqponmlk"
+        title = "Test task"
+        description = "A description"
+        status = "open"
+        priority = 1
+        assigned_to = "agent-1"
+        tags = ["bug", "urgent"]
+        created_at = "2026-01-01T00:00:00Z"
+        updated_at = "2026-01-02T00:00:00Z"
+
+        [metadata]
+        custom_key = "value"
+
+        [[notes]]
+        author = "alice"
+        author_email = "alice@example.com"
+        body = "A note on this task"
+      "#;
+      std::fs::write(source.join("tasks/zyxwvutsrqponmlkzyxwvutsrqponmlk.toml"), task_toml).unwrap();
+
+      let (store, project_id, _db_tmp) = setup_db().await;
+      let conn = store.connect().await.unwrap();
+      let mut counts = MigrationCounts::default();
+      let id_map = migrate_tasks(&conn, &project_id, &source, &mut counts).await.unwrap();
+
+      assert_eq!(counts.tasks, 1);
+      assert_eq!(counts.notes, 1);
+      assert_eq!(id_map.len(), 1);
+
+      let new_id = id_map.get("zyxwvutsrqponmlkzyxwvutsrqponmlk").unwrap();
+      let task = repo::task::find_by_id(&conn, new_id.clone()).await.unwrap().unwrap();
+      assert_eq!(task.title(), "Test task");
+      assert_eq!(task.description(), "A description");
+      assert_eq!(task.priority(), Some(1));
+
+      // Verify metadata
+      assert_eq!(task.metadata()["custom_key"], "value");
+
+      // Verify notes
+      let notes = repo::note::for_entity(&conn, EntityType::Task, new_id).await.unwrap();
+      assert_eq!(notes.len(), 1);
+      assert_eq!(notes[0].body(), "A note on this task");
     }
   }
 
@@ -858,6 +859,47 @@ mod tests {
     }
   }
 
+  mod parse_legacy_iteration {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn it_parses_iteration_with_tasks() {
+      let toml_str = r#"
+        id = "zyxwvutsrqponmlkzyxwvutsrqponmlk"
+        title = "Sprint 1"
+        description = "First sprint"
+        status = "active"
+        tags = ["sprint"]
+        tasks = ["tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"]
+        created_at = "2026-01-01T00:00:00Z"
+        updated_at = "2026-01-02T00:00:00Z"
+      "#;
+      let iteration: LegacyIteration = toml::from_str(toml_str).unwrap();
+
+      assert_eq!(iteration.tasks.unwrap(), vec!["tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"]);
+      assert_eq!(iteration.tags.unwrap(), vec!["sprint"]);
+    }
+
+    #[test]
+    fn it_parses_minimal_iteration() {
+      let toml_str = r#"
+        id = "zyxwvutsrqponmlkzyxwvutsrqponmlk"
+        title = "Sprint"
+        status = "active"
+        created_at = "2026-01-01T00:00:00Z"
+        updated_at = "2026-01-01T00:00:00Z"
+      "#;
+      let iteration: LegacyIteration = toml::from_str(toml_str).unwrap();
+
+      assert_eq!(iteration.title, "Sprint");
+      assert_eq!(iteration.description, None);
+      assert!(iteration.tasks.unwrap_or_default().is_empty());
+      assert!(iteration.tags.unwrap_or_default().is_empty());
+    }
+  }
+
   mod parse_legacy_task {
     use pretty_assertions::assert_eq;
 
@@ -916,47 +958,6 @@ mod tests {
     }
   }
 
-  mod parse_legacy_iteration {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn it_parses_iteration_with_tasks() {
-      let toml_str = r#"
-        id = "zyxwvutsrqponmlkzyxwvutsrqponmlk"
-        title = "Sprint 1"
-        description = "First sprint"
-        status = "active"
-        tags = ["sprint"]
-        tasks = ["tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"]
-        created_at = "2026-01-01T00:00:00Z"
-        updated_at = "2026-01-02T00:00:00Z"
-      "#;
-      let iteration: LegacyIteration = toml::from_str(toml_str).unwrap();
-
-      assert_eq!(iteration.tasks.unwrap(), vec!["tasks/kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"]);
-      assert_eq!(iteration.tags.unwrap(), vec!["sprint"]);
-    }
-
-    #[test]
-    fn it_parses_minimal_iteration() {
-      let toml_str = r#"
-        id = "zyxwvutsrqponmlkzyxwvutsrqponmlk"
-        title = "Sprint"
-        status = "active"
-        created_at = "2026-01-01T00:00:00Z"
-        updated_at = "2026-01-01T00:00:00Z"
-      "#;
-      let iteration: LegacyIteration = toml::from_str(toml_str).unwrap();
-
-      assert_eq!(iteration.title, "Sprint");
-      assert_eq!(iteration.description, None);
-      assert!(iteration.tasks.unwrap_or_default().is_empty());
-      assert!(iteration.tags.unwrap_or_default().is_empty());
-    }
-  }
-
   mod parse_yaml_frontmatter {
     use pretty_assertions::assert_eq;
 
@@ -995,17 +996,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_returns_none_for_empty_table() {
-      let table = toml::Table::new();
-      assert_eq!(toml_table_to_json(&table), None);
-    }
-
-    #[test]
     fn it_converts_toml_table_to_json() {
       let mut table = toml::Table::new();
       table.insert("key".to_string(), toml::Value::String("value".to_string()));
       let json = toml_table_to_json(&table).unwrap();
       assert_eq!(json["key"], "value");
+    }
+
+    #[test]
+    fn it_returns_none_for_empty_table() {
+      let table = toml::Table::new();
+      assert_eq!(toml_table_to_json(&table), None);
     }
   }
 }

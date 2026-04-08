@@ -8,7 +8,6 @@ use crate::ui::components::molecules::row;
 pub struct Component {
   ch: char,
   label: Option<String>,
-  label_style: Option<Style>,
   style: Style,
   width: Option<usize>,
 }
@@ -19,7 +18,6 @@ impl Component {
     Self {
       ch: '─',
       label: None,
-      label_style: None,
       style,
       width: None,
     }
@@ -30,7 +28,6 @@ impl Component {
     Self {
       ch: '─',
       label: Some(label.into()),
-      label_style: None,
       style,
       width: None,
     }
@@ -41,16 +38,9 @@ impl Component {
     Self {
       ch: '╌',
       label: Some(label.into()),
-      label_style: None,
       style,
       width: None,
     }
-  }
-
-  /// Set an explicit style for the label text (defaults to the separator style).
-  pub fn label_style(mut self, style: Style) -> Self {
-    self.label_style = Some(style);
-    self
   }
 
   /// Override the separator width (defaults to terminal width minus indent).
@@ -72,12 +62,11 @@ impl Display for Component {
         let right = width.saturating_sub(label_len + left);
         let left_line: String = ch.repeat(left);
         let right_line: String = ch.repeat(right);
-        let ls = self.label_style.unwrap_or(self.style);
         write!(
           f,
           "{} {} {}",
           left_line.paint(self.style),
-          label.paint(ls),
+          label.paint(self.style),
           right_line.paint(self.style),
         )
       }

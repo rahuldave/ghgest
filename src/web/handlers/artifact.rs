@@ -18,7 +18,6 @@ use crate::{
     forms::{self, ExistingLink, NoteFormData},
     handlers::log_err,
     markdown,
-    note_display::{self, NoteDisplay},
     timeline::{self, TimelineItem},
   },
 };
@@ -49,7 +48,6 @@ struct ArtifactCreateTemplate {
 struct ArtifactDetailContentTemplate {
   artifact: artifact::Model,
   body_html: String,
-  notes: Vec<NoteDisplay>,
   tags: Vec<String>,
   timeline_items: Vec<TimelineItem>,
 }
@@ -59,7 +57,6 @@ struct ArtifactDetailContentTemplate {
 struct ArtifactDetailTemplate {
   artifact: artifact::Model,
   body_html: String,
-  notes: Vec<NoteDisplay>,
   tags: Vec<String>,
   timeline_items: Vec<TimelineItem>,
 }
@@ -160,12 +157,11 @@ pub async fn artifact_create_submit(
 
 /// Artifact detail page.
 pub async fn artifact_detail(State(state): State<AppState>, Path(id): Path<String>) -> Result<Html<String>, String> {
-  let (artifact, body_html, tags, notes, timeline_items) = build_artifact_detail_data(&state, &id).await?;
+  let (artifact, body_html, tags, timeline_items) = build_artifact_detail_data(&state, &id).await?;
   let tmpl = ArtifactDetailTemplate {
     artifact,
     body_html,
     tags,
-    notes,
     timeline_items,
   };
   Ok(Html(tmpl.render().map_err(log_err("artifact_detail"))?))
@@ -176,12 +172,11 @@ pub async fn artifact_detail_fragment(
   State(state): State<AppState>,
   Path(id): Path<String>,
 ) -> Result<Html<String>, String> {
-  let (artifact, body_html, tags, notes, timeline_items) = build_artifact_detail_data(&state, &id).await?;
+  let (artifact, body_html, tags, timeline_items) = build_artifact_detail_data(&state, &id).await?;
   let tmpl = ArtifactDetailContentTemplate {
     artifact,
     body_html,
     tags,
-    notes,
     timeline_items,
   };
   Ok(Html(tmpl.render().map_err(log_err("artifact_detail_fragment"))?))
@@ -331,16 +326,7 @@ pub async fn artifact_update(
 async fn build_artifact_detail_data(
   state: &AppState,
   id: &str,
-) -> Result<
-  (
-    artifact::Model,
-    String,
-    Vec<String>,
-    Vec<NoteDisplay>,
-    Vec<TimelineItem>,
-  ),
-  String,
-> {
+) -> Result<(artifact::Model, String, Vec<String>, Vec<TimelineItem>), String> {
   let conn = state
     .store()
     .connect()
@@ -360,15 +346,11 @@ async fn build_artifact_detail_data(
   let tags = repo::tag::for_entity(&conn, EntityType::Artifact, &artifact_id)
     .await
     .map_err(log_err("build_artifact_detail_data"))?;
-  let raw_notes = repo::note::for_entity(&conn, EntityType::Artifact, &artifact_id)
-    .await
-    .map_err(log_err("build_artifact_detail_data"))?;
 
   let body_html = markdown::render_markdown_to_html(artifact.body());
-  let notes = note_display::build_note_displays(&conn, raw_notes).await;
   let timeline_items = timeline::build_timeline(&conn, EntityType::Artifact, &artifact_id).await?;
 
-  Ok((artifact, body_html, tags, notes, timeline_items))
+  Ok((artifact, body_html, tags, timeline_items))
 }
 
 /// Build the enriched artifact list data (rows with tags, counts, filtered).

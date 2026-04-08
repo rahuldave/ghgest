@@ -44,11 +44,6 @@ impl Component {
     &self.columns
   }
 
-  /// Returns a mutable reference to the columns (used by Grid to promote natural to fixed).
-  pub fn columns_mut(&mut self) -> &mut Vec<Column> {
-    &mut self.columns
-  }
-
   /// Resolve column widths and render.
   fn resolve_widths(&self) -> Vec<(usize, &str)> {
     let available = self.max_width.unwrap_or_else(|| terminal_width() as usize);

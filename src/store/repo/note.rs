@@ -1,13 +1,10 @@
 use chrono::Utc;
 use libsql::{Connection, Error as DbError, Value};
 
-use crate::{
-  store::model::{
-    Error as ModelError,
-    note::{Model, New, Patch},
-    primitives::{EntityType, Id},
-  },
-  ui::components::min_unique_prefix,
+use crate::store::model::{
+  Error as ModelError,
+  note::{Model, New, Patch},
+  primitives::{EntityType, Id},
 };
 
 /// Errors that can occur in note repository operations.
@@ -104,6 +101,7 @@ pub async fn for_entity(conn: &Connection, entity_type: EntityType, entity_id: &
 
 /// Return the minimum unique prefix length over all notes attached to the
 /// given parent artifact.
+#[cfg(test)]
 pub async fn shortest_prefix(conn: &Connection, artifact_id: &Id) -> Result<usize, Error> {
   log::debug!("repo::note::shortest_prefix");
   let mut rows = conn
@@ -117,7 +115,7 @@ pub async fn shortest_prefix(conn: &Connection, artifact_id: &Id) -> Result<usiz
     ids.push(row.get::<String>(0)?);
   }
   let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
-  Ok(min_unique_prefix(&refs))
+  Ok(crate::ui::components::min_unique_prefix(&refs))
 }
 
 /// Update an existing note with the given patch.
@@ -206,6 +204,33 @@ mod tests {
     }
   }
 
+  mod delete_fn {
+    use super::*;
+
+    #[tokio::test]
+    async fn it_deletes_a_note() {
+      let (_store, conn, _tmp, _pid, task_id) = setup().await;
+      let note = create(
+        &conn,
+        EntityType::Task,
+        &task_id,
+        &New {
+          author_id: None,
+          body: "Delete".into(),
+        },
+      )
+      .await
+      .unwrap();
+
+      let deleted = delete(&conn, note.id()).await.unwrap();
+
+      assert!(deleted);
+
+      let found = find_by_id(&conn, note.id().clone()).await.unwrap();
+      assert!(found.is_none());
+    }
+  }
+
   mod for_entity_fn {
     use pretty_assertions::assert_eq;
 
@@ -241,40 +266,6 @@ mod tests {
       let notes = for_entity(&conn, EntityType::Task, &task_id).await.unwrap();
 
       assert_eq!(notes.len(), 2);
-    }
-  }
-
-  mod update_fn {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn it_updates_the_body() {
-      let (_store, conn, _tmp, _pid, task_id) = setup().await;
-      let note = create(
-        &conn,
-        EntityType::Task,
-        &task_id,
-        &New {
-          author_id: None,
-          body: "Old".into(),
-        },
-      )
-      .await
-      .unwrap();
-
-      let updated = update(
-        &conn,
-        note.id(),
-        &Patch {
-          body: Some("New".into()),
-        },
-      )
-      .await
-      .unwrap();
-
-      assert_eq!(updated.body(), "New");
     }
   }
 
@@ -347,11 +338,13 @@ mod tests {
     }
   }
 
-  mod delete_fn {
+  mod update_fn {
+    use pretty_assertions::assert_eq;
+
     use super::*;
 
     #[tokio::test]
-    async fn it_deletes_a_note() {
+    async fn it_updates_the_body() {
       let (_store, conn, _tmp, _pid, task_id) = setup().await;
       let note = create(
         &conn,
@@ -359,18 +352,23 @@ mod tests {
         &task_id,
         &New {
           author_id: None,
-          body: "Delete".into(),
+          body: "Old".into(),
         },
       )
       .await
       .unwrap();
 
-      let deleted = delete(&conn, note.id()).await.unwrap();
+      let updated = update(
+        &conn,
+        note.id(),
+        &Patch {
+          body: Some("New".into()),
+        },
+      )
+      .await
+      .unwrap();
 
-      assert!(deleted);
-
-      let found = find_by_id(&conn, note.id().clone()).await.unwrap();
-      assert!(found.is_none());
+      assert_eq!(updated.body(), "New");
     }
   }
 }

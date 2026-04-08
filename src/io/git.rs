@@ -4,8 +4,8 @@ use std::process::Command;
 
 /// Author identity resolved from git config.
 pub struct GitAuthor {
-  pub name: String,
   pub email: Option<String>,
+  pub name: String,
 }
 
 /// Resolve the current git user identity from `git config`.

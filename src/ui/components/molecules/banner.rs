@@ -129,17 +129,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_extracts_the_foreground_color() {
-      let style = Style::new().fg(Color::Rgb(10, 20, 30));
-
-      assert_eq!(fg_color(&style), Color::Rgb(10, 20, 30));
-    }
-
-    #[test]
     fn it_defaults_to_white_when_no_foreground() {
       let style = Style::new();
 
       assert_eq!(fg_color(&style), Color::White);
+    }
+
+    #[test]
+    fn it_extracts_the_foreground_color() {
+      let style = Style::new().fg(Color::Rgb(10, 20, 30));
+
+      assert_eq!(fg_color(&style), Color::Rgb(10, 20, 30));
     }
   }
 
@@ -149,41 +149,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_returns_start_at_t_zero() {
-      let start = Color::Rgb(0, 100, 200);
-      let end = Color::Rgb(200, 50, 0);
-
-      assert_eq!(lerp_color(start, end, 0.0), start);
-    }
-
-    #[test]
-    fn it_returns_end_at_t_one() {
-      let start = Color::Rgb(0, 100, 200);
-      let end = Color::Rgb(200, 50, 0);
-
-      assert_eq!(lerp_color(start, end, 1.0), end);
-    }
-
-    #[test]
-    fn it_interpolates_at_midpoint() {
-      let start = Color::Rgb(0, 0, 0);
-      let end = Color::Rgb(100, 200, 50);
-
-      assert_eq!(lerp_color(start, end, 0.5), Color::Rgb(50, 100, 25));
-    }
-
-    #[test]
     fn it_falls_back_to_start_for_non_rgb_colors() {
       let start = Color::Red;
       let end = Color::Blue;
-
-      assert_eq!(lerp_color(start, end, 0.5), Color::Red);
-    }
-
-    #[test]
-    fn it_falls_back_when_only_start_is_non_rgb() {
-      let start = Color::Red;
-      let end = Color::Rgb(100, 100, 100);
 
       assert_eq!(lerp_color(start, end, 0.5), Color::Red);
     }
@@ -195,20 +163,42 @@ mod tests {
 
       assert_eq!(lerp_color(start, end, 0.5), Color::Rgb(100, 100, 100));
     }
+
+    #[test]
+    fn it_falls_back_when_only_start_is_non_rgb() {
+      let start = Color::Red;
+      let end = Color::Rgb(100, 100, 100);
+
+      assert_eq!(lerp_color(start, end, 0.5), Color::Red);
+    }
+
+    #[test]
+    fn it_interpolates_at_midpoint() {
+      let start = Color::Rgb(0, 0, 0);
+      let end = Color::Rgb(100, 200, 50);
+
+      assert_eq!(lerp_color(start, end, 0.5), Color::Rgb(50, 100, 25));
+    }
+
+    #[test]
+    fn it_returns_end_at_t_one() {
+      let start = Color::Rgb(0, 100, 200);
+      let end = Color::Rgb(200, 50, 0);
+
+      assert_eq!(lerp_color(start, end, 1.0), end);
+    }
+
+    #[test]
+    fn it_returns_start_at_t_zero() {
+      let start = Color::Rgb(0, 100, 200);
+      let end = Color::Rgb(200, 50, 0);
+
+      assert_eq!(lerp_color(start, end, 0.0), start);
+    }
   }
 
   mod fmt {
     use super::*;
-
-    #[test]
-    fn it_renders_all_ascii_art_rows() {
-      let banner = Component::new();
-
-      let output = banner.to_string();
-      let lines: Vec<&str> = output.lines().collect();
-
-      assert_eq!(lines.len(), ROW_COUNT, "banner should have {ROW_COUNT} lines");
-    }
 
     #[test]
     fn it_does_not_include_author_by_default() {
@@ -241,6 +231,19 @@ mod tests {
     }
 
     #[test]
+    fn it_includes_both_author_and_version_when_enabled() {
+      let banner = Component::new().with_author().with_version();
+
+      let output = banner.to_string();
+
+      assert!(output.contains("aaronmallen"), "output should contain author");
+      assert!(
+        output.contains(env!("CARGO_PKG_VERSION")),
+        "output should contain version"
+      );
+    }
+
+    #[test]
     fn it_includes_version_when_enabled() {
       let banner = Component::new().with_version();
 
@@ -253,16 +256,13 @@ mod tests {
     }
 
     #[test]
-    fn it_includes_both_author_and_version_when_enabled() {
-      let banner = Component::new().with_author().with_version();
+    fn it_renders_all_ascii_art_rows() {
+      let banner = Component::new();
 
       let output = banner.to_string();
+      let lines: Vec<&str> = output.lines().collect();
 
-      assert!(output.contains("aaronmallen"), "output should contain author");
-      assert!(
-        output.contains(env!("CARGO_PKG_VERSION")),
-        "output should contain version"
-      );
+      assert_eq!(lines.len(), ROW_COUNT, "banner should have {ROW_COUNT} lines");
     }
   }
 }

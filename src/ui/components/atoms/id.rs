@@ -77,10 +77,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_returns_1_when_all_ids_differ_at_first_char() {
-      let ids = vec!["abcd1234", "bcde2345", "cdef3456"];
+    fn it_handles_identical_ids() {
+      let ids = vec!["aaaaaaaa", "aaaaaaaa"];
 
-      assert_eq!(min_unique_prefix(&ids), 1);
+      assert_eq!(min_unique_prefix(&ids), 8);
     }
 
     #[test]
@@ -106,25 +106,15 @@ mod tests {
     }
 
     #[test]
-    fn it_handles_identical_ids() {
-      let ids = vec!["aaaaaaaa", "aaaaaaaa"];
+    fn it_returns_1_when_all_ids_differ_at_first_char() {
+      let ids = vec!["abcd1234", "bcde2345", "cdef3456"];
 
-      assert_eq!(min_unique_prefix(&ids), 8);
+      assert_eq!(min_unique_prefix(&ids), 1);
     }
   }
 
   mod fmt {
     use super::*;
-
-    #[test]
-    fn it_truncates_to_8_characters() {
-      let id = Component::new("abcdefghijklmnop");
-      let rendered = id.to_string();
-
-      assert!(rendered.contains("ab"));
-      assert!(rendered.contains("cdefgh"));
-      assert!(!rendered.contains("ijklmnop"));
-    }
 
     #[test]
     fn it_renders_short_id_without_padding() {
@@ -145,6 +135,16 @@ mod tests {
 
       // All 8 chars should be present
       assert_eq!(rendered, "abcdefgh");
+    }
+
+    #[test]
+    fn it_truncates_to_8_characters() {
+      let id = Component::new("abcdefghijklmnop");
+      let rendered = id.to_string();
+
+      assert!(rendered.contains("ab"));
+      assert!(rendered.contains("cdefgh"));
+      assert!(!rendered.contains("ijklmnop"));
     }
   }
 }

@@ -45,12 +45,6 @@ impl Component {
     self
   }
 
-  /// Sets the number of highlighted prefix characters in the artifact ID.
-  pub fn id_prefix_len(mut self, len: usize) -> Self {
-    self.id_prefix_len = len;
-    self
-  }
-
   /// Sets optional markdown body content to render below the metadata fields.
   pub fn body(mut self, body: impl Into<String>) -> Self {
     self.body = Some(body.into());
@@ -58,8 +52,15 @@ impl Component {
   }
 
   /// Sets the created timestamp.
+  #[cfg(test)]
   pub fn created(mut self, created: impl Into<String>) -> Self {
     self.created = Some(created.into());
+    self
+  }
+
+  /// Sets the number of highlighted prefix characters in the artifact ID.
+  pub fn id_prefix_len(mut self, len: usize) -> Self {
+    self.id_prefix_len = len;
     self
   }
 
@@ -78,6 +79,7 @@ impl Component {
   }
 
   /// Sets the updated timestamp.
+  #[cfg(test)]
   pub fn updated(mut self, updated: impl Into<String>) -> Self {
     self.updated = Some(updated.into());
     self
@@ -236,15 +238,6 @@ mod tests {
   }
 
   #[test]
-  fn it_shows_id_on_first_line() {
-    let detail = Component::new("fsahdqlt", "probe-schema-v2");
-    let output = render(&detail);
-    let first_line = output.lines().next().unwrap();
-
-    assert!(first_line.contains("fsahdqlt"), "id should be on the first line");
-  }
-
-  #[test]
   fn it_renders_notes_section() {
     let detail = Component::new("fsahdqlt", "probe-schema-v2").note("abcd1234", "This is a note.");
     let output = render(&detail);
@@ -252,5 +245,14 @@ mod tests {
     assert!(output.contains("notes"), "should contain notes separator");
     assert!(output.contains("abcd1234"), "should contain note id");
     assert!(output.contains("This is a note."), "should contain note body");
+  }
+
+  #[test]
+  fn it_shows_id_on_first_line() {
+    let detail = Component::new("fsahdqlt", "probe-schema-v2");
+    let output = render(&detail);
+    let first_line = output.lines().next().unwrap();
+
+    assert!(first_line.contains("fsahdqlt"), "id should be on the first line");
   }
 }

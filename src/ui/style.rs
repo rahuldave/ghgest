@@ -137,7 +137,7 @@ pub const ALL_TOKENS: &[&str] = &[
 // ── Palette ──────────────────────────────────────────────────────────
 
 /// Semantic palette slots that style tokens can reference.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Palette {
   Accent,
   Border,
@@ -209,7 +209,7 @@ impl Palette {
 ///
 /// Each field maps a named UI role to a [`Style`]. The [`Default`]
 /// implementation uses the brand palette.
-#[derive(Debug, Clone, Getters)]
+#[derive(Clone, Debug, Getters)]
 pub struct Theme {
   #[get = "pub"]
   artifact_detail_label: Style,
@@ -1016,12 +1016,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_has_a_style_mut_entry_for_every_token() {
-      let mut theme = Theme::default();
-
-      for key in ALL_TOKENS {
-        assert!(theme.style_mut(key).is_some(), "style_mut should handle token `{key}`");
-      }
+    fn it_has_115_token_keys() {
+      assert_eq!(ALL_TOKENS.len(), 115);
     }
 
     #[test]
@@ -1044,8 +1040,12 @@ mod tests {
     }
 
     #[test]
-    fn it_has_115_token_keys() {
-      assert_eq!(ALL_TOKENS.len(), 115);
+    fn it_has_a_style_mut_entry_for_every_token() {
+      let mut theme = Theme::default();
+
+      for key in ALL_TOKENS {
+        assert!(theme.style_mut(key).is_some(), "style_mut should handle token `{key}`");
+      }
     }
   }
 

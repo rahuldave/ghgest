@@ -61,17 +61,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_defaults_enabled_to_true() {
-      let settings = Settings::default();
-
-      assert!(settings.enabled());
-    }
-
-    #[test]
     fn it_defaults_command_to_none() {
       let settings = Settings::default();
 
       assert_eq!(settings.command(), None);
+    }
+
+    #[test]
+    fn it_defaults_enabled_to_true() {
+      let settings = Settings::default();
+
+      assert!(settings.enabled());
     }
   }
 
@@ -79,16 +79,6 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use super::*;
-
-    #[test]
-    fn it_returns_some_for_a_non_empty_value() {
-      let settings = Settings {
-        command: Some("less -FR".to_string()),
-        enabled: true,
-      };
-
-      assert_eq!(settings.command(), Some("less -FR"));
-    }
 
     #[test]
     fn it_returns_none_for_an_empty_string() {
@@ -99,20 +89,22 @@ mod tests {
 
       assert_eq!(settings.command(), None);
     }
+
+    #[test]
+    fn it_returns_some_for_a_non_empty_value() {
+      let settings = Settings {
+        command: Some("less -FR".to_string()),
+        enabled: true,
+      };
+
+      assert_eq!(settings.command(), Some("less -FR"));
+    }
   }
 
   mod toml_round_trip {
     use pretty_assertions::assert_eq;
 
     use super::*;
-
-    #[test]
-    fn it_deserializes_enabled() {
-      let toml_str = "enabled = false";
-      let settings: Settings = toml::from_str(toml_str).unwrap();
-
-      assert!(!settings.enabled());
-    }
 
     #[test]
     fn it_deserializes_command() {
@@ -131,11 +123,11 @@ mod tests {
     }
 
     #[test]
-    fn it_uses_defaults_when_table_is_empty() {
-      let settings: Settings = toml::from_str("").unwrap();
+    fn it_deserializes_enabled() {
+      let toml_str = "enabled = false";
+      let settings: Settings = toml::from_str(toml_str).unwrap();
 
-      assert!(settings.enabled());
-      assert_eq!(settings.command(), None);
+      assert!(!settings.enabled());
     }
 
     #[test]
@@ -156,6 +148,14 @@ mod tests {
       let deserialized: Settings = toml::from_str(&serialized).unwrap();
 
       assert_eq!(settings, deserialized);
+    }
+
+    #[test]
+    fn it_uses_defaults_when_table_is_empty() {
+      let settings: Settings = toml::from_str("").unwrap();
+
+      assert!(settings.enabled());
+      assert_eq!(settings.command(), None);
     }
   }
 }

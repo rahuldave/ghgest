@@ -428,44 +428,58 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn it_finds_tasks_by_title() {
+    async fn it_and_combines_across_filter_types() {
       let (_store, conn, _tmp, pid) = setup().await;
-      insert_task(&conn, &pid, "Fix login bug", "open").await;
-      insert_task(&conn, &pid, "Add feature", "open").await;
+      let t1 = insert_task(&conn, &pid, "Tagged Open", "open").await;
+      tag_entity(&conn, &t1, "task", "auth").await;
+      let t2 = insert_task(&conn, &pid, "Tagged Done", "done").await;
+      tag_entity(&conn, &t2, "task", "auth").await;
 
-      let parsed = search_query::parse("login");
+      let parsed = search_query::parse("tag:auth status:open");
+      let results = query(&conn, &pid, &parsed, true).await.unwrap();
+
+      assert_eq!(results.tasks.len(), 1);
+      assert_eq!(results.tasks[0].title(), "Tagged Open");
+    }
+
+    #[tokio::test]
+    async fn it_excludes_archived_artifacts_by_default() {
+      let (_store, conn, _tmp, pid) = setup().await;
+      insert_artifact(&conn, &pid, "Active", "body").await;
+      let archived_id = Id::new();
+      conn
+        .execute(
+          "INSERT INTO artifacts (id, project_id, title, body, archived_at) \
+            VALUES (?1, ?2, ?3, ?4, ?5)",
+          [
+            archived_id.to_string(),
+            pid.to_string(),
+            "Archived".to_string(),
+            "body".to_string(),
+            "2024-01-01T00:00:00Z".to_string(),
+          ],
+        )
+        .await
+        .unwrap();
+
+      let parsed = search_query::parse("");
+      let results = query(&conn, &pid, &parsed, false).await.unwrap();
+
+      assert_eq!(results.artifacts.len(), 1);
+      assert_eq!(results.artifacts[0].title(), "Active");
+    }
+
+    #[tokio::test]
+    async fn it_excludes_artifacts_when_status_filter_present() {
+      let (_store, conn, _tmp, pid) = setup().await;
+      insert_task(&conn, &pid, "Open task", "open").await;
+      insert_artifact(&conn, &pid, "Some artifact", "body").await;
+
+      let parsed = search_query::parse("status:open");
       let results = query(&conn, &pid, &parsed, false).await.unwrap();
 
       assert_eq!(results.tasks.len(), 1);
       assert_eq!(results.artifacts.len(), 0);
-      assert_eq!(results.iterations.len(), 0);
-    }
-
-    #[tokio::test]
-    async fn it_searches_across_entity_types() {
-      let (_store, conn, _tmp, pid) = setup().await;
-      insert_task(&conn, &pid, "auth task", "open").await;
-      insert_artifact(&conn, &pid, "auth spec", "body").await;
-
-      let parsed = search_query::parse("auth");
-      let results = query(&conn, &pid, &parsed, false).await.unwrap();
-
-      assert_eq!(results.tasks.len(), 1);
-      assert_eq!(results.artifacts.len(), 1);
-    }
-
-    #[tokio::test]
-    async fn it_returns_only_entities_tagged_auth() {
-      let (_store, conn, _tmp, pid) = setup().await;
-      let t1 = insert_task(&conn, &pid, "Auth task", "open").await;
-      tag_entity(&conn, &t1, "task", "auth").await;
-      insert_task(&conn, &pid, "Other task", "open").await;
-
-      let parsed = search_query::parse("tag:auth");
-      let results = query(&conn, &pid, &parsed, false).await.unwrap();
-
-      assert_eq!(results.tasks.len(), 1);
-      assert_eq!(results.tasks[0].title(), "Auth task");
     }
 
     #[tokio::test]
@@ -482,49 +496,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn it_returns_only_open_tasks_with_is_and_status() {
+    async fn it_excludes_entity_type_with_negated_is() {
       let (_store, conn, _tmp, pid) = setup().await;
-      insert_task(&conn, &pid, "Open task", "open").await;
-      insert_task(&conn, &pid, "In progress task", "in_progress").await;
-      insert_artifact(&conn, &pid, "Some artifact", "body").await;
+      insert_task(&conn, &pid, "My task", "open").await;
+      insert_artifact(&conn, &pid, "My artifact", "body").await;
 
-      let parsed = search_query::parse("is:task status:open");
+      let parsed = search_query::parse("-is:artifact");
       let results = query(&conn, &pid, &parsed, false).await.unwrap();
 
       assert_eq!(results.tasks.len(), 1);
-      assert_eq!(results.tasks[0].title(), "Open task");
       assert_eq!(results.artifacts.len(), 0);
-      assert_eq!(results.iterations.len(), 0);
-    }
-
-    #[tokio::test]
-    async fn it_or_combines_multiple_tag_filters() {
-      let (_store, conn, _tmp, pid) = setup().await;
-      let t1 = insert_task(&conn, &pid, "Task A", "open").await;
-      tag_entity(&conn, &t1, "task", "auth").await;
-      let t2 = insert_task(&conn, &pid, "Task B", "open").await;
-      tag_entity(&conn, &t2, "task", "login").await;
-      insert_task(&conn, &pid, "Task C", "open").await;
-
-      let parsed = search_query::parse("tag:auth tag:login");
-      let results = query(&conn, &pid, &parsed, false).await.unwrap();
-
-      assert_eq!(results.tasks.len(), 2);
-    }
-
-    #[tokio::test]
-    async fn it_and_combines_across_filter_types() {
-      let (_store, conn, _tmp, pid) = setup().await;
-      let t1 = insert_task(&conn, &pid, "Tagged Open", "open").await;
-      tag_entity(&conn, &t1, "task", "auth").await;
-      let t2 = insert_task(&conn, &pid, "Tagged Done", "done").await;
-      tag_entity(&conn, &t2, "task", "auth").await;
-
-      let parsed = search_query::parse("tag:auth status:open");
-      let results = query(&conn, &pid, &parsed, true).await.unwrap();
-
-      assert_eq!(results.tasks.len(), 1);
-      assert_eq!(results.tasks[0].title(), "Tagged Open");
     }
 
     #[tokio::test]
@@ -556,56 +537,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn it_includes_resolved_tasks_with_show_all() {
+    async fn it_finds_tasks_by_title() {
       let (_store, conn, _tmp, pid) = setup().await;
-      insert_task(&conn, &pid, "Open task", "open").await;
-      let done_id = Id::new();
-      conn
-        .execute(
-          "INSERT INTO tasks (id, project_id, title, status, resolved_at) \
-            VALUES (?1, ?2, ?3, ?4, ?5)",
-          [
-            done_id.to_string(),
-            pid.to_string(),
-            "Done task".to_string(),
-            "done".to_string(),
-            "2024-01-01T00:00:00Z".to_string(),
-          ],
-        )
-        .await
-        .unwrap();
+      insert_task(&conn, &pid, "Fix login bug", "open").await;
+      insert_task(&conn, &pid, "Add feature", "open").await;
 
-      let parsed = search_query::parse("");
-      let results = query(&conn, &pid, &parsed, true).await.unwrap();
-
-      assert_eq!(results.tasks.len(), 2);
-    }
-
-    #[tokio::test]
-    async fn it_excludes_archived_artifacts_by_default() {
-      let (_store, conn, _tmp, pid) = setup().await;
-      insert_artifact(&conn, &pid, "Active", "body").await;
-      let archived_id = Id::new();
-      conn
-        .execute(
-          "INSERT INTO artifacts (id, project_id, title, body, archived_at) \
-            VALUES (?1, ?2, ?3, ?4, ?5)",
-          [
-            archived_id.to_string(),
-            pid.to_string(),
-            "Archived".to_string(),
-            "body".to_string(),
-            "2024-01-01T00:00:00Z".to_string(),
-          ],
-        )
-        .await
-        .unwrap();
-
-      let parsed = search_query::parse("");
+      let parsed = search_query::parse("login");
       let results = query(&conn, &pid, &parsed, false).await.unwrap();
 
-      assert_eq!(results.artifacts.len(), 1);
-      assert_eq!(results.artifacts[0].title(), "Active");
+      assert_eq!(results.tasks.len(), 1);
+      assert_eq!(results.artifacts.len(), 0);
+      assert_eq!(results.iterations.len(), 0);
     }
 
     #[tokio::test]
@@ -635,16 +577,74 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn it_excludes_artifacts_when_status_filter_present() {
+    async fn it_includes_resolved_tasks_with_show_all() {
       let (_store, conn, _tmp, pid) = setup().await;
       insert_task(&conn, &pid, "Open task", "open").await;
-      insert_artifact(&conn, &pid, "Some artifact", "body").await;
+      let done_id = Id::new();
+      conn
+        .execute(
+          "INSERT INTO tasks (id, project_id, title, status, resolved_at) \
+            VALUES (?1, ?2, ?3, ?4, ?5)",
+          [
+            done_id.to_string(),
+            pid.to_string(),
+            "Done task".to_string(),
+            "done".to_string(),
+            "2024-01-01T00:00:00Z".to_string(),
+          ],
+        )
+        .await
+        .unwrap();
 
-      let parsed = search_query::parse("status:open");
+      let parsed = search_query::parse("");
+      let results = query(&conn, &pid, &parsed, true).await.unwrap();
+
+      assert_eq!(results.tasks.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn it_or_combines_multiple_tag_filters() {
+      let (_store, conn, _tmp, pid) = setup().await;
+      let t1 = insert_task(&conn, &pid, "Task A", "open").await;
+      tag_entity(&conn, &t1, "task", "auth").await;
+      let t2 = insert_task(&conn, &pid, "Task B", "open").await;
+      tag_entity(&conn, &t2, "task", "login").await;
+      insert_task(&conn, &pid, "Task C", "open").await;
+
+      let parsed = search_query::parse("tag:auth tag:login");
+      let results = query(&conn, &pid, &parsed, false).await.unwrap();
+
+      assert_eq!(results.tasks.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn it_returns_only_entities_tagged_auth() {
+      let (_store, conn, _tmp, pid) = setup().await;
+      let t1 = insert_task(&conn, &pid, "Auth task", "open").await;
+      tag_entity(&conn, &t1, "task", "auth").await;
+      insert_task(&conn, &pid, "Other task", "open").await;
+
+      let parsed = search_query::parse("tag:auth");
       let results = query(&conn, &pid, &parsed, false).await.unwrap();
 
       assert_eq!(results.tasks.len(), 1);
+      assert_eq!(results.tasks[0].title(), "Auth task");
+    }
+
+    #[tokio::test]
+    async fn it_returns_only_open_tasks_with_is_and_status() {
+      let (_store, conn, _tmp, pid) = setup().await;
+      insert_task(&conn, &pid, "Open task", "open").await;
+      insert_task(&conn, &pid, "In progress task", "in_progress").await;
+      insert_artifact(&conn, &pid, "Some artifact", "body").await;
+
+      let parsed = search_query::parse("is:task status:open");
+      let results = query(&conn, &pid, &parsed, false).await.unwrap();
+
+      assert_eq!(results.tasks.len(), 1);
+      assert_eq!(results.tasks[0].title(), "Open task");
       assert_eq!(results.artifacts.len(), 0);
+      assert_eq!(results.iterations.len(), 0);
     }
 
     #[tokio::test]
@@ -663,16 +663,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn it_excludes_entity_type_with_negated_is() {
+    async fn it_searches_across_entity_types() {
       let (_store, conn, _tmp, pid) = setup().await;
-      insert_task(&conn, &pid, "My task", "open").await;
-      insert_artifact(&conn, &pid, "My artifact", "body").await;
+      insert_task(&conn, &pid, "auth task", "open").await;
+      insert_artifact(&conn, &pid, "auth spec", "body").await;
 
-      let parsed = search_query::parse("-is:artifact");
+      let parsed = search_query::parse("auth");
       let results = query(&conn, &pid, &parsed, false).await.unwrap();
 
       assert_eq!(results.tasks.len(), 1);
-      assert_eq!(results.artifacts.len(), 0);
+      assert_eq!(results.artifacts.len(), 1);
     }
   }
 }

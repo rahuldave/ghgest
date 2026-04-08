@@ -17,19 +17,9 @@ pub struct Model {
 }
 
 impl Model {
-  /// The author who initiated this transaction, if any.
-  pub fn author_id(&self) -> Option<&Id> {
-    self.author_id.as_ref()
-  }
-
   /// The command string that was executed.
   pub fn command(&self) -> &str {
     &self.command
-  }
-
-  /// When this transaction was recorded.
-  pub fn created_at(&self) -> &DateTime<Utc> {
-    &self.created_at
   }
 
   /// The unique identifier for this transaction.
@@ -37,12 +27,8 @@ impl Model {
     &self.id
   }
 
-  /// The project this transaction belongs to.
-  pub fn project_id(&self) -> &Id {
-    &self.project_id
-  }
-
   /// When this transaction was undone, if at all.
+  #[cfg(test)]
   pub fn undone_at(&self) -> Option<&DateTime<Utc>> {
     self.undone_at.as_ref()
   }
@@ -110,29 +96,9 @@ impl Event {
     self.before_data.as_ref()
   }
 
-  /// When this event was recorded.
-  pub fn created_at(&self) -> &DateTime<Utc> {
-    &self.created_at
-  }
-
   /// The type of change (e.g. "created", "modified", "deleted").
   pub fn event_type(&self) -> &str {
     &self.event_type
-  }
-
-  /// The unique identifier for this event.
-  pub fn id(&self) -> &Id {
-    &self.id
-  }
-
-  /// The new value for the semantic change, if applicable.
-  pub fn new_value(&self) -> Option<&str> {
-    self.new_value.as_deref()
-  }
-
-  /// The previous value for the semantic change, if applicable.
-  pub fn old_value(&self) -> Option<&str> {
-    self.old_value.as_deref()
   }
 
   /// The ID of the row that was changed.
@@ -140,20 +106,9 @@ impl Event {
     &self.row_id
   }
 
-  /// The semantic kind of change (e.g. `"status-change"`, `"created"`),
-  /// if this event corresponds to a user-facing activity entry.
-  pub fn semantic_type(&self) -> Option<&str> {
-    self.semantic_type.as_deref()
-  }
-
   /// The database table that was modified.
   pub fn table_name(&self) -> &str {
     &self.table_name
-  }
-
-  /// The transaction this event belongs to.
-  pub fn transaction_id(&self) -> &Id {
-    &self.transaction_id
   }
 }
 

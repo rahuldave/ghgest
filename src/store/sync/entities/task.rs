@@ -397,6 +397,79 @@ mod tests {
       .unwrap();
   }
 
+  mod read_all {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn it_hard_deletes_for_a_tombstoned_task_file() {
+      let (db, _root, pid, gest_dir) = setup().await;
+      let conn = db.connect().await.unwrap();
+      let task_id = insert_task(&conn, &pid, "to delete").await;
+      write_all(&conn, &pid, &gest_dir).await.unwrap();
+
+      let path = paths::task_path(&gest_dir, &task_id);
+      let mut content = std::fs::read_to_string(&path).unwrap();
+      content.insert_str(0, "deleted_at: 2026-04-08T12:00:00Z\n");
+      std::fs::write(&path, content).unwrap();
+
+      read_all(&conn, &pid, &gest_dir).await.unwrap();
+
+      let mut rows = conn
+        .query("SELECT id FROM tasks WHERE id = ?1", [task_id.to_string()])
+        .await
+        .unwrap();
+      assert!(rows.next().await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn it_roundtrips_task_and_tags_through_disk() {
+      let (db, _root, pid, gest_dir) = setup().await;
+      let conn = db.connect().await.unwrap();
+      let task_id = insert_task(&conn, &pid, "roundtrip").await;
+      attach_tag(&conn, &task_id, "x").await;
+
+      write_all(&conn, &pid, &gest_dir).await.unwrap();
+
+      // Wipe SQLite state for tasks/tags.
+      conn.execute("DELETE FROM entity_tags", ()).await.unwrap();
+      conn.execute("DELETE FROM tasks", ()).await.unwrap();
+      conn.execute("DELETE FROM tags", ()).await.unwrap();
+
+      // Tags must exist before tasks (orchestrator handles this in production).
+      let tag_id = Id::new();
+      conn
+        .execute(
+          "INSERT INTO tags (id, label) VALUES (?1, ?2)",
+          [tag_id.to_string(), "x".to_string()],
+        )
+        .await
+        .unwrap();
+
+      read_all(&conn, &pid, &gest_dir).await.unwrap();
+
+      let mut rows = conn
+        .query("SELECT title FROM tasks WHERE id = ?1", [task_id.to_string()])
+        .await
+        .unwrap();
+      let row = rows.next().await.unwrap().unwrap();
+      let title: String = row.get(0).unwrap();
+      assert_eq!(title, "roundtrip");
+
+      let mut rows = conn
+        .query(
+          "SELECT t.label FROM entity_tags et JOIN tags t ON t.id = et.tag_id WHERE et.entity_id = ?1",
+          [task_id.to_string()],
+        )
+        .await
+        .unwrap();
+      let row = rows.next().await.unwrap().unwrap();
+      let label: String = row.get(0).unwrap();
+      assert_eq!(label, "x");
+    }
+  }
+
   mod write_all {
     use pretty_assertions::assert_eq;
 
@@ -448,79 +521,6 @@ mod tests {
       let raw = std::fs::read_to_string(&note_path).unwrap();
       assert!(raw.contains("body: first note"));
       assert_eq!(raw.contains(&format!("entity_id: {}", task_id)), true);
-    }
-  }
-
-  mod read_all {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn it_roundtrips_task_and_tags_through_disk() {
-      let (db, _root, pid, gest_dir) = setup().await;
-      let conn = db.connect().await.unwrap();
-      let task_id = insert_task(&conn, &pid, "roundtrip").await;
-      attach_tag(&conn, &task_id, "x").await;
-
-      write_all(&conn, &pid, &gest_dir).await.unwrap();
-
-      // Wipe SQLite state for tasks/tags.
-      conn.execute("DELETE FROM entity_tags", ()).await.unwrap();
-      conn.execute("DELETE FROM tasks", ()).await.unwrap();
-      conn.execute("DELETE FROM tags", ()).await.unwrap();
-
-      // Tags must exist before tasks (orchestrator handles this in production).
-      let tag_id = Id::new();
-      conn
-        .execute(
-          "INSERT INTO tags (id, label) VALUES (?1, ?2)",
-          [tag_id.to_string(), "x".to_string()],
-        )
-        .await
-        .unwrap();
-
-      read_all(&conn, &pid, &gest_dir).await.unwrap();
-
-      let mut rows = conn
-        .query("SELECT title FROM tasks WHERE id = ?1", [task_id.to_string()])
-        .await
-        .unwrap();
-      let row = rows.next().await.unwrap().unwrap();
-      let title: String = row.get(0).unwrap();
-      assert_eq!(title, "roundtrip");
-
-      let mut rows = conn
-        .query(
-          "SELECT t.label FROM entity_tags et JOIN tags t ON t.id = et.tag_id WHERE et.entity_id = ?1",
-          [task_id.to_string()],
-        )
-        .await
-        .unwrap();
-      let row = rows.next().await.unwrap().unwrap();
-      let label: String = row.get(0).unwrap();
-      assert_eq!(label, "x");
-    }
-
-    #[tokio::test]
-    async fn it_hard_deletes_for_a_tombstoned_task_file() {
-      let (db, _root, pid, gest_dir) = setup().await;
-      let conn = db.connect().await.unwrap();
-      let task_id = insert_task(&conn, &pid, "to delete").await;
-      write_all(&conn, &pid, &gest_dir).await.unwrap();
-
-      let path = paths::task_path(&gest_dir, &task_id);
-      let mut content = std::fs::read_to_string(&path).unwrap();
-      content.insert_str(0, "deleted_at: 2026-04-08T12:00:00Z\n");
-      std::fs::write(&path, content).unwrap();
-
-      read_all(&conn, &pid, &gest_dir).await.unwrap();
-
-      let mut rows = conn
-        .query("SELECT id FROM tasks WHERE id = ?1", [task_id.to_string()])
-        .await
-        .unwrap();
-      assert!(rows.next().await.unwrap().is_none());
     }
   }
 }

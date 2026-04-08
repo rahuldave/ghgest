@@ -222,6 +222,34 @@ mod tests {
     (event_id, when)
   }
 
+  mod read_all {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn it_roundtrips_an_event_through_disk() {
+      let (db, _root, pid, gest_dir) = setup().await;
+      let conn = db.connect().await.unwrap();
+      let (event_id, _when) = insert_semantic_event(&conn, &pid).await;
+      write_all(&conn, &pid, &gest_dir).await.unwrap();
+      conn.execute("DELETE FROM transaction_events", ()).await.unwrap();
+
+      read_all(&conn, &pid, &gest_dir).await.unwrap();
+
+      let mut rows = conn
+        .query(
+          "SELECT semantic_type FROM transaction_events WHERE id = ?1",
+          [event_id.to_string()],
+        )
+        .await
+        .unwrap();
+      let row = rows.next().await.unwrap().unwrap();
+      let semantic_type: String = row.get(0).unwrap();
+      assert_eq!(semantic_type, "status-change");
+    }
+  }
+
   mod write_all {
     use super::*;
 
@@ -268,34 +296,6 @@ mod tests {
 
       let event_dir = gest_dir.join("event");
       assert!(!event_dir.exists() || std::fs::read_dir(&event_dir).unwrap().count() == 0);
-    }
-  }
-
-  mod read_all {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn it_roundtrips_an_event_through_disk() {
-      let (db, _root, pid, gest_dir) = setup().await;
-      let conn = db.connect().await.unwrap();
-      let (event_id, _when) = insert_semantic_event(&conn, &pid).await;
-      write_all(&conn, &pid, &gest_dir).await.unwrap();
-      conn.execute("DELETE FROM transaction_events", ()).await.unwrap();
-
-      read_all(&conn, &pid, &gest_dir).await.unwrap();
-
-      let mut rows = conn
-        .query(
-          "SELECT semantic_type FROM transaction_events WHERE id = ?1",
-          [event_id.to_string()],
-        )
-        .await
-        .unwrap();
-      let row = rows.next().await.unwrap().unwrap();
-      let semantic_type: String = row.get(0).unwrap();
-      assert_eq!(semantic_type, "status-change");
     }
   }
 }

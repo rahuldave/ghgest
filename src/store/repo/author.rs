@@ -17,6 +17,7 @@ pub enum Error {
 }
 
 /// Return all authors ordered by name.
+#[cfg(test)]
 pub async fn all(conn: &Connection) -> Result<Vec<Author>, Error> {
   log::debug!("repo::author::all");
   let mut rows = conn

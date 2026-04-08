@@ -11,17 +11,9 @@ pub enum Error {
   Io(#[from] IoError),
 }
 
-/// Open the user's preferred editor with `initial` text pre-filled in a temporary file and return
-/// the final contents after the editor exits.
-///
-/// The temp file has no particular file extension. Use [`edit_text_with_suffix`] when syntax
-/// highlighting matters.
-pub fn edit_text(initial: &str) -> Result<String, Error> {
-  edit_text_with_suffix(initial, ".txt")
-}
-
-/// Like [`edit_text`] but uses the given `suffix` (e.g. `".md"`) for the temporary file so
-/// editors can apply syntax highlighting.
+/// Open the user's preferred editor with `initial` text pre-filled in a temporary file using
+/// the given `suffix` (e.g. `".md"`) for syntax highlighting, and return the final contents
+/// after the editor exits.
 pub fn edit_text_with_suffix(initial: &str, suffix: &str) -> Result<String, Error> {
   let tmp = tempfile::Builder::new().suffix(suffix).tempfile()?;
 
@@ -66,30 +58,6 @@ fn open_editor(path: &Path) -> Result<(), Error> {
 #[cfg(test)]
 mod tests {
   use super::*;
-
-  mod edit_text {
-    use temp_env::with_vars;
-
-    use super::*;
-
-    #[test]
-    fn it_returns_initial_content_with_noop_editor() {
-      with_vars([("EDITOR", Some("true")), ("VISUAL", None::<&str>)], || {
-        let content = edit_text("hello world").unwrap();
-
-        assert_eq!(content, "hello world");
-      });
-    }
-
-    #[test]
-    fn it_returns_empty_string_when_no_initial_content() {
-      with_vars([("EDITOR", Some("true")), ("VISUAL", None::<&str>)], || {
-        let content = edit_text("").unwrap();
-
-        assert_eq!(content, "");
-      });
-    }
-  }
 
   mod edit_text_with_suffix {
     use temp_env::with_vars;
@@ -149,9 +117,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_prefers_editor_over_visual() {
-      with_vars([("EDITOR", Some("nano")), ("VISUAL", Some("code"))], || {
-        assert_eq!(resolve_editor(), "nano");
+    fn it_falls_back_to_vi() {
+      with_vars([("EDITOR", None::<&str>), ("VISUAL", None::<&str>)], || {
+        assert_eq!(resolve_editor(), "vi");
       });
     }
 
@@ -163,9 +131,9 @@ mod tests {
     }
 
     #[test]
-    fn it_falls_back_to_vi() {
-      with_vars([("EDITOR", None::<&str>), ("VISUAL", None::<&str>)], || {
-        assert_eq!(resolve_editor(), "vi");
+    fn it_prefers_editor_over_visual() {
+      with_vars([("EDITOR", Some("nano")), ("VISUAL", Some("code"))], || {
+        assert_eq!(resolve_editor(), "nano");
       });
     }
   }

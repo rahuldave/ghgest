@@ -24,6 +24,7 @@ pub struct Model {
 
 impl Model {
   /// When this iteration was completed, if at all.
+  #[cfg(test)]
   pub fn completed_at(&self) -> Option<&DateTime<Utc>> {
     self.completed_at.as_ref()
   }
@@ -46,11 +47,6 @@ impl Model {
   /// Custom metadata stored as JSON.
   pub fn metadata(&self) -> &Value {
     &self.metadata
-  }
-
-  /// The project this iteration belongs to.
-  pub fn project_id(&self) -> &Id {
-    &self.project_id
   }
 
   /// The iteration's current lifecycle status.

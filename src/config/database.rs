@@ -81,14 +81,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_returns_explicit_url_as_is() {
+    fn it_builds_full_url_from_all_components() {
       let settings = Settings {
-        url: Some("libsql://my-db.turso.io".into()),
-        host: Some("ignored.example.com".into()),
+        scheme: Some("libsql".into()),
+        host: Some("db.example.com".into()),
+        port: Some(8080),
+        username: Some("user".into()),
+        password: Some("pass".into()),
         ..Default::default()
       };
 
-      assert_eq!(settings.url(), Some("libsql://my-db.turso.io".into()));
+      assert_eq!(settings.url(), Some("libsql://user:pass@db.example.com:8080".into()));
     }
 
     #[test]
@@ -110,6 +113,28 @@ mod tests {
       };
 
       assert_eq!(settings.url(), Some("libsql://db.example.com".into()));
+    }
+
+    #[test]
+    fn it_ignores_password_without_username() {
+      let settings = Settings {
+        host: Some("localhost".into()),
+        password: Some("secret".into()),
+        ..Default::default()
+      };
+
+      assert_eq!(settings.url(), Some("sqlite://localhost".into()));
+    }
+
+    #[test]
+    fn it_includes_port() {
+      let settings = Settings {
+        host: Some("localhost".into()),
+        port: Some(5432),
+        ..Default::default()
+      };
+
+      assert_eq!(settings.url(), Some("sqlite://localhost:5432".into()));
     }
 
     #[test]
@@ -136,39 +161,14 @@ mod tests {
     }
 
     #[test]
-    fn it_ignores_password_without_username() {
+    fn it_returns_explicit_url_as_is() {
       let settings = Settings {
-        host: Some("localhost".into()),
-        password: Some("secret".into()),
+        url: Some("libsql://my-db.turso.io".into()),
+        host: Some("ignored.example.com".into()),
         ..Default::default()
       };
 
-      assert_eq!(settings.url(), Some("sqlite://localhost".into()));
-    }
-
-    #[test]
-    fn it_includes_port() {
-      let settings = Settings {
-        host: Some("localhost".into()),
-        port: Some(5432),
-        ..Default::default()
-      };
-
-      assert_eq!(settings.url(), Some("sqlite://localhost:5432".into()));
-    }
-
-    #[test]
-    fn it_builds_full_url_from_all_components() {
-      let settings = Settings {
-        scheme: Some("libsql".into()),
-        host: Some("db.example.com".into()),
-        port: Some(8080),
-        username: Some("user".into()),
-        password: Some("pass".into()),
-        ..Default::default()
-      };
-
-      assert_eq!(settings.url(), Some("libsql://user:pass@db.example.com:8080".into()));
+      assert_eq!(settings.url(), Some("libsql://my-db.turso.io".into()));
     }
 
     #[test]

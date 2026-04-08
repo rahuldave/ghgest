@@ -2,14 +2,12 @@ pub(crate) mod artifact;
 pub(crate) mod author;
 pub(crate) mod entity_tag;
 pub(crate) mod iteration;
-pub(crate) mod iteration_task;
 pub(crate) mod note;
 /// Core domain types and primitive value objects.
 pub mod primitives;
 pub(crate) mod project;
 pub(crate) mod project_workspace;
 pub(crate) mod relationship;
-pub(crate) mod sync_digest;
 pub(crate) mod tag;
 pub(crate) mod task;
 pub(crate) mod transaction;

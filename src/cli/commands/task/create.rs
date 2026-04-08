@@ -280,18 +280,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_parses_rel_and_target() {
-      let (rel, target) = parse_link_spec("blocks:abc123").unwrap();
-
-      assert_eq!(rel, RelationshipType::Blocks);
-      assert_eq!(target, "abc123");
-    }
-
-    #[test]
     fn it_defaults_to_relates_to() {
       let (rel, target) = parse_link_spec("abc123").unwrap();
 
       assert_eq!(rel, RelationshipType::RelatesTo);
+      assert_eq!(target, "abc123");
+    }
+
+    #[test]
+    fn it_parses_rel_and_target() {
+      let (rel, target) = parse_link_spec("blocks:abc123").unwrap();
+
+      assert_eq!(rel, RelationshipType::Blocks);
       assert_eq!(target, "abc123");
     }
 

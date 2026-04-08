@@ -120,29 +120,30 @@ mod tests {
     id
   }
 
-  mod write_all {
-    use super::*;
-
-    #[tokio::test]
-    async fn it_writes_one_yaml_file_per_tag() {
-      let (db, _root, pid, gest_dir) = setup().await;
-      let conn = db.connect().await.unwrap();
-      let id_a = insert_tag(&conn, "bug").await;
-      let id_b = insert_tag(&conn, "feature").await;
-
-      write_all(&conn, &pid, &gest_dir).await.unwrap();
-
-      assert!(paths::tag_path(&gest_dir, &id_a).exists());
-      assert!(paths::tag_path(&gest_dir, &id_b).exists());
-      let raw = std::fs::read_to_string(paths::tag_path(&gest_dir, &id_a)).unwrap();
-      assert!(raw.contains("label: bug"));
-    }
-  }
-
   mod read_all {
     use pretty_assertions::assert_eq;
 
     use super::*;
+
+    #[tokio::test]
+    async fn it_hard_deletes_for_a_tombstoned_file() {
+      let (db, _root, pid, gest_dir) = setup().await;
+      let conn = db.connect().await.unwrap();
+      let id = insert_tag(&conn, "stale").await;
+      write_all(&conn, &pid, &gest_dir).await.unwrap();
+      let path = paths::tag_path(&gest_dir, &id);
+      let mut content = std::fs::read_to_string(&path).unwrap();
+      content.insert_str(0, "deleted_at: 2026-04-08T12:00:00Z\n");
+      std::fs::write(&path, content).unwrap();
+
+      read_all(&conn, &pid, &gest_dir).await.unwrap();
+
+      let mut rows = conn
+        .query("SELECT id FROM tags WHERE id = ?1", [id.to_string()])
+        .await
+        .unwrap();
+      assert!(rows.next().await.unwrap().is_none());
+    }
 
     #[tokio::test]
     async fn it_roundtrips_tags_through_disk() {
@@ -165,25 +166,24 @@ mod tests {
       let label: String = row.get(0).unwrap();
       assert_eq!(label, "design");
     }
+  }
+
+  mod write_all {
+    use super::*;
 
     #[tokio::test]
-    async fn it_hard_deletes_for_a_tombstoned_file() {
+    async fn it_writes_one_yaml_file_per_tag() {
       let (db, _root, pid, gest_dir) = setup().await;
       let conn = db.connect().await.unwrap();
-      let id = insert_tag(&conn, "stale").await;
+      let id_a = insert_tag(&conn, "bug").await;
+      let id_b = insert_tag(&conn, "feature").await;
+
       write_all(&conn, &pid, &gest_dir).await.unwrap();
-      let path = paths::tag_path(&gest_dir, &id);
-      let mut content = std::fs::read_to_string(&path).unwrap();
-      content.insert_str(0, "deleted_at: 2026-04-08T12:00:00Z\n");
-      std::fs::write(&path, content).unwrap();
 
-      read_all(&conn, &pid, &gest_dir).await.unwrap();
-
-      let mut rows = conn
-        .query("SELECT id FROM tags WHERE id = ?1", [id.to_string()])
-        .await
-        .unwrap();
-      assert!(rows.next().await.unwrap().is_none());
+      assert!(paths::tag_path(&gest_dir, &id_a).exists());
+      assert!(paths::tag_path(&gest_dir, &id_b).exists());
+      let raw = std::fs::read_to_string(paths::tag_path(&gest_dir, &id_a)).unwrap();
+      assert!(raw.contains("label: bug"));
     }
   }
 }

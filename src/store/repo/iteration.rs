@@ -139,19 +139,6 @@ pub async fn create(conn: &Connection, project_id: &Id, new: &New) -> Result<Mod
     .ok_or_else(|| Error::Model(ModelError::InvalidValue("iteration not found after insert".into())))
 }
 
-/// Delete an iteration by its ID. Returns true if the iteration was deleted.
-pub async fn delete(conn: &Connection, id: &Id) -> Result<bool, Error> {
-  log::debug!("repo::iteration::delete");
-  // Remove task associations first
-  conn
-    .execute("DELETE FROM iteration_tasks WHERE iteration_id = ?1", [id.to_string()])
-    .await?;
-  let affected = conn
-    .execute("DELETE FROM iterations WHERE id = ?1", [id.to_string()])
-    .await?;
-  Ok(affected > 0)
-}
-
 /// Find an iteration by its [`Id`].
 pub async fn find_by_id(conn: &Connection, id: impl Into<Id>) -> Result<Option<Model>, Error> {
   log::debug!("repo::iteration::find_by_id");
@@ -413,10 +400,77 @@ mod tests {
     (store, conn, tmp, project_id)
   }
 
+  mod add_task_fn {
+    use super::*;
+
+    #[tokio::test]
+    async fn it_adds_a_task_to_an_iteration() {
+      let (_store, conn, _tmp, pid) = setup().await;
+      let iter = create(
+        &conn,
+        &pid,
+        &New {
+          title: "Iter".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+
+      let task_id = Id::new();
+      conn
+        .execute(
+          "INSERT INTO tasks (id, project_id, title) VALUES (?1, ?2, ?3)",
+          [task_id.to_string(), pid.to_string(), "Task".to_string()],
+        )
+        .await
+        .unwrap();
+
+      add_task(&conn, iter.id(), &task_id, 1).await.unwrap();
+
+      let max = max_phase(&conn, iter.id()).await.unwrap();
+      assert_eq!(max, Some(1));
+    }
+  }
+
   mod all_fn {
     use pretty_assertions::assert_eq;
 
     use super::*;
+
+    #[tokio::test]
+    async fn it_excludes_iterations_with_only_claimed_tasks() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let iter = create(
+        &conn,
+        &pid,
+        &New {
+          title: "All claimed".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+
+      let task_id = Id::new();
+      conn
+        .execute(
+          "INSERT INTO tasks (id, project_id, title, status) VALUES (?1, ?2, ?3, 'in-progress')",
+          [task_id.to_string(), pid.to_string(), "Claimed task".to_string()],
+        )
+        .await
+        .unwrap();
+      add_task(&conn, iter.id(), &task_id, 0).await.unwrap();
+
+      let filter = Filter {
+        has_available: true,
+        ..Default::default()
+      };
+      let results = all(&conn, &pid, &filter).await.unwrap();
+
+      assert_eq!(results.len(), 0);
+    }
 
     #[tokio::test]
     async fn it_filters_by_has_available() {
@@ -463,16 +517,41 @@ mod tests {
       assert_eq!(results.len(), 1);
       assert_eq!(results[0].title(), "With open");
     }
+  }
+
+  mod create_fn {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
 
     #[tokio::test]
-    async fn it_excludes_iterations_with_only_claimed_tasks() {
+    async fn it_creates_an_iteration() {
       let (_store, conn, _tmp, pid) = setup().await;
 
+      let new = New {
+        description: "Sprint 1".into(),
+        title: "Sprint 1".into(),
+        ..Default::default()
+      };
+      let iteration = create(&conn, &pid, &new).await.unwrap();
+
+      assert_eq!(iteration.title(), "Sprint 1");
+      assert_eq!(iteration.status(), IterationStatus::Active);
+      assert!(iteration.completed_at().is_none());
+    }
+  }
+
+  mod remove_task_fn {
+    use super::*;
+
+    #[tokio::test]
+    async fn it_removes_a_task_from_an_iteration() {
+      let (_store, conn, _tmp, pid) = setup().await;
       let iter = create(
         &conn,
         &pid,
         &New {
-          title: "All claimed".into(),
+          title: "Iter".into(),
           ..Default::default()
         },
       )
@@ -482,20 +561,165 @@ mod tests {
       let task_id = Id::new();
       conn
         .execute(
-          "INSERT INTO tasks (id, project_id, title, status) VALUES (?1, ?2, ?3, 'in-progress')",
-          [task_id.to_string(), pid.to_string(), "Claimed task".to_string()],
+          "INSERT INTO tasks (id, project_id, title) VALUES (?1, ?2, ?3)",
+          [task_id.to_string(), pid.to_string(), "Task".to_string()],
         )
         .await
         .unwrap();
-      add_task(&conn, iter.id(), &task_id, 0).await.unwrap();
 
-      let filter = Filter {
-        has_available: true,
-        ..Default::default()
-      };
-      let results = all(&conn, &pid, &filter).await.unwrap();
+      add_task(&conn, iter.id(), &task_id, 1).await.unwrap();
+      let removed = remove_task(&conn, iter.id(), &task_id).await.unwrap();
+      assert!(removed);
 
-      assert_eq!(results.len(), 0);
+      let max = max_phase(&conn, iter.id()).await.unwrap();
+      assert_eq!(max, None);
+    }
+  }
+
+  mod semantic_events {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+    use crate::store::repo::transaction;
+
+    async fn semantic_row(conn: &Connection, tx_id: &Id) -> (Option<String>, Option<String>, Option<String>) {
+      let mut rows = conn
+        .query(
+          "SELECT semantic_type, old_value, new_value FROM transaction_events WHERE transaction_id = ?1",
+          [tx_id.to_string()],
+        )
+        .await
+        .unwrap();
+      let row = rows.next().await.unwrap().unwrap();
+      (row.get(0).unwrap(), row.get(1).unwrap(), row.get(2).unwrap())
+    }
+
+    #[tokio::test]
+    async fn it_records_a_completed_event_when_completing() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let iter = create(
+        &conn,
+        &pid,
+        &New {
+          title: "Sprint".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      let before = serde_json::to_value(&iter).unwrap();
+
+      let tx = transaction::begin(&conn, &pid, "iteration complete").await.unwrap();
+      let updated = update(
+        &conn,
+        iter.id(),
+        &Patch {
+          status: Some(IterationStatus::Completed),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      transaction::record_semantic_event(
+        &conn,
+        tx.id(),
+        "iterations",
+        &iter.id().to_string(),
+        "modified",
+        Some(&before),
+        Some("completed"),
+        Some(&iter.status().to_string()),
+        Some(&updated.status().to_string()),
+      )
+      .await
+      .unwrap();
+
+      let (semantic, old, new) = semantic_row(&conn, tx.id()).await;
+      assert_eq!(semantic.as_deref(), Some("completed"));
+      assert_eq!(old.as_deref(), Some("active"));
+      assert_eq!(new.as_deref(), Some("completed"));
+    }
+
+    #[tokio::test]
+    async fn it_records_a_created_event_when_creating_an_iteration() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let tx = transaction::begin(&conn, &pid, "iteration create").await.unwrap();
+      let iter = create(
+        &conn,
+        &pid,
+        &New {
+          title: "Sprint".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      transaction::record_semantic_event(
+        &conn,
+        tx.id(),
+        "iterations",
+        &iter.id().to_string(),
+        "created",
+        None,
+        Some("created"),
+        None,
+        None,
+      )
+      .await
+      .unwrap();
+
+      let (semantic, _, _) = semantic_row(&conn, tx.id()).await;
+      assert_eq!(semantic.as_deref(), Some("created"));
+    }
+
+    #[tokio::test]
+    async fn it_records_a_phase_change_event_when_updating_task_phase() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let iter = create(
+        &conn,
+        &pid,
+        &New {
+          title: "Sprint".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+
+      let task_id = Id::new();
+      conn
+        .execute(
+          "INSERT INTO tasks (id, project_id, title) VALUES (?1, ?2, ?3)",
+          [task_id.to_string(), pid.to_string(), "Task".to_string()],
+        )
+        .await
+        .unwrap();
+      add_task(&conn, iter.id(), &task_id, 1).await.unwrap();
+
+      let old = task_phase(&conn, &task_id).await.unwrap().unwrap();
+      let tx = transaction::begin(&conn, &pid, "task update").await.unwrap();
+      update_task_phase(&conn, &task_id, 2).await.unwrap();
+      transaction::record_semantic_event(
+        &conn,
+        tx.id(),
+        "iteration_tasks",
+        &task_id.to_string(),
+        "modified",
+        None,
+        Some("phase-change"),
+        Some(&old.to_string()),
+        Some("2"),
+      )
+      .await
+      .unwrap();
+
+      let (semantic, old, new) = semantic_row(&conn, tx.id()).await;
+      assert_eq!(semantic.as_deref(), Some("phase-change"));
+      assert_eq!(old.as_deref(), Some("1"));
+      assert_eq!(new.as_deref(), Some("2"));
     }
   }
 
@@ -607,28 +831,6 @@ mod tests {
     }
   }
 
-  mod create_fn {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn it_creates_an_iteration() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let new = New {
-        description: "Sprint 1".into(),
-        title: "Sprint 1".into(),
-        ..Default::default()
-      };
-      let iteration = create(&conn, &pid, &new).await.unwrap();
-
-      assert_eq!(iteration.title(), "Sprint 1");
-      assert_eq!(iteration.status(), IterationStatus::Active);
-      assert!(iteration.completed_at().is_none());
-    }
-  }
-
   mod update_fn {
     use pretty_assertions::assert_eq;
 
@@ -661,221 +863,6 @@ mod tests {
 
       assert_eq!(updated.status(), IterationStatus::Completed);
       assert!(updated.completed_at().is_some());
-    }
-  }
-
-  mod semantic_events {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-    use crate::store::repo::transaction;
-
-    async fn semantic_row(conn: &Connection, tx_id: &Id) -> (Option<String>, Option<String>, Option<String>) {
-      let mut rows = conn
-        .query(
-          "SELECT semantic_type, old_value, new_value FROM transaction_events WHERE transaction_id = ?1",
-          [tx_id.to_string()],
-        )
-        .await
-        .unwrap();
-      let row = rows.next().await.unwrap().unwrap();
-      (row.get(0).unwrap(), row.get(1).unwrap(), row.get(2).unwrap())
-    }
-
-    #[tokio::test]
-    async fn it_records_a_created_event_when_creating_an_iteration() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let tx = transaction::begin(&conn, &pid, "iteration create").await.unwrap();
-      let iter = create(
-        &conn,
-        &pid,
-        &New {
-          title: "Sprint".into(),
-          ..Default::default()
-        },
-      )
-      .await
-      .unwrap();
-      transaction::record_semantic_event(
-        &conn,
-        tx.id(),
-        "iterations",
-        &iter.id().to_string(),
-        "created",
-        None,
-        Some("created"),
-        None,
-        None,
-      )
-      .await
-      .unwrap();
-
-      let (semantic, _, _) = semantic_row(&conn, tx.id()).await;
-      assert_eq!(semantic.as_deref(), Some("created"));
-    }
-
-    #[tokio::test]
-    async fn it_records_a_completed_event_when_completing() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let iter = create(
-        &conn,
-        &pid,
-        &New {
-          title: "Sprint".into(),
-          ..Default::default()
-        },
-      )
-      .await
-      .unwrap();
-      let before = serde_json::to_value(&iter).unwrap();
-
-      let tx = transaction::begin(&conn, &pid, "iteration complete").await.unwrap();
-      let updated = update(
-        &conn,
-        iter.id(),
-        &Patch {
-          status: Some(IterationStatus::Completed),
-          ..Default::default()
-        },
-      )
-      .await
-      .unwrap();
-      transaction::record_semantic_event(
-        &conn,
-        tx.id(),
-        "iterations",
-        &iter.id().to_string(),
-        "modified",
-        Some(&before),
-        Some("completed"),
-        Some(&iter.status().to_string()),
-        Some(&updated.status().to_string()),
-      )
-      .await
-      .unwrap();
-
-      let (semantic, old, new) = semantic_row(&conn, tx.id()).await;
-      assert_eq!(semantic.as_deref(), Some("completed"));
-      assert_eq!(old.as_deref(), Some("active"));
-      assert_eq!(new.as_deref(), Some("completed"));
-    }
-
-    #[tokio::test]
-    async fn it_records_a_phase_change_event_when_updating_task_phase() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let iter = create(
-        &conn,
-        &pid,
-        &New {
-          title: "Sprint".into(),
-          ..Default::default()
-        },
-      )
-      .await
-      .unwrap();
-
-      let task_id = Id::new();
-      conn
-        .execute(
-          "INSERT INTO tasks (id, project_id, title) VALUES (?1, ?2, ?3)",
-          [task_id.to_string(), pid.to_string(), "Task".to_string()],
-        )
-        .await
-        .unwrap();
-      add_task(&conn, iter.id(), &task_id, 1).await.unwrap();
-
-      let old = task_phase(&conn, &task_id).await.unwrap().unwrap();
-      let tx = transaction::begin(&conn, &pid, "task update").await.unwrap();
-      update_task_phase(&conn, &task_id, 2).await.unwrap();
-      transaction::record_semantic_event(
-        &conn,
-        tx.id(),
-        "iteration_tasks",
-        &task_id.to_string(),
-        "modified",
-        None,
-        Some("phase-change"),
-        Some(&old.to_string()),
-        Some("2"),
-      )
-      .await
-      .unwrap();
-
-      let (semantic, old, new) = semantic_row(&conn, tx.id()).await;
-      assert_eq!(semantic.as_deref(), Some("phase-change"));
-      assert_eq!(old.as_deref(), Some("1"));
-      assert_eq!(new.as_deref(), Some("2"));
-    }
-  }
-
-  mod add_task_fn {
-    use super::*;
-
-    #[tokio::test]
-    async fn it_adds_a_task_to_an_iteration() {
-      let (_store, conn, _tmp, pid) = setup().await;
-      let iter = create(
-        &conn,
-        &pid,
-        &New {
-          title: "Iter".into(),
-          ..Default::default()
-        },
-      )
-      .await
-      .unwrap();
-
-      let task_id = Id::new();
-      conn
-        .execute(
-          "INSERT INTO tasks (id, project_id, title) VALUES (?1, ?2, ?3)",
-          [task_id.to_string(), pid.to_string(), "Task".to_string()],
-        )
-        .await
-        .unwrap();
-
-      add_task(&conn, iter.id(), &task_id, 1).await.unwrap();
-
-      let max = max_phase(&conn, iter.id()).await.unwrap();
-      assert_eq!(max, Some(1));
-    }
-  }
-
-  mod remove_task_fn {
-    use super::*;
-
-    #[tokio::test]
-    async fn it_removes_a_task_from_an_iteration() {
-      let (_store, conn, _tmp, pid) = setup().await;
-      let iter = create(
-        &conn,
-        &pid,
-        &New {
-          title: "Iter".into(),
-          ..Default::default()
-        },
-      )
-      .await
-      .unwrap();
-
-      let task_id = Id::new();
-      conn
-        .execute(
-          "INSERT INTO tasks (id, project_id, title) VALUES (?1, ?2, ?3)",
-          [task_id.to_string(), pid.to_string(), "Task".to_string()],
-        )
-        .await
-        .unwrap();
-
-      add_task(&conn, iter.id(), &task_id, 1).await.unwrap();
-      let removed = remove_task(&conn, iter.id(), &task_id).await.unwrap();
-      assert!(removed);
-
-      let max = max_phase(&conn, iter.id()).await.unwrap();
-      assert_eq!(max, None);
     }
   }
 }

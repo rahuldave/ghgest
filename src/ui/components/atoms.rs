@@ -1,11 +1,9 @@
 //! Atomic UI components — the smallest self-contained visual elements.
 
 mod badge;
-mod block;
 mod column;
 mod icon;
 mod id;
-mod indent;
 mod label;
 mod separator;
 mod tag;

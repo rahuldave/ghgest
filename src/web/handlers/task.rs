@@ -23,7 +23,6 @@ use crate::{
     forms::{self, ExistingLink, NoteFormData},
     handlers::log_err,
     markdown,
-    note_display::{self, NoteDisplay},
     timeline::{self, TimelineItem},
   },
 };
@@ -58,7 +57,6 @@ struct TaskDetailFragmentTemplate {
   description_html: String,
   display_links: Vec<DisplayLink>,
   is_blocked: bool,
-  notes: Vec<NoteDisplay>,
   tags: Vec<String>,
   task: task::Model,
   timeline_items: Vec<TimelineItem>,
@@ -71,7 +69,6 @@ struct TaskDetailTemplate {
   description_html: String,
   display_links: Vec<DisplayLink>,
   is_blocked: bool,
-  notes: Vec<NoteDisplay>,
   tags: Vec<String>,
   task: task::Model,
   timeline_items: Vec<TimelineItem>,
@@ -181,14 +178,13 @@ pub async fn task_detail(State(state): State<AppState>, Path(id): Path<String>) 
       format!("task not found: {id}")
     })?;
 
-  let (tags, notes, description_html, is_blocked, blocking, display_links) =
+  let (tags, description_html, is_blocked, blocking, display_links) =
     load_task_detail_data(&conn, &task_id, &task).await?;
   let timeline_items = timeline::build_timeline(&conn, EntityType::Task, &task_id).await?;
 
   let tmpl = TaskDetailTemplate {
     task,
     tags,
-    notes,
     description_html,
     is_blocked,
     blocking,
@@ -215,14 +211,13 @@ pub async fn task_detail_fragment(
       format!("task not found: {id}")
     })?;
 
-  let (tags, notes, description_html, is_blocked, blocking, display_links) =
+  let (tags, description_html, is_blocked, blocking, display_links) =
     load_task_detail_data(&conn, &task_id, &task).await?;
   let timeline_items = timeline::build_timeline(&conn, EntityType::Task, &task_id).await?;
 
   let tmpl = TaskDetailFragmentTemplate {
     task,
     tags,
-    notes,
     description_html,
     is_blocked,
     blocking,
@@ -532,11 +527,8 @@ async fn load_task_detail_data(
   conn: &Connection,
   task_id: &Id,
   task: &task::Model,
-) -> Result<(Vec<String>, Vec<NoteDisplay>, String, bool, bool, Vec<DisplayLink>), String> {
+) -> Result<(Vec<String>, String, bool, bool, Vec<DisplayLink>), String> {
   let tags = repo::tag::for_entity(conn, EntityType::Task, task_id)
-    .await
-    .map_err(log_err("load_task_detail_data"))?;
-  let raw_notes = repo::note::for_entity(conn, EntityType::Task, task_id)
     .await
     .map_err(log_err("load_task_detail_data"))?;
   let rels = repo::relationship::for_entity(conn, EntityType::Task, task_id)
@@ -549,12 +541,10 @@ async fn load_task_detail_data(
     markdown::render_markdown_to_html(task.description())
   };
 
-  let notes = note_display::build_note_displays(conn, raw_notes).await;
-
   let (is_blocked, blocking, _) = compute_blocking(task_id, &rels);
   let display_links = build_display_links(task_id, &rels);
 
-  Ok((tags, notes, description_html, is_blocked, blocking, display_links))
+  Ok((tags, description_html, is_blocked, blocking, display_links))
 }
 
 #[cfg(test)]
@@ -600,6 +590,58 @@ mod tests {
     AppState::new(store, project_id)
   }
 
+  mod build_task_list_data {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn it_defaults_to_all_when_no_status_given() {
+      let state = setup().await;
+
+      let (rows, open, in_prog, done, cancelled, current) = build_task_list_data(&state, None).await.unwrap();
+
+      assert_eq!(current, "all");
+      assert_eq!(rows.len(), 5);
+      assert_eq!((open, in_prog, done, cancelled), (2, 1, 1, 1));
+    }
+
+    #[tokio::test]
+    async fn it_filters_to_a_specific_status_at_the_db_layer() {
+      let state = setup().await;
+
+      let (rows, _, _, _, _, current) = build_task_list_data(&state, Some("done".into())).await.unwrap();
+
+      assert_eq!(current, "done");
+      assert_eq!(rows.len(), 1);
+      assert_eq!(rows[0].task.status(), TaskStatus::Done);
+    }
+
+    #[tokio::test]
+    async fn it_reports_counts_across_every_status_regardless_of_filter() {
+      let state = setup().await;
+
+      let (_, open_a, in_prog_a, done_a, cancelled_a, _) = build_task_list_data(&state, None).await.unwrap();
+      let (_, open_b, in_prog_b, done_b, cancelled_b, _) =
+        build_task_list_data(&state, Some("done".into())).await.unwrap();
+
+      assert_eq!((open_a, in_prog_a, done_a, cancelled_a), (2, 1, 1, 1));
+      assert_eq!((open_b, in_prog_b, done_b, cancelled_b), (2, 1, 1, 1));
+    }
+
+    #[tokio::test]
+    async fn it_returns_every_task_when_status_is_all() {
+      let state = setup().await;
+
+      let (rows, open, in_prog, done, cancelled, current) =
+        build_task_list_data(&state, Some("all".into())).await.unwrap();
+
+      assert_eq!(current, "all");
+      assert_eq!(rows.len(), 5);
+      assert_eq!((open, in_prog, done, cancelled), (2, 1, 1, 1));
+    }
+  }
+
   mod task_detail_timeline {
     use pretty_assertions::assert_eq;
 
@@ -615,6 +657,52 @@ mod tests {
       },
       web::{AppState, timeline},
     };
+
+    #[tokio::test]
+    async fn it_filters_out_events_with_null_semantic_type() {
+      let (store_arc, tmp) = store::open_temp().await.unwrap();
+      let conn = store_arc.connect().await.unwrap();
+      let project = Project::new("/tmp/web-task-timeline-nullfilter".into());
+      conn
+        .execute(
+          "INSERT INTO projects (id, root, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
+          [
+            project.id().to_string(),
+            project.root().to_string_lossy().into_owned(),
+            project.created_at().to_rfc3339(),
+            project.updated_at().to_rfc3339(),
+          ],
+        )
+        .await
+        .unwrap();
+      let project_id = project.id().clone();
+      std::mem::forget(tmp);
+
+      let task = repo::task::create(
+        &conn,
+        &project_id,
+        &task::New {
+          title: "Task".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+
+      // A plain modified event (no semantic_type) should NOT appear.
+      let tx = repo::transaction::begin(&conn, &project_id, "task update")
+        .await
+        .unwrap();
+      repo::transaction::record_event(&conn, tx.id(), "tasks", &task.id().to_string(), "modified", None)
+        .await
+        .unwrap();
+
+      let items = timeline::build_timeline(&conn, EntityType::Task, task.id())
+        .await
+        .unwrap();
+
+      assert!(items.is_empty());
+    }
 
     #[tokio::test]
     async fn it_merges_notes_and_semantic_events_for_a_task_in_chronological_order() {
@@ -722,104 +810,6 @@ mod tests {
         items[2].as_event().unwrap().display_text,
         "someone changed status from open to in-progress"
       );
-    }
-
-    #[tokio::test]
-    async fn it_filters_out_events_with_null_semantic_type() {
-      let (store_arc, tmp) = store::open_temp().await.unwrap();
-      let conn = store_arc.connect().await.unwrap();
-      let project = Project::new("/tmp/web-task-timeline-nullfilter".into());
-      conn
-        .execute(
-          "INSERT INTO projects (id, root, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
-          [
-            project.id().to_string(),
-            project.root().to_string_lossy().into_owned(),
-            project.created_at().to_rfc3339(),
-            project.updated_at().to_rfc3339(),
-          ],
-        )
-        .await
-        .unwrap();
-      let project_id = project.id().clone();
-      std::mem::forget(tmp);
-
-      let task = repo::task::create(
-        &conn,
-        &project_id,
-        &task::New {
-          title: "Task".into(),
-          ..Default::default()
-        },
-      )
-      .await
-      .unwrap();
-
-      // A plain modified event (no semantic_type) should NOT appear.
-      let tx = repo::transaction::begin(&conn, &project_id, "task update")
-        .await
-        .unwrap();
-      repo::transaction::record_event(&conn, tx.id(), "tasks", &task.id().to_string(), "modified", None)
-        .await
-        .unwrap();
-
-      let items = timeline::build_timeline(&conn, EntityType::Task, task.id())
-        .await
-        .unwrap();
-
-      assert!(items.is_empty());
-    }
-  }
-
-  mod build_task_list_data {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn it_defaults_to_all_when_no_status_given() {
-      let state = setup().await;
-
-      let (rows, open, in_prog, done, cancelled, current) = build_task_list_data(&state, None).await.unwrap();
-
-      assert_eq!(current, "all");
-      assert_eq!(rows.len(), 5);
-      assert_eq!((open, in_prog, done, cancelled), (2, 1, 1, 1));
-    }
-
-    #[tokio::test]
-    async fn it_returns_every_task_when_status_is_all() {
-      let state = setup().await;
-
-      let (rows, open, in_prog, done, cancelled, current) =
-        build_task_list_data(&state, Some("all".into())).await.unwrap();
-
-      assert_eq!(current, "all");
-      assert_eq!(rows.len(), 5);
-      assert_eq!((open, in_prog, done, cancelled), (2, 1, 1, 1));
-    }
-
-    #[tokio::test]
-    async fn it_filters_to_a_specific_status_at_the_db_layer() {
-      let state = setup().await;
-
-      let (rows, _, _, _, _, current) = build_task_list_data(&state, Some("done".into())).await.unwrap();
-
-      assert_eq!(current, "done");
-      assert_eq!(rows.len(), 1);
-      assert_eq!(rows[0].task.status(), TaskStatus::Done);
-    }
-
-    #[tokio::test]
-    async fn it_reports_counts_across_every_status_regardless_of_filter() {
-      let state = setup().await;
-
-      let (_, open_a, in_prog_a, done_a, cancelled_a, _) = build_task_list_data(&state, None).await.unwrap();
-      let (_, open_b, in_prog_b, done_b, cancelled_b, _) =
-        build_task_list_data(&state, Some("done".into())).await.unwrap();
-
-      assert_eq!((open_a, in_prog_a, done_a, cancelled_a), (2, 1, 1, 1));
-      assert_eq!((open_b, in_prog_b, done_b, cancelled_b), (2, 1, 1, 1));
     }
   }
 }

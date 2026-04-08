@@ -38,10 +38,11 @@ pub fn read<T: DeserializeOwned>(path: &Path) -> Result<Option<T>, Error> {
 
 /// Serialize `value` to YAML and write it to `path`.
 ///
-/// Creates parent directories as needed and ensures the file ends in a single
-/// trailing newline so that hand-edits and tool-edits leave the same diff
-/// shape. The write itself is non-atomic; the orchestrator coordinates with
-/// the digest cache to avoid spurious rewrites.
+/// Serialize `value` and write it to `path`, ensuring a single trailing newline.
+///
+/// Used by tests; production code uses [`write_cached`] which also updates the
+/// `sync_digests` cache.
+#[cfg(test)]
 pub fn write<T: Serialize>(path: &Path, value: &T) -> Result<(), Error> {
   if let Some(parent) = path.parent() {
     fs::create_dir_all(parent)?;
@@ -206,6 +207,36 @@ mod tests {
     }
   }
 
+  mod walk_files {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn it_returns_empty_for_a_missing_directory() {
+      let dir = TempDir::new().unwrap();
+      let missing = dir.path().join("nope");
+
+      let files = walk_files(&missing, "yaml").unwrap();
+
+      assert!(files.is_empty());
+    }
+
+    #[test]
+    fn it_walks_recursively_and_filters_by_extension() {
+      let dir = TempDir::new().unwrap();
+      fs::create_dir_all(dir.path().join("a/b")).unwrap();
+      fs::write(dir.path().join("a/one.yaml"), "x: 1\n").unwrap();
+      fs::write(dir.path().join("a/skip.txt"), "ignore me").unwrap();
+      fs::write(dir.path().join("a/b/two.yaml"), "x: 2\n").unwrap();
+
+      let files = walk_files(dir.path(), "yaml").unwrap();
+
+      assert_eq!(files.len(), 2);
+      assert!(files[0].ends_with("a/b/two.yaml") || files[0].ends_with("a/one.yaml"));
+    }
+  }
+
   mod write {
     use super::*;
 
@@ -258,36 +289,6 @@ mod tests {
       let tags_idx = raw.find("tags").unwrap();
       assert!(title_idx < count_idx);
       assert!(count_idx < tags_idx);
-    }
-  }
-
-  mod walk_files {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[test]
-    fn it_returns_empty_for_a_missing_directory() {
-      let dir = TempDir::new().unwrap();
-      let missing = dir.path().join("nope");
-
-      let files = walk_files(&missing, "yaml").unwrap();
-
-      assert!(files.is_empty());
-    }
-
-    #[test]
-    fn it_walks_recursively_and_filters_by_extension() {
-      let dir = TempDir::new().unwrap();
-      fs::create_dir_all(dir.path().join("a/b")).unwrap();
-      fs::write(dir.path().join("a/one.yaml"), "x: 1\n").unwrap();
-      fs::write(dir.path().join("a/skip.txt"), "ignore me").unwrap();
-      fs::write(dir.path().join("a/b/two.yaml"), "x: 2\n").unwrap();
-
-      let files = walk_files(dir.path(), "yaml").unwrap();
-
-      assert_eq!(files.len(), 2);
-      assert!(files[0].ends_with("a/b/two.yaml") || files[0].ends_with("a/one.yaml"));
     }
   }
 }

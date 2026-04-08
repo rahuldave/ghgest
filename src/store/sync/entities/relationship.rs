@@ -169,34 +169,6 @@ mod tests {
     id
   }
 
-  mod write_all {
-    use super::*;
-
-    #[tokio::test]
-    async fn it_writes_one_yaml_file_per_relationship() {
-      let (db, _root, pid, gest_dir) = setup().await;
-      let conn = db.connect().await.unwrap();
-      let a = insert_task(&conn, &pid).await;
-      let b = insert_task(&conn, &pid).await;
-      let rel_id = Id::new();
-      conn
-        .execute(
-          "INSERT INTO relationships (id, rel_type, source_id, source_type, target_id, target_type) \
-            VALUES (?1, 'blocks', ?2, 'task', ?3, 'task')",
-          [rel_id.to_string(), a.to_string(), b.to_string()],
-        )
-        .await
-        .unwrap();
-
-      write_all(&conn, &pid, &gest_dir).await.unwrap();
-
-      let path = paths::relationship_path(&gest_dir, &rel_id);
-      assert!(path.exists());
-      let raw = std::fs::read_to_string(&path).unwrap();
-      assert!(raw.contains("rel_type: blocks"));
-    }
-  }
-
   mod read_all {
     use pretty_assertions::assert_eq;
 
@@ -229,6 +201,34 @@ mod tests {
       let row = rows.next().await.unwrap().unwrap();
       let rel_type: String = row.get(0).unwrap();
       assert_eq!(rel_type, "blocks");
+    }
+  }
+
+  mod write_all {
+    use super::*;
+
+    #[tokio::test]
+    async fn it_writes_one_yaml_file_per_relationship() {
+      let (db, _root, pid, gest_dir) = setup().await;
+      let conn = db.connect().await.unwrap();
+      let a = insert_task(&conn, &pid).await;
+      let b = insert_task(&conn, &pid).await;
+      let rel_id = Id::new();
+      conn
+        .execute(
+          "INSERT INTO relationships (id, rel_type, source_id, source_type, target_id, target_type) \
+            VALUES (?1, 'blocks', ?2, 'task', ?3, 'task')",
+          [rel_id.to_string(), a.to_string(), b.to_string()],
+        )
+        .await
+        .unwrap();
+
+      write_all(&conn, &pid, &gest_dir).await.unwrap();
+
+      let path = paths::relationship_path(&gest_dir, &rel_id);
+      assert!(path.exists());
+      let raw = std::fs::read_to_string(&path).unwrap();
+      assert!(raw.contains("rel_type: blocks"));
     }
   }
 }

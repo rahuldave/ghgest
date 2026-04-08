@@ -19,6 +19,7 @@ impl<'a> Component<'a> {
   }
 
   /// Hide the text label, showing only the icon.
+  #[cfg(test)]
   pub fn icon_only(mut self) -> Self {
     self.show_text = false;
     self

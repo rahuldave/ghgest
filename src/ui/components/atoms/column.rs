@@ -14,6 +14,7 @@ pub struct Component {
 
 /// How a column requests horizontal space.
 #[derive(Clone, Copy, Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum Flex {
   /// Requests an exact character width. Content will be padded or truncated.
   Fixed(usize),

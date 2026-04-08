@@ -85,13 +85,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_renders_nothing_when_empty() {
-      let component = Component::new();
-
-      assert_eq!(component.to_string(), "");
-    }
-
-    #[test]
     fn it_aligns_labels_across_fields() {
       let component = Component::new()
         .field("title", "probe-schema-v2")
@@ -118,6 +111,13 @@ mod tests {
       let plain: String = output.chars().filter(|c| !c.is_ascii_control()).collect();
       let plain = plain.replace("[0m", "").replace("[1m", "");
       assert!(plain.contains("id        "), "short label should be padded");
+    }
+
+    #[test]
+    fn it_renders_nothing_when_empty() {
+      let component = Component::new();
+
+      assert_eq!(component.to_string(), "");
     }
 
     #[test]

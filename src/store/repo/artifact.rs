@@ -115,15 +115,6 @@ pub async fn create(conn: &Connection, project_id: &Id, new: &New) -> Result<Mod
     .ok_or_else(|| Error::Model(ModelError::InvalidValue("artifact not found after insert".into())))
 }
 
-/// Delete an artifact by its ID. Returns true if the artifact was deleted.
-pub async fn delete(conn: &Connection, id: &Id) -> Result<bool, Error> {
-  log::debug!("repo::artifact::delete");
-  let affected = conn
-    .execute("DELETE FROM artifacts WHERE id = ?1", [id.to_string()])
-    .await?;
-  Ok(affected > 0)
-}
-
 /// Find an artifact by its [`Id`].
 pub async fn find_by_id(conn: &Connection, id: impl Into<Id>) -> Result<Option<Model>, Error> {
   log::debug!("repo::artifact::find_by_id");
@@ -243,25 +234,41 @@ mod tests {
     (store, conn, tmp, project_id)
   }
 
-  mod create_fn {
+  mod all_fn {
     use pretty_assertions::assert_eq;
 
     use super::*;
 
     #[tokio::test]
-    async fn it_creates_an_artifact() {
+    async fn it_excludes_archived_by_default() {
       let (_store, conn, _tmp, pid) = setup().await;
 
-      let new = New {
-        body: "# Spec\nSome content".into(),
-        title: "My spec".into(),
-        ..Default::default()
-      };
-      let artifact = create(&conn, &pid, &new).await.unwrap();
+      create(
+        &conn,
+        &pid,
+        &New {
+          title: "Active".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      let to_archive = create(
+        &conn,
+        &pid,
+        &New {
+          title: "Archive me".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      archive(&conn, to_archive.id()).await.unwrap();
 
-      assert_eq!(artifact.title(), "My spec");
-      assert_eq!(artifact.body(), "# Spec\nSome content");
-      assert!(!artifact.is_archived());
+      let artifacts = all(&conn, &pid, &Filter::default()).await.unwrap();
+
+      assert_eq!(artifacts.len(), 1);
+      assert_eq!(artifacts[0].title(), "Active");
     }
   }
 
@@ -285,6 +292,114 @@ mod tests {
       let archived = archive(&conn, artifact.id()).await.unwrap();
 
       assert!(archived.is_archived());
+    }
+  }
+
+  mod create_fn {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn it_creates_an_artifact() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let new = New {
+        body: "# Spec\nSome content".into(),
+        title: "My spec".into(),
+        ..Default::default()
+      };
+      let artifact = create(&conn, &pid, &new).await.unwrap();
+
+      assert_eq!(artifact.title(), "My spec");
+      assert_eq!(artifact.body(), "# Spec\nSome content");
+      assert!(!artifact.is_archived());
+    }
+  }
+
+  mod semantic_events {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+    use crate::store::repo::transaction;
+
+    async fn semantic_type(conn: &Connection, tx_id: &Id) -> Option<String> {
+      let mut rows = conn
+        .query(
+          "SELECT semantic_type FROM transaction_events WHERE transaction_id = ?1",
+          [tx_id.to_string()],
+        )
+        .await
+        .unwrap();
+      let row = rows.next().await.unwrap().unwrap();
+      row.get(0).unwrap()
+    }
+
+    #[tokio::test]
+    async fn it_records_a_created_event_when_creating_an_artifact() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let tx = transaction::begin(&conn, &pid, "artifact create").await.unwrap();
+      let artifact = create(
+        &conn,
+        &pid,
+        &New {
+          title: "Spec".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      transaction::record_semantic_event(
+        &conn,
+        tx.id(),
+        "artifacts",
+        &artifact.id().to_string(),
+        "created",
+        None,
+        Some("created"),
+        None,
+        None,
+      )
+      .await
+      .unwrap();
+
+      assert_eq!(semantic_type(&conn, tx.id()).await.as_deref(), Some("created"));
+    }
+
+    #[tokio::test]
+    async fn it_records_an_archived_event_when_archiving() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let artifact = create(
+        &conn,
+        &pid,
+        &New {
+          title: "Spec".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      let before = serde_json::to_value(&artifact).unwrap();
+
+      let tx = transaction::begin(&conn, &pid, "artifact archive").await.unwrap();
+      archive(&conn, artifact.id()).await.unwrap();
+      transaction::record_semantic_event(
+        &conn,
+        tx.id(),
+        "artifacts",
+        &artifact.id().to_string(),
+        "modified",
+        Some(&before),
+        Some("archived"),
+        None,
+        None,
+      )
+      .await
+      .unwrap();
+
+      assert_eq!(semantic_type(&conn, tx.id()).await.as_deref(), Some("archived"));
     }
   }
 
@@ -376,130 +491,6 @@ mod tests {
 
       assert_eq!(shortest_active_prefix(&conn, &pid).await.unwrap(), 1);
       assert_eq!(shortest_all_prefix(&conn, &pid).await.unwrap(), 1);
-    }
-  }
-
-  mod semantic_events {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-    use crate::store::repo::transaction;
-
-    async fn semantic_type(conn: &Connection, tx_id: &Id) -> Option<String> {
-      let mut rows = conn
-        .query(
-          "SELECT semantic_type FROM transaction_events WHERE transaction_id = ?1",
-          [tx_id.to_string()],
-        )
-        .await
-        .unwrap();
-      let row = rows.next().await.unwrap().unwrap();
-      row.get(0).unwrap()
-    }
-
-    #[tokio::test]
-    async fn it_records_a_created_event_when_creating_an_artifact() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let tx = transaction::begin(&conn, &pid, "artifact create").await.unwrap();
-      let artifact = create(
-        &conn,
-        &pid,
-        &New {
-          title: "Spec".into(),
-          ..Default::default()
-        },
-      )
-      .await
-      .unwrap();
-      transaction::record_semantic_event(
-        &conn,
-        tx.id(),
-        "artifacts",
-        &artifact.id().to_string(),
-        "created",
-        None,
-        Some("created"),
-        None,
-        None,
-      )
-      .await
-      .unwrap();
-
-      assert_eq!(semantic_type(&conn, tx.id()).await.as_deref(), Some("created"));
-    }
-
-    #[tokio::test]
-    async fn it_records_an_archived_event_when_archiving() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      let artifact = create(
-        &conn,
-        &pid,
-        &New {
-          title: "Spec".into(),
-          ..Default::default()
-        },
-      )
-      .await
-      .unwrap();
-      let before = serde_json::to_value(&artifact).unwrap();
-
-      let tx = transaction::begin(&conn, &pid, "artifact archive").await.unwrap();
-      archive(&conn, artifact.id()).await.unwrap();
-      transaction::record_semantic_event(
-        &conn,
-        tx.id(),
-        "artifacts",
-        &artifact.id().to_string(),
-        "modified",
-        Some(&before),
-        Some("archived"),
-        None,
-        None,
-      )
-      .await
-      .unwrap();
-
-      assert_eq!(semantic_type(&conn, tx.id()).await.as_deref(), Some("archived"));
-    }
-  }
-
-  mod all_fn {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn it_excludes_archived_by_default() {
-      let (_store, conn, _tmp, pid) = setup().await;
-
-      create(
-        &conn,
-        &pid,
-        &New {
-          title: "Active".into(),
-          ..Default::default()
-        },
-      )
-      .await
-      .unwrap();
-      let to_archive = create(
-        &conn,
-        &pid,
-        &New {
-          title: "Archive me".into(),
-          ..Default::default()
-        },
-      )
-      .await
-      .unwrap();
-      archive(&conn, to_archive.id()).await.unwrap();
-
-      let artifacts = all(&conn, &pid, &Filter::default()).await.unwrap();
-
-      assert_eq!(artifacts.len(), 1);
-      assert_eq!(artifacts[0].title(), "Active");
     }
   }
 }

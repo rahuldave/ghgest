@@ -433,38 +433,6 @@ mod tests {
     id
   }
 
-  mod write_all {
-    use super::*;
-
-    #[tokio::test]
-    async fn it_writes_an_iteration_file_with_embedded_phases() {
-      let (db, _root, pid, gest_dir) = setup().await;
-      let conn = db.connect().await.unwrap();
-      let iter_id = insert_iteration(&conn, &pid, "Sprint 1").await;
-      let task_a = insert_task(&conn, &pid).await;
-      let task_b = insert_task(&conn, &pid).await;
-      conn
-        .execute(
-          "INSERT INTO iteration_tasks (iteration_id, task_id, phase) VALUES (?1, ?2, 1), (?1, ?3, 2)",
-          libsql::params![iter_id.to_string(), task_a.to_string(), task_b.to_string()],
-        )
-        .await
-        .unwrap();
-
-      write_all(&conn, &pid, &gest_dir).await.unwrap();
-
-      let path = paths::iteration_path(&gest_dir, &iter_id);
-      assert!(path.exists());
-      let raw = std::fs::read_to_string(&path).unwrap();
-      assert!(raw.contains("title: Sprint 1"));
-      assert!(raw.contains("phases:"));
-      assert!(raw.contains("phase: 1"));
-      assert!(raw.contains("phase: 2"));
-      assert!(raw.contains(&task_a.to_string()));
-      assert!(raw.contains(&task_b.to_string()));
-    }
-  }
-
   mod read_all {
     use pretty_assertions::assert_eq;
 
@@ -511,6 +479,38 @@ mod tests {
       let task_id_db: String = row.get(1).unwrap();
       assert_eq!(phase, 3);
       assert_eq!(task_id_db, task_id.to_string());
+    }
+  }
+
+  mod write_all {
+    use super::*;
+
+    #[tokio::test]
+    async fn it_writes_an_iteration_file_with_embedded_phases() {
+      let (db, _root, pid, gest_dir) = setup().await;
+      let conn = db.connect().await.unwrap();
+      let iter_id = insert_iteration(&conn, &pid, "Sprint 1").await;
+      let task_a = insert_task(&conn, &pid).await;
+      let task_b = insert_task(&conn, &pid).await;
+      conn
+        .execute(
+          "INSERT INTO iteration_tasks (iteration_id, task_id, phase) VALUES (?1, ?2, 1), (?1, ?3, 2)",
+          libsql::params![iter_id.to_string(), task_a.to_string(), task_b.to_string()],
+        )
+        .await
+        .unwrap();
+
+      write_all(&conn, &pid, &gest_dir).await.unwrap();
+
+      let path = paths::iteration_path(&gest_dir, &iter_id);
+      assert!(path.exists());
+      let raw = std::fs::read_to_string(&path).unwrap();
+      assert!(raw.contains("title: Sprint 1"));
+      assert!(raw.contains("phases:"));
+      assert!(raw.contains("phase: 1"));
+      assert!(raw.contains("phase: 2"));
+      assert!(raw.contains(&task_a.to_string()));
+      assert!(raw.contains(&task_b.to_string()));
     }
   }
 }

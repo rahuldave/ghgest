@@ -55,12 +55,8 @@ impl Model {
     self.priority
   }
 
-  /// The project this task belongs to.
-  pub fn project_id(&self) -> &Id {
-    &self.project_id
-  }
-
   /// When this task was resolved (completed or cancelled).
+  #[cfg(test)]
   pub fn resolved_at(&self) -> Option<&DateTime<Utc>> {
     self.resolved_at.as_ref()
   }
