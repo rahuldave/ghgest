@@ -125,6 +125,13 @@ impl Command {
 
     // If --claim, update the task
     let task = if self.claim {
+      let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
+
+      let before_task = repo::task::find_by_id(&conn, task_id.clone())
+        .await?
+        .ok_or_else(|| Error::Resolve(repo::resolve::Error::NotFound(next.full_id.clone())))?;
+      let before = serde_json::to_value(&before_task)?;
+
       let mut patch = crate::store::model::task::Patch {
         status: Some(TaskStatus::InProgress),
         ..Default::default()
@@ -135,7 +142,21 @@ impl Command {
         patch.assigned_to = Some(Some(author.id().clone()));
       }
 
-      repo::task::update(&conn, &task_id, &patch).await?
+      let tx = repo::transaction::begin(&conn, project_id, "iteration next claim").await?;
+      let updated = repo::task::update(&conn, &task_id, &patch).await?;
+      repo::transaction::record_semantic_event(
+        &conn,
+        tx.id(),
+        "tasks",
+        &task_id.to_string(),
+        "modified",
+        Some(&before),
+        Some("status-change"),
+        Some(&before_task.status().to_string()),
+        Some(&updated.status().to_string()),
+      )
+      .await?;
+      updated
     } else {
       repo::task::find_by_id(&conn, task_id.clone())
         .await?
