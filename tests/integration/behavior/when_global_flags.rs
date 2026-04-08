@@ -87,6 +87,54 @@ fn it_rejects_unknown_flag() {
 }
 
 #[test]
+fn it_advertises_no_pager_in_top_level_help() {
+  let g = GestCmd::new_uninit();
+
+  let output = g.cmd().args(["--help"]).output().expect("--help failed to run");
+
+  assert!(output.status.success(), "--help should exit zero");
+  let stdout = String::from_utf8_lossy(&output.stdout);
+  assert!(
+    stdout.contains("--no-pager"),
+    "top-level --help should advertise --no-pager, got: {stdout}"
+  );
+}
+
+#[test]
+fn it_accepts_no_pager_before_subcommand() {
+  let g = GestCmd::new_uninit();
+
+  let output = g
+    .cmd()
+    .args(["--no-pager", "--version"])
+    .output()
+    .expect("--no-pager --version failed to run");
+
+  assert!(
+    output.status.success(),
+    "--no-pager before --version should exit zero, stderr: {}",
+    String::from_utf8_lossy(&output.stderr)
+  );
+}
+
+#[test]
+fn it_accepts_no_pager_after_subcommand() {
+  let g = GestCmd::new_uninit();
+
+  let output = g
+    .cmd()
+    .args(["version", "--no-pager"])
+    .output()
+    .expect("version --no-pager failed to run");
+
+  assert!(
+    output.status.success(),
+    "version --no-pager should exit zero, stderr: {}",
+    String::from_utf8_lossy(&output.stderr)
+  );
+}
+
+#[test]
 fn it_rejects_unknown_subcommand() {
   let g = GestCmd::new_uninit();
 

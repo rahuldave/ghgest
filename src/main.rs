@@ -25,6 +25,9 @@ pub struct AppContext {
   /// The `.gest` directory path, if the project is in local mode.
   #[get = "pub"]
   gest_dir: Option<PathBuf>,
+  /// Whether the user passed `--no-pager` to suppress paging of long command output.
+  #[get = "pub"]
+  no_pager: bool,
   /// The current project's ID, if one has been initialized for the working directory.
   #[get = "pub"]
   project_id: Option<Id>,
@@ -71,6 +74,7 @@ async fn main() {
 
   let context = AppContext {
     gest_dir: gest_dir.clone(),
+    no_pager: *app.no_pager(),
     project_id,
     settings,
     store: store.clone(),

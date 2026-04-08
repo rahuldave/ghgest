@@ -32,6 +32,10 @@ pub struct App {
   /// Disable ANSI color output.
   #[arg(long, global = true)]
   no_color: bool,
+  /// Disable paging of long command output.
+  #[get = "pub"]
+  #[arg(long, global = true)]
+  no_pager: bool,
   /// Print the current version, platform info, and check for available updates.
   #[arg(long = "version", short = 'V')]
   print_version: bool,
@@ -280,11 +284,13 @@ mod tests {
       let app = App {
         command: None,
         no_color: false,
+        no_pager: false,
         print_version: true,
         verbosity_level: 0,
       };
       let context = AppContext {
         gest_dir: None,
+        no_pager: false,
         project_id: None,
         settings: crate::config::Settings::default(),
         store: crate::store::open_temp().await.unwrap().0,
@@ -300,11 +306,13 @@ mod tests {
       let app = App {
         command: None,
         no_color: false,
+        no_pager: false,
         print_version: false,
         verbosity_level: 0,
       };
       let context = AppContext {
         gest_dir: None,
+        no_pager: false,
         project_id: None,
         settings: crate::config::Settings::default(),
         store: crate::store::open_temp().await.unwrap().0,
@@ -320,11 +328,13 @@ mod tests {
       let app = App {
         command: Some(Command::Version(commands::version::Command)),
         no_color: false,
+        no_pager: false,
         print_version: false,
         verbosity_level: 0,
       };
       let context = AppContext {
         gest_dir: None,
+        no_pager: false,
         project_id: None,
         settings: crate::config::Settings::default(),
         store: crate::store::open_temp().await.unwrap().0,
@@ -333,6 +343,61 @@ mod tests {
       let result = app.call(&context).await;
 
       assert!(result.is_ok());
+    }
+  }
+
+  mod app_parse {
+    use super::*;
+
+    #[test]
+    fn it_defaults_no_pager_to_false() {
+      let app = App::try_parse_from(["gest", "version"]).unwrap();
+
+      assert!(!*app.no_pager());
+    }
+
+    #[test]
+    fn it_parses_no_pager_flag() {
+      let app = App::try_parse_from(["gest", "--no-pager", "version"]).unwrap();
+
+      assert!(*app.no_pager());
+    }
+
+    #[test]
+    fn it_parses_no_pager_flag_after_subcommand() {
+      let app = App::try_parse_from(["gest", "version", "--no-pager"]).unwrap();
+
+      assert!(*app.no_pager());
+    }
+  }
+
+  mod app_context_no_pager {
+    use super::*;
+
+    #[tokio::test]
+    async fn it_exposes_no_pager_accessor() {
+      let context = AppContext {
+        gest_dir: None,
+        no_pager: true,
+        project_id: None,
+        settings: crate::config::Settings::default(),
+        store: crate::store::open_temp().await.unwrap().0,
+      };
+
+      assert!(*context.no_pager());
+    }
+
+    #[tokio::test]
+    async fn it_defaults_no_pager_accessor_to_false() {
+      let context = AppContext {
+        gest_dir: None,
+        no_pager: false,
+        project_id: None,
+        settings: crate::config::Settings::default(),
+        store: crate::store::open_temp().await.unwrap().0,
+      };
+
+      assert!(!*context.no_pager());
     }
   }
 }
