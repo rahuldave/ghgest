@@ -22,6 +22,7 @@ enum Sub {
   /// Detach the current directory from its project.
   Detach(detach::Command),
   /// List all known projects.
+  #[command(visible_alias = "ls")]
   List(list::Command),
 }
 

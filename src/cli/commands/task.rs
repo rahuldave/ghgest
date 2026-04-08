@@ -34,22 +34,26 @@ enum Sub {
   /// Mark a task as done.
   Complete(complete::Command),
   /// Create a new task.
+  #[command(visible_alias = "new")]
   Create(create::Command),
   /// Link a task to another entity.
   Link(link::Command),
   /// List tasks.
+  #[command(visible_alias = "ls")]
   List(list::Command),
   /// Get or set custom metadata.
   Meta(meta::Command),
   /// Manage notes on a task.
   Note(note::Command),
   /// Show a task.
+  #[command(visible_alias = "view")]
   Show(show::Command),
   /// Add a tag to a task.
   Tag(tag::Command),
   /// Remove a tag from a task.
   Untag(untag::Command),
   /// Update a task.
+  #[command(visible_alias = "edit")]
   Update(update::Command),
 }
 

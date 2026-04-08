@@ -24,20 +24,24 @@ enum Sub {
   /// Archive an artifact.
   Archive(archive::Command),
   /// Create a new artifact.
+  #[command(visible_alias = "new")]
   Create(create::Command),
   /// List artifacts.
+  #[command(visible_alias = "ls")]
   List(list::Command),
   /// Get or set custom metadata.
   Meta(meta::Command),
   /// Manage notes on an artifact.
   Note(note::Command),
   /// Show an artifact.
+  #[command(visible_alias = "view")]
   Show(show::Command),
   /// Add a tag to an artifact.
   Tag(tag::Command),
   /// Remove a tag from an artifact.
   Untag(untag::Command),
   /// Update an artifact.
+  #[command(visible_alias = "edit")]
   Update(update::Command),
 }
 

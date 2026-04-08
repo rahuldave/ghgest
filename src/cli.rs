@@ -161,6 +161,7 @@ enum Command {
   /// Import v0.4.x flat-file data into the current project store.
   Migrate(commands::migrate::Command),
   /// Show or manage the current project.
+  #[command(visible_alias = "p")]
   Project(commands::project::Command),
   /// Search across all entity types.
   #[command(alias = "grep")]
