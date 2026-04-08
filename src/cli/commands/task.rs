@@ -1,3 +1,5 @@
+//! `gest task` subcommand tree for creating, listing, and managing tasks.
+
 mod block;
 mod cancel;
 mod claim;
@@ -62,6 +64,7 @@ enum Sub {
 }
 
 impl Command {
+  /// Dispatch to the matched task subcommand.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("task: entry");
     match &self.subcommand {

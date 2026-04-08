@@ -23,6 +23,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Write `value` to the selected project or global config file.
   pub async fn call(&self, _context: &AppContext) -> Result<(), Error> {
     let (scope_label, config_path) = if self.global {
       ("global", resolve_global_config_path()?)

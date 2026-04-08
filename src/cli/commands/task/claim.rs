@@ -27,6 +27,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Assign the task to the resolved author and transition it to `in-progress` within a recorded transaction.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("task claim: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

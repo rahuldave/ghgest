@@ -25,6 +25,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Write the parsed value into the iteration's metadata at the given dot-path within a recorded transaction.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("iteration meta set: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

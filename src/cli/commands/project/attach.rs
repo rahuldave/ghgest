@@ -15,6 +15,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Attach the current working directory to an existing project as a workspace.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("project attach: entry");
     let id: Id = self

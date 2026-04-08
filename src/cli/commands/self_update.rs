@@ -1,5 +1,3 @@
-//! The `self-update` subcommand — downloads and installs the latest release from GitHub.
-
 use clap::Args;
 use self_update::{backends::github::Update, update::ReleaseUpdate};
 

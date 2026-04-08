@@ -32,6 +32,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Apply title, description, and metadata changes to the resolved iteration within a recorded transaction.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("iteration update: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

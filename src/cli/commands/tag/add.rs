@@ -20,6 +20,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Attach each requested tag to the resolved entity inside a single transaction.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("tag add: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

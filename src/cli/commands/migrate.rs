@@ -30,6 +30,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Run the migration for the selected source version.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("migrate: entry");
     let source = match &self.path {

@@ -7,7 +7,7 @@ use crate::{
   ui::{components::SuccessMessage, json},
 };
 
-/// Delete a note from a artifact.
+/// Delete a note from an artifact.
 #[derive(Args, Debug)]
 pub struct Command {
   /// The note ID or prefix.
@@ -20,6 +20,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Confirm and delete the resolved note within a recorded transaction.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("artifact note delete: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

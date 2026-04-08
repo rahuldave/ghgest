@@ -20,6 +20,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Resolve the iteration and render its details with phase and task status counts.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("iteration show: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

@@ -20,6 +20,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Check that the active phase is terminal and report the next phase to work on.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("iteration advance: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

@@ -26,6 +26,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Run the search against the current project and render results.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("search: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

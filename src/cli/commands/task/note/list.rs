@@ -19,6 +19,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Render notes attached to the resolved task.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("task note list: entry");
     let conn = context.store().connect().await?;

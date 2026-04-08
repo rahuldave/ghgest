@@ -1,3 +1,5 @@
+//! `gest artifact` subcommand tree for creating, listing, and managing artifacts.
+
 mod archive;
 mod create;
 mod delete;
@@ -50,6 +52,7 @@ enum Sub {
 }
 
 impl Command {
+  /// Dispatch to the matched artifact subcommand.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("artifact: entry");
     match &self.subcommand {

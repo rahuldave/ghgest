@@ -1,3 +1,5 @@
+//! Subcommands for reading and writing artifact metadata.
+
 mod bare;
 mod get;
 mod set;

@@ -26,6 +26,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Render the tag list, optionally scoped by entity type.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("tag list: entry");
     let conn = context.store().connect().await?;

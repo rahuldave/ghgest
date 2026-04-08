@@ -1,5 +1,3 @@
-//! The `init` subcommand — initializes a new gest project.
-
 use clap::Args;
 
 use crate::{AppContext, cli::Error, store::repo, ui::components::SuccessMessage};
@@ -14,6 +12,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Create or reuse a project row for the current working directory.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("init: entry");
     let cwd = std::env::current_dir()?;

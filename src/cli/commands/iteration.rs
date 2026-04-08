@@ -1,3 +1,5 @@
+//! `gest iteration` subcommand tree for planning and running phased work cycles.
+
 mod add;
 mod advance;
 mod cancel;
@@ -74,6 +76,7 @@ enum Sub {
 }
 
 impl Command {
+  /// Dispatch to the matched iteration subcommand.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("iteration: entry");
     match &self.subcommand {

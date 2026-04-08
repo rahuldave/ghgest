@@ -63,6 +63,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Insert a new task (or a batch from NDJSON stdin), attaching tags, links, and iteration membership.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("task create: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

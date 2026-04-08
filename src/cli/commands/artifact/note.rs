@@ -1,3 +1,5 @@
+//! Subcommands for managing notes attached to artifacts.
+
 mod add;
 mod delete;
 mod list;

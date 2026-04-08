@@ -1,3 +1,5 @@
+//! `gest tag` subcommand tree for listing and managing tags across entities.
+
 mod add;
 mod list;
 mod remove;
@@ -24,6 +26,7 @@ enum Sub {
 }
 
 impl Command {
+  /// Dispatch to the matched tag subcommand, defaulting to `list`.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("tag: entry");
     match &self.subcommand {

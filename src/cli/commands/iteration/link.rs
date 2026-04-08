@@ -27,6 +27,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Create a relationship row (and reciprocal for iteration-to-iteration links) within a recorded transaction.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("iteration link: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

@@ -24,6 +24,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Confirm and cascade-delete the artifact along with its notes, tags, and relationships, writing a tombstone file.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("artifact delete: entry");
     let _ = self.force;

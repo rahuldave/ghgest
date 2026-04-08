@@ -7,7 +7,7 @@ use crate::{
   ui::{components::FieldList, json},
 };
 
-/// List notes on a artifact.
+/// List notes on an artifact.
 #[derive(Args, Debug)]
 pub struct Command {
   /// The artifact ID or prefix.
@@ -19,6 +19,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Render notes attached to the resolved artifact.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("artifact note list: entry");
     let conn = context.store().connect().await?;

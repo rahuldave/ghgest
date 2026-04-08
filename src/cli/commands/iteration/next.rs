@@ -33,6 +33,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Pick the next unblocked open task in phase and priority order, optionally claiming and assigning it.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("iteration next: entry");
     if self.agent.is_some() && !self.claim {

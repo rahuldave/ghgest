@@ -15,6 +15,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Print the merged configuration along with the sources it was loaded from.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("config show: entry");
     let settings = context.settings();

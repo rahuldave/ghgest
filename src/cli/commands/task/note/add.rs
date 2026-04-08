@@ -30,6 +30,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Create a new note on the resolved task, resolving the author from flags or git identity.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("task note add: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

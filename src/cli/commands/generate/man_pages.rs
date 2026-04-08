@@ -18,6 +18,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Render the `gest.1` man page into the requested output directory.
   pub async fn call(&self, _context: &AppContext) -> Result<(), Error> {
     std::fs::create_dir_all(&self.output_dir)?;
 

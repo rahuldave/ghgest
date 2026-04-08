@@ -22,6 +22,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Create a `blocks` relationship from the source task to the blocked task within a recorded transaction.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("task block: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

@@ -17,6 +17,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Render the resolved note's body and metadata.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("artifact note show: entry");
     let conn = context.store().connect().await?;

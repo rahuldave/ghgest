@@ -17,6 +17,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Resolve the task and render its details, description, and tags.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("task show: entry");
     let conn = context.store().connect().await?;

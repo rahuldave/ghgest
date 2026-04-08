@@ -1,5 +1,3 @@
-//! The `version` subcommand — prints version and platform information.
-
 use clap::Args;
 
 use crate::{

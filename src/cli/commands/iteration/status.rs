@@ -17,6 +17,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Compute and render per-status task counts and progress percentage for the iteration.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("iteration status: entry");
     let conn = context.store().connect().await?;

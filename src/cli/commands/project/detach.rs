@@ -9,6 +9,7 @@ use crate::{AppContext, cli::Error, store::repo, ui::components::SuccessMessage}
 pub struct Command;
 
 impl Command {
+  /// Remove the workspace row that points at the current working directory.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("project detach: entry");
     let cwd = std::env::current_dir()?;

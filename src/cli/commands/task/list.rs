@@ -38,6 +38,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Query tasks with the requested filters and render them as a table, JSON, or plain IDs.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("task list: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

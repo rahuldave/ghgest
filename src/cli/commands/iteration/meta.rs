@@ -1,3 +1,5 @@
+//! Subcommands for reading and writing iteration metadata.
+
 mod bare;
 mod get;
 mod set;

@@ -22,6 +22,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Attach the resolved task to the iteration at the given phase via an `iteration_tasks` row.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("iteration add: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

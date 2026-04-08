@@ -1,3 +1,5 @@
+//! `gest generate` subcommand tree for emitting shell completions and man pages.
+
 mod completions;
 mod man_pages;
 
@@ -21,6 +23,7 @@ enum Sub {
 }
 
 impl Command {
+  /// Dispatch to the matched generate subcommand.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("generate: entry");
     match &self.subcommand {

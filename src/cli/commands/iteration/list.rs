@@ -35,6 +35,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Query iterations with the requested filters and render them with per-iteration phase and task counts.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("iteration list: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

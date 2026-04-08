@@ -74,8 +74,6 @@ pub async fn run(context: &AppContext, source: &Path) -> Result<(), Error> {
   Ok(())
 }
 
-// ── Entity migration ────────────────────────────────────────────────────────────
-
 /// Migrate tasks and return a mapping of old ID string → new Id.
 async fn migrate_tasks(
   conn: &libsql::Connection,
@@ -323,8 +321,6 @@ async fn migrate_iterations(
   Ok(())
 }
 
-// ── Link import ─────────────────────────────────────────────────────────────────
-
 /// Import a v0.4 link as a relationship. Links reference entities by path like
 /// "tasks/<id>" or "artifacts/<id>".
 async fn import_link(
@@ -374,8 +370,6 @@ fn resolve_link_ref(ref_: &str, task_id_map: &HashMap<String, Id>) -> Option<(En
   }
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────────
-
 /// Convert a TOML table to a JSON value for metadata storage.
 fn toml_table_to_json(table: &toml::Table) -> Option<JsonValue> {
   if table.is_empty() {
@@ -401,8 +395,6 @@ fn read_files_with_ext(dir: &Path, ext: &str) -> std::io::Result<Vec<PathBuf>> {
   paths.sort();
   Ok(paths)
 }
-
-// ── Legacy format parsing ───────────────────────────────────────────────────────
 
 /// Parse a legacy artifact file (YAML frontmatter + markdown body).
 fn parse_legacy_artifact(content: &str, archived: bool) -> Result<LegacyArtifact, String> {
@@ -501,8 +493,6 @@ fn parse_yaml_list_field(fields: &HashMap<String, String>, key: &str) -> Vec<Str
     })
     .unwrap_or_default()
 }
-
-// ── Legacy format structs ───────────────────────────────────────────────────────
 
 /// Parsed legacy artifact data.
 struct LegacyArtifact {

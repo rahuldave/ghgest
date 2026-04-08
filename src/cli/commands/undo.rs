@@ -11,6 +11,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Roll back the most recent `steps` undoable transactions for the current project.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("undo: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

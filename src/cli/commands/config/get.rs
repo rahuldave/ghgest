@@ -13,6 +13,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Resolve `key` against the merged settings and print its value.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("config get: entry");
     let toml_value = Value::try_from(context.settings()).map_err(std::io::Error::other)?;

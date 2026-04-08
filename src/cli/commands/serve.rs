@@ -22,6 +22,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Start the embedded web dashboard, binding to the resolved address and port.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("serve: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

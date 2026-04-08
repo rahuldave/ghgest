@@ -20,6 +20,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Transition the resolved task to `cancelled` within a recorded transaction.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("task cancel: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

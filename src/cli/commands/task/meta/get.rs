@@ -20,6 +20,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Resolve the task and print the metadata value at the given dot-path.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("task meta get: entry");
     let conn = context.store().connect().await?;

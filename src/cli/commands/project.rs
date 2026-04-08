@@ -1,3 +1,5 @@
+//! `gest project` subcommand tree for showing, attaching, and listing projects.
+
 mod attach;
 mod detach;
 mod list;
@@ -6,6 +8,7 @@ use clap::{Args, Subcommand};
 
 use crate::{AppContext, cli::Error, store::repo, ui::components::ProjectShow};
 
+/// Show or manage the current project.
 #[derive(Args, Debug)]
 pub struct Command {
   /// Emit output as JSON (only applies to the default show view).
@@ -27,6 +30,7 @@ enum Sub {
 }
 
 impl Command {
+  /// Dispatch to the matched project subcommand, or show the current project.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("project: entry");
     match &self.subcommand {

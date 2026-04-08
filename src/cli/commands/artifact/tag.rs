@@ -19,6 +19,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Attach the given tag label to the resolved artifact within a recorded transaction.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("artifact tag: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

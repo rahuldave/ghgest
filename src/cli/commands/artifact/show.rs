@@ -17,6 +17,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Resolve the artifact and render its details, tags, and notes.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("artifact show: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

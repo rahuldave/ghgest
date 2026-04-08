@@ -39,6 +39,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Apply title, body, metadata, and tag changes to the resolved artifact within a recorded transaction.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("artifact update: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

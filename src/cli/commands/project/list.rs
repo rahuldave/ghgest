@@ -20,6 +20,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Render all known projects, honoring the shared limit and output flags.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("project list: entry");
     let conn = context.store().connect().await?;

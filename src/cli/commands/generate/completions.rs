@@ -16,6 +16,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Write shell completions for the requested shell to stdout.
   pub async fn call(&self, _context: &AppContext) -> Result<(), Error> {
     let mut cmd = App::command();
     generate(self.shell, &mut cmd, "gest", &mut io::stdout());

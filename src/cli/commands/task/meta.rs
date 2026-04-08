@@ -1,3 +1,8 @@
+//! `task meta` subcommand tree for reading and writing task metadata.
+//!
+//! With no subcommand the command renders the full metadata blob for a task;
+//! the `get`/`set`/`unset` subcommands operate on individual dot-delimited paths.
+
 mod bare;
 mod get;
 mod set;

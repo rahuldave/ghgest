@@ -20,6 +20,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Confirm and delete the resolved note within a recorded transaction.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("task note delete: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

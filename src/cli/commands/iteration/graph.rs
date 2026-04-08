@@ -20,6 +20,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Render the iteration's tasks grouped by phase as a dependency graph view.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("iteration graph: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

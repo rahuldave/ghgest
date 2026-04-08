@@ -1,3 +1,5 @@
+//! `task note` subcommand tree for managing notes attached to tasks.
+
 mod add;
 mod delete;
 mod list;

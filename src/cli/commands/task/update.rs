@@ -50,6 +50,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Apply field, status, priority, tag, and phase changes to the resolved task within a recorded transaction.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("task update: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

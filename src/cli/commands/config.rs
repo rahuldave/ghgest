@@ -1,3 +1,5 @@
+//! `gest config` subcommand tree for viewing and modifying settings.
+
 mod get;
 mod set;
 mod show;
@@ -24,6 +26,7 @@ enum Sub {
 }
 
 impl Command {
+  /// Dispatch to the matched config subcommand.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("config: entry");
     match &self.subcommand {

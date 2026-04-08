@@ -19,6 +19,7 @@ pub struct Command {
 }
 
 impl Command {
+  /// Detach the resolved task from the iteration by deleting its `iteration_tasks` row.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("iteration remove: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;

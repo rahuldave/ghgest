@@ -66,6 +66,7 @@ struct BatchRecord {
 }
 
 impl Command {
+  /// Insert a new artifact (or a batch from NDJSON stdin), attaching tags and any iteration link.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("artifact create: entry");
     if self.batch {
