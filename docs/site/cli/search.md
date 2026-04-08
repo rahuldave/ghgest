@@ -1,7 +1,7 @@
 # gest search
 
-Search across tasks and artifacts by keyword. The query is matched against titles, descriptions, and body content.
-Queries support structured filter prefixes to narrow results by type, status, or tag.
+Search across tasks, artifacts, and iterations by keyword. The query is matched against titles, descriptions, and body
+content. Queries support structured filter prefixes to narrow results by type, status, or tag.
 
 ## Usage
 
@@ -63,6 +63,7 @@ Filters combine using these rules:
 | `-a, --all`     | Include archived and resolved items |
 | `-e, --expand`  | Show full detail for each result    |
 | `-j, --json`    | Emit results as JSON                |
+| `--limit <N>`   | Cap the number of items returned    |
 | `-v, --verbose` | Increase verbosity (repeatable)     |
 | `-h, --help`    | Print help                          |
 
