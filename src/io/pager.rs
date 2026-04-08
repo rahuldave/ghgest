@@ -45,12 +45,14 @@ pub fn page(content: &str, context: &AppContext) -> Result<()> {
   );
 
   if !policy_allows {
+    log::debug!("pager: bypassed (policy)");
     print!("{content}");
     return Ok(());
   }
 
   let pager_cmd = resolve_pager(context.settings().pager().command());
   if pager_cmd.is_empty() {
+    log::debug!("pager: bypassed (empty pager command)");
     print!("{content}");
     return Ok(());
   }
@@ -58,6 +60,7 @@ pub fn page(content: &str, context: &AppContext) -> Result<()> {
   let parts = match shell_words::split(&pager_cmd) {
     Ok(parts) => parts,
     Err(_) => {
+      log::warn!("pager: bypassed (invalid pager command: {pager_cmd})");
       print!("{content}");
       return Ok(());
     }
@@ -71,9 +74,11 @@ pub fn page(content: &str, context: &AppContext) -> Result<()> {
     }
   };
 
+  log::debug!("pager: spawning {pager_cmd}");
   let mut child = match Command::new(program).args(args).stdin(Stdio::piped()).spawn() {
     Ok(child) => child,
-    Err(_) => {
+    Err(e) => {
+      log::warn!("pager: spawn failed for {pager_cmd}: {e}");
       print!("{content}");
       return Ok(());
     }

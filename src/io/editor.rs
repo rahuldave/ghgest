@@ -45,6 +45,7 @@ pub fn resolve_editor() -> String {
 
 fn open_editor(path: &Path) -> Result<(), Error> {
   let editor = resolve_editor();
+  log::debug!("editor: launching {editor} on {}", path.display());
   let parts =
     shell_words::split(&editor).map_err(|e| Error::Io(std::io::Error::other(format!("bad editor command: {e}"))))?;
   let (program, args) = parts.split_first().ok_or(Error::EditorNotFound)?;
@@ -55,6 +56,7 @@ fn open_editor(path: &Path) -> Result<(), Error> {
       .code()
       .map(|c| c.to_string())
       .unwrap_or_else(|| "signal".to_string());
+    log::error!("editor: {editor} exited with {code}");
     return Err(Error::EditorFailed(editor, code));
   }
 
