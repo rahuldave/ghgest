@@ -198,7 +198,9 @@ pub async fn write_all(conn: &Connection, project_id: &Id, gest_dir: &Path) -> R
     alive_notes.insert(id.to_string());
   }
 
-  // Clean up orphaned iteration and iteration-note files.
+  // Clean up orphaned iteration and iteration-note files. Tombstoned files
+  // (YAML with a `deleted_at` key) are preserved so downstream clones can
+  // pick up the deletion on their next import.
   let iteration_dir = gest_dir.join(paths::ITERATION_DIR);
   let notes_dir = iteration_dir.join(paths::NOTES_DIR);
   yaml::cleanup_orphans(conn, project_id, gest_dir, &notes_dir, "yaml", &alive_notes).await?;
@@ -206,7 +208,7 @@ pub async fn write_all(conn: &Connection, project_id: &Id, gest_dir: &Path) -> R
     let path = entry.path();
     if path.is_file() && path.extension().is_some_and(|ext| ext == "yaml") {
       let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-      if !alive_iterations.contains(stem) {
+      if !alive_iterations.contains(stem) && !yaml::is_tombstoned_yaml_file(&path) {
         let relative = paths::relative(gest_dir, &path).unwrap_or_default();
         std::fs::remove_file(&path)?;
         conn

@@ -139,7 +139,7 @@ pub async fn cleanup_orphans(
 /// Return `true` if the YAML file at `path` carries a `deleted_at` tombstone
 /// key at the top level. Parse errors and missing files are treated as "not
 /// tombstoned" so cleanup callers fall back to their normal behavior.
-fn is_tombstoned_yaml_file(path: &Path) -> bool {
+pub(super) fn is_tombstoned_yaml_file(path: &Path) -> bool {
   let Ok(raw) = fs::read_to_string(path) else {
     return false;
   };

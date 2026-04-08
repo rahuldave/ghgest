@@ -3,6 +3,7 @@ mod advance;
 mod cancel;
 mod complete;
 mod create;
+mod delete;
 mod graph;
 mod link;
 mod list;
@@ -40,6 +41,8 @@ enum Sub {
   /// Create a new iteration.
   #[command(visible_alias = "new")]
   Create(create::Command),
+  /// Delete an iteration and drop its task memberships.
+  Delete(delete::Command),
   /// Show phased task dependency graph.
   Graph(graph::Command),
   /// Link an iteration to another entity.
@@ -79,6 +82,7 @@ impl Command {
       Sub::Cancel(cmd) => cmd.call(context).await,
       Sub::Complete(cmd) => cmd.call(context).await,
       Sub::Create(cmd) => cmd.call(context).await,
+      Sub::Delete(cmd) => cmd.call(context).await,
       Sub::Graph(cmd) => cmd.call(context).await,
       Sub::Link(cmd) => cmd.call(context).await,
       Sub::List(cmd) => cmd.call(context).await,

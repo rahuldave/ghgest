@@ -42,7 +42,6 @@ pub fn tombstone_artifact(gest_dir: Option<&Path>, id: &Id, deleted_at: DateTime
 
 /// Tombstone the on-disk file for an iteration. No-op if `gest_dir` is
 /// `None` or the file is missing.
-#[allow(dead_code)]
 pub fn tombstone_iteration(gest_dir: Option<&Path>, id: &Id, deleted_at: DateTime<Utc>) -> Result<(), Error> {
   tombstone_yaml(gest_dir.map(|d| paths::iteration_path(d, id)).as_deref(), deleted_at)
 }

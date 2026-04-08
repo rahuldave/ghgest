@@ -1,0 +1,98 @@
+use clap::Args;
+
+use crate::{
+  AppContext,
+  cli::{Error, prompt},
+  store::{
+    model::primitives::{EntityType, Id},
+    repo,
+    sync::{paths, tombstone},
+  },
+  ui::{components::SuccessMessage, json},
+};
+
+/// Delete an iteration and drop its task memberships. Tasks themselves are
+/// preserved — only the `iteration_tasks` join rows are removed.
+#[derive(Args, Debug)]
+pub struct Command {
+  /// The iteration ID or prefix.
+  id: String,
+  /// Reserved for future guards; accepted for UX consistency with other
+  /// delete commands but currently has no effect.
+  #[arg(long)]
+  force: bool,
+  #[command(flatten)]
+  output: json::Flags,
+  /// Skip the interactive confirmation prompt.
+  #[arg(long)]
+  yes: bool,
+}
+
+impl Command {
+  pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
+    log::debug!("iteration delete: entry");
+    let _ = self.force;
+    let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
+    let conn = context.store().connect().await?;
+
+    let id = repo::resolve::resolve_id(&conn, "iterations", &self.id).await?;
+    let iteration = repo::iteration::find_by_id(&conn, id.clone())
+      .await?
+      .ok_or_else(|| Error::Resolve(repo::resolve::Error::NotFound(self.id.clone())))?;
+
+    let notes = repo::note::for_entity(&conn, EntityType::Iteration, iteration.id()).await?;
+    let tags = repo::tag::for_entity(&conn, EntityType::Iteration, iteration.id()).await?;
+    let relationships = repo::relationship::for_entity(&conn, EntityType::Iteration, iteration.id()).await?;
+    let task_memberships = repo::iteration::tasks_with_phase(&conn, iteration.id()).await?.len();
+
+    let target = format!(
+      "iteration {} ({} notes, {} tags, {} relationships, {} task memberships)",
+      iteration.id().short(),
+      notes.len(),
+      tags.len(),
+      relationships.len(),
+      task_memberships
+    );
+    if !prompt::confirm_destructive("delete", &target, self.yes)? {
+      log::info!("iteration delete: aborted by user");
+      return Ok(());
+    }
+
+    let tx = repo::transaction::begin(&conn, project_id, "iteration delete").await?;
+    let report =
+      repo::entity::delete::delete_with_cascade(&conn, tx.id(), EntityType::Iteration, iteration.id()).await?;
+
+    let deleted_at = chrono::Utc::now();
+    tombstone::tombstone_iteration(context.gest_dir().as_deref(), iteration.id(), deleted_at)?;
+    invalidate_sync_digest(&conn, project_id, iteration.id()).await?;
+
+    let short_id = iteration.id().short();
+    self.output.print_entity(&iteration, &short_id, || {
+      log::info!("deleted iteration");
+      SuccessMessage::new("deleted iteration")
+        .id(short_id.clone())
+        .field("title", iteration.title().to_string())
+        .field("notes", report.notes.to_string())
+        .field("tags", report.tags.to_string())
+        .field("relationships", report.relationships.to_string())
+        .field("task_memberships", report.iteration_tasks.to_string())
+        .to_string()
+    })?;
+    Ok(())
+  }
+}
+
+/// Drop the digest-cache entry for the tombstoned iteration file so that a
+/// follow-up `undo` can rewrite a clean file from the restored row without
+/// being short-circuited by the stale-but-matching digest.
+async fn invalidate_sync_digest(conn: &libsql::Connection, project_id: &Id, iteration_id: &Id) -> Result<(), Error> {
+  let relative = format!("{}/{}.yaml", paths::ITERATION_DIR, iteration_id);
+  conn
+    .execute(
+      "DELETE FROM sync_digests WHERE relative_path = ?1 AND project_id = ?2",
+      [relative, project_id.to_string()],
+    )
+    .await
+    .map_err(crate::store::Error::from)?;
+  Ok(())
+}
