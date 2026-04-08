@@ -4,23 +4,24 @@ This directory contains Architecture Decision Records (ADRs) for the project.
 
 ## Index
 
-| ID     | Title                                        | Status               | Date       |
-|--------|----------------------------------------------|----------------------|------------|
-| [0001] | Flat Files Over SQLite for Storage           | Superseded by [0013] | 2026-03-26 |
-| [0002] | Zero-Config Discovery with Fallback Chain    | Superseded by [0009] | 2026-03-26 |
-| [0003] | jj-Style Reverse Hex Change IDs              | Active               | 2026-03-26 |
-| [0004] | Tasks as Freeform Execution Plans            | Active               | 2026-03-26 |
-| [0005] | CLI Command Structure and Output Conventions | Active               | 2026-03-26 |
-| [0006] | UI Components as Display+Write Types         | Superseded by [0010] | 2026-03-26 |
-| [0007] | Centralized Theme System Using yansi::Style  | Active               | 2026-03-26 |
-| [0008] | Custom Logger with Styled Stderr Output      | Active               | 2026-03-26 |
-| [0009] | Zero-Config Discovery (TOML Only)            | Active               | 2026-03-29 |
-| [0010] | Atomic UI Architecture                       | Superseded by [0015] | 2026-03-30 |
-| [0011] | Askama for Web UI Templating                 | Active               | 2026-03-31 |
-| [0012] | SQLite for the Event Store                   | Superseded by [0013] | 2026-04-01 |
-| [0013] | Global-Only Storage with Project Identity    | Active               | 2026-04-06 |
-| [0014] | libsql for Remote Database Support           | Active               | 2026-04-06 |
-| [0015] | Atoms/Molecules/Views UI Architecture        | Active               | 2026-04-06 |
+| ID     | Title                                            | Status               | Date       |
+|--------|--------------------------------------------------|----------------------|------------|
+| [0001] | Flat Files Over SQLite for Storage               | Superseded by [0013] | 2026-03-26 |
+| [0002] | Zero-Config Discovery with Fallback Chain        | Superseded by [0009] | 2026-03-26 |
+| [0003] | jj-Style Reverse Hex Change IDs                  | Active               | 2026-03-26 |
+| [0004] | Tasks as Freeform Execution Plans                | Active               | 2026-03-26 |
+| [0005] | CLI Command Structure and Output Conventions     | Active               | 2026-03-26 |
+| [0006] | UI Components as Display+Write Types             | Superseded by [0010] | 2026-03-26 |
+| [0007] | Centralized Theme System Using yansi::Style      | Active               | 2026-03-26 |
+| [0008] | Custom Logger with Styled Stderr Output          | Active               | 2026-03-26 |
+| [0009] | Zero-Config Discovery (TOML Only)                | Active               | 2026-03-29 |
+| [0010] | Atomic UI Architecture                           | Superseded by [0015] | 2026-03-30 |
+| [0011] | Askama for Web UI Templating                     | Active               | 2026-03-31 |
+| [0012] | SQLite for the Event Store                       | Superseded by [0013] | 2026-04-01 |
+| [0013] | Global-Only Storage with Project Identity        | Active               | 2026-04-06 |
+| [0014] | libsql for Remote Database Support               | Active               | 2026-04-06 |
+| [0015] | Atoms/Molecules/Views UI Architecture            | Active               | 2026-04-06 |
+| [0016] | Per-entity .gest/ layout as live source of truth | Active               | 2026-04-08 |
 
 ADRs document significant architectural decisions, the context in which they were made, and their consequences. See
 [Writing ADRs] for the process and template.
@@ -40,4 +41,5 @@ ADRs document significant architectural decisions, the context in which they wer
 [0013]: https://github.com/aaronmallen/gest/blob/main/docs/design/0013-global-only-storage-with-project-identity.md
 [0014]: https://github.com/aaronmallen/gest/blob/main/docs/design/0014-libsql-for-remote-database-support.md
 [0015]: https://github.com/aaronmallen/gest/blob/main/docs/design/0015-atoms-molecules-views-ui.md
+[0016]: https://github.com/aaronmallen/gest/blob/main/docs/design/0016-per-entity-gest-layout-as-live-source-of-truth.md
 [Writing ADRs]: https://github.com/aaronmallen/gest/blob/main/docs/process/writing-adrs.md
