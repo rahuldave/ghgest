@@ -12,13 +12,22 @@ modify it.
 gest project [OPTIONS] [COMMAND]
 ```
 
+### Options (bare `gest project`)
+
+When run without a subcommand, `gest project` shows details for the current directory's
+project.
+
+| Flag     | Description                                                 |
+|----------|-------------------------------------------------------------|
+| `--json` | Emit output as JSON (only applies to the default show view) |
+
 ## Subcommands
 
-| Command   | Description                                                        |
-|-----------|--------------------------------------------------------------------|
-| `attach`  | Attach the current directory to an existing project as a workspace |
-| `detach`  | Detach the current directory from its project                      |
-| `list`    | List all known projects                                            |
+| Command  | Aliases | Description                                                        |
+|----------|---------|--------------------------------------------------------------------|
+| `attach` |         | Attach the current directory to an existing project as a workspace |
+| `detach` |         | Detach the current directory from its project                      |
+| `list`   | `ls`    | List all known projects                                            |
 
 Running `gest project` without a subcommand shows the current project.
 
@@ -26,9 +35,25 @@ Running `gest project` without a subcommand shows the current project.
 
 List every project recorded in the database.
 
+```text
+gest project list [OPTIONS]
+```
+
+### Options
+
+| Flag          | Description                              |
+|---------------|------------------------------------------|
+| `--limit <N>` | Cap the number of items returned         |
+| `-j, --json`  | Emit output as JSON                      |
+| `-q, --quiet` | Suppress normal output                   |
+| `-r, --raw`   | Emit script-friendly plain output        |
+
+### Examples
+
 ```sh
 gest project list
 gest project list --json
+gest project list --limit 5
 ```
 
 ## project attach
