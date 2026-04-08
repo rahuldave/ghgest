@@ -2,13 +2,13 @@
 
 Gest manages three primary entity types -- tasks, artifacts, and iterations -- and connects them
 through links, tags, and metadata. Entity data lives in a local SQLite database (via libsql); for
-local-mode projects a sync layer mirrors every change to a `.gest/` directory as JSON/Markdown so
-you can commit the data alongside your code.
+local-mode projects a sync layer mirrors every change to a `.gest/` directory as YAML and Markdown
+files so you can commit the data alongside your code.
 
 ## Tasks
 
 A **task** represents a unit of work. Tasks are rows in the `tasks` table with the following
-columns (and their JSON mirror in `.gest/tasks/<id>.json` when local sync is enabled):
+columns (and their YAML mirror in `.gest/task/<id>.yaml` when local sync is enabled):
 
 | Field         | Description                                   |
 |---------------|-----------------------------------------------|
@@ -49,7 +49,7 @@ phase numbers execute first.
 
 An **artifact** is a document -- a spec, ADR, RFC, design note, or any other prose output
 generated during development. Artifacts are rows in the `artifacts` table; when local sync is
-enabled they are also mirrored to `.gest/artifacts/<id>.md` as Markdown with YAML frontmatter.
+enabled they are also mirrored to `.gest/artifact/<id>.md` as Markdown with YAML frontmatter.
 
 | Field         | Description                                            |
 |---------------|--------------------------------------------------------|
@@ -102,12 +102,11 @@ iteration and at which phase.
 
 ### Iteration Statuses
 
-| Status      | Meaning                                     |
-|-------------|---------------------------------------------|
-| `active`    | Currently in progress (default)             |
-| `cancelled` | Iteration was deliberately abandoned        |
-| `completed` | All tasks finished successfully             |
-| `failed`    | *(deprecated)* Alias for `cancelled`        |
+| Status      | Meaning                              |
+|-------------|--------------------------------------|
+| `active`    | Currently in progress (default)      |
+| `cancelled` | Iteration was deliberately abandoned |
+| `completed` | All tasks finished successfully      |
 
 ### Dependency Graphs
 
@@ -178,7 +177,7 @@ gest task meta get <id> complexity
 ```
 
 All metadata is stored as JSON in the database. When local sync is enabled, task and iteration
-metadata is mirrored as JSON in the entity's `.gest/` JSON file, and artifact metadata is
+metadata is mirrored as YAML in the entity's `.gest/` YAML file, and artifact metadata is
 mirrored as YAML frontmatter in the entity's `.gest/` Markdown file.
 
 ## Storage modes
@@ -189,10 +188,11 @@ Gest supports two storage modes:
   `~/.local/share/gest/gest.db` (Linux) or `~/Library/Application Support/gest/gest.db` (macOS).
   One database, shared across every project on the machine — projects are rows inside it.
 - **Local sync**: Same database, plus a `.gest/` directory inside your project. Every mutation
-  writes to the database first, then the sync layer exports the affected rows to JSON and
-  Markdown files in `.gest/`. On read commands the sync layer imports any files that are newer
-  than their database rows. This gives you an inspectable, git-commitable mirror without
-  giving up ACID guarantees, relational integrity, or efficient queries.
+  writes to the database first, then the sync layer exports the affected rows to YAML and
+  Markdown files in `.gest/`, grouped into singular per-entity subdirectories (`task/`,
+  `artifact/`, `iteration/`, etc.). On read commands the sync layer imports any files that
+  are newer than their database rows. This gives you an inspectable, git-commitable mirror
+  without giving up ACID guarantees, relational integrity, or efficient queries.
 
 Initialize with `gest init` for global-only or `gest init --local` to also create the
 `.gest/` mirror. Remote sync via libsql is opt-in through the `[database]` config section —

@@ -145,7 +145,7 @@ gest iteration list --has-available --json
     "id": "a1b2c3d4e5f6...",
     "title": "Implement export command",
     "status": "active",
-    "tasks": ["tasks/aaa...", "tasks/bbb..."],
+    "tasks": ["aaabbbcccddd...", "eeefffggghhh..."],
     "phase_count": 3,
     "tags": []
   }
@@ -162,17 +162,20 @@ gest task list --assigned-to my-agent --json
 
 `gest iteration next` finds the highest-priority open task in the active phase.
 Without `--claim` it peeks without side effects; with `--claim` it atomically
-sets the task to `in-progress` and assigns it to the named agent:
+sets the task to `in-progress` (and assigns it to `--agent` when provided):
 
 ```sh
 # Peek at the next available task
 gest iteration next <iteration-id>
 
-# Claim it
+# Claim it (assigning to an agent is optional but recommended)
 gest iteration next <iteration-id> --claim --agent my-agent
+
+# Claim without naming an agent (assignment is left empty)
+gest iteration next <iteration-id> --claim
 ```
 
-`--agent` is required when `--claim` is used.
+`--agent` requires `--claim`. `--claim` itself can be used standalone.
 
 Add `--json` to get structured output:
 
@@ -209,14 +212,14 @@ fi
 
 #### Task selection order
 
-Tasks are selected from the active phase (lowest phase with incomplete tasks)
-using:
+Candidates are drawn from the active phase (lowest phase with incomplete tasks)
+and sorted by:
 
-1. **Priority** — lowest value first (P1 before P5)
-2. **Created date** — oldest first (tie-breaker)
+1. **Phase** — ascending (the active phase wins)
+2. **Priority** — lowest value first (P0 before P4)
 
-Tasks that are already assigned, non-open, or blocked by unfinished
-dependencies are excluded.
+No further tie-break is applied. Tasks that are already assigned, non-open, or
+blocked by unfinished dependencies are excluded.
 
 ### Check progress
 

@@ -107,7 +107,7 @@ gest task show <task-id>
 
 ## Search
 
-Search across all tasks and artifacts by keyword:
+Search across tasks, artifacts, and iterations by keyword:
 
 ```sh
 gest search "auth"
