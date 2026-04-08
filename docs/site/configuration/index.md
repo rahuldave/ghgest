@@ -23,14 +23,14 @@ You can override this location with the `GEST_CONFIG` environment variable.
 ### Project config
 
 Within each directory from the filesystem root down to your working directory,
-gest checks for project config files in the following order (first match wins):
+gest checks for project config files in the following order:
 
 1. `.config/gest.toml`
-2. `.gest/config.toml`
-3. `.gest.toml`
+2. `.gest.toml`
 
-When multiple config files are found at different directory levels, they are
-deep-merged with files closer to the working directory taking precedence.
+Both paths are checked at every directory level from the filesystem root down to
+the current working directory, and all matching files are deep-merged with files
+closer to the working directory taking precedence.
 
 ## Data storage: global vs local
 
@@ -108,14 +108,34 @@ For a dedicated guide to terminal UI color customization, see
 gest v0.5.0 stores entity data in a SQLite database (via libsql). By default the database lives at
 `<data_dir>/gest.db`. For multi-device sync, you can point at a remote libsql database instead.
 
-| Key          | Type   | Default | Description                                                                    |
-|--------------|--------|---------|--------------------------------------------------------------------------------|
-| `url`        | string | _none_  | Optional libsql remote URL. When unset, a local SQLite file is used.           |
-| `auth_token` | string | _none_  | Auth token for the remote libsql database. Only used when `url` is set.        |
+A connection can be provided either as a complete `url` or as individual components
+(`scheme`, `host`, `port`, `username`, `password`). When both a `url` and components
+are present, the explicit `url` takes precedence. When only components are given, a URL
+is assembled in the form `scheme://[user[:pass]@]host[:port]`, with `scheme` defaulting
+to `sqlite`.
 
-The `[serve]` config section was removed in v0.5.0. Web server options like
-`--bind`, `--port`, and `--no-open` are now specified as command-line flags on
-`gest serve` directly.
+| Key          | Type   | Default  | Description                                                                     |
+|--------------|--------|----------|---------------------------------------------------------------------------------|
+| `auth_token` | string | _none_   | Bearer or API token for the remote database.                                    |
+| `host`       | string | _none_   | Database server hostname or IP address (used to synthesize a URL).              |
+| `password`   | string | _none_   | Password for username/password authentication.                                  |
+| `port`       | integer| _none_   | Port number the database server listens on.                                     |
+| `scheme`     | string | `sqlite` | Connection scheme used when synthesizing a URL from components.                 |
+| `url`        | string | _none_   | Explicit connection URL. When set, component fields are ignored.                |
+| `username`   | string | _none_   | Username for database authentication.                                           |
+
+### `[serve]`
+
+Controls the built-in web dashboard (`gest serve`). CLI flags on `gest serve` override
+these values at runtime.
+
+| Key            | Type    | Default       | Description                                                                      |
+|----------------|---------|---------------|----------------------------------------------------------------------------------|
+| `bind_address` | string  | `127.0.0.1`   | IP address the server should bind to.                                            |
+| `debounce_ms`  | integer | `2000`        | File watcher debounce window in milliseconds.                                    |
+| `log_level`    | string  | _none_        | Optional log level override applied only while `gest serve` is running.          |
+| `open`         | boolean | `true`        | Whether to automatically open the browser when the server starts.                |
+| `port`         | integer | `2300`        | Port the server should listen on.                                                |
 
 ### `[log]`
 
@@ -161,17 +181,18 @@ primary = "#5AB0FF"
 
 ## Environment variables
 
-| Variable                    | Description                                                                                   |
-|-----------------------------|-----------------------------------------------------------------------------------------------|
-| `GEST_CONFIG`               | Override the path to the global config file.                                                  |
-| `GEST_STORAGE__DATA_DIR`    | Override the global data root directory (must be an absolute path).                           |
-| `GEST_STORAGE__SYNC`        | Enable or disable bidirectional sync to `.gest/` (`true`/`false`).                            |
-| `GEST_DATABASE__URL`        | Point at a remote libsql database. Overrides the local `<data_dir>/gest.db`.                  |
-| `GEST_DATABASE__AUTH_TOKEN` | Auth token for the remote libsql database.                                                    |
-| `GEST_LOG__LEVEL`           | Override the log level filter (e.g. `debug`, `trace`). Takes precedence over the config file. |
-| `VISUAL`                    | Preferred editor for interactive editing (checked before `EDITOR`).                           |
-| `EDITOR`                    | Fallback editor for interactive editing.                                                      |
-| `PAGER`                     | Preferred pager program (falls back to `less`).                                               |
+gest recognizes the following environment variables. They take precedence over
+values from config files.
+
+| Variable                 | Description                                                                                   |
+|--------------------------|-----------------------------------------------------------------------------------------------|
+| `GEST_CONFIG`            | Override the path to the global config file.                                                  |
+| `GEST_LOG__LEVEL`        | Override the log level filter (e.g. `debug`, `trace`). Takes precedence over the config file. |
+| `GEST_STORAGE__DATA_DIR` | Override the global data root directory (must be an absolute path).                           |
+| `GEST_STORAGE__SYNC`     | Enable or disable bidirectional sync to `.gest/` (`true`/`false`).                            |
+| `VISUAL`                 | Preferred editor for interactive editing (checked before `EDITOR`).                           |
+| `EDITOR`                 | Fallback editor for interactive editing.                                                      |
+| `PAGER`                  | Preferred pager program (falls back to `less`).                                               |
 
 ## Managing config from the CLI
 
@@ -186,6 +207,14 @@ discovered:
 ```sh
 gest config show
 ```
+
+#### Options
+
+| Flag          | Description                              |
+|---------------|------------------------------------------|
+| `-j, --json`  | Emit output as JSON                      |
+| `-q, --quiet` | Suppress normal output                   |
+| `-r, --raw`   | Emit script-friendly plain output        |
 
 ### `gest config get <KEY>`
 
