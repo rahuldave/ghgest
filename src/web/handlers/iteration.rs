@@ -312,16 +312,9 @@ async fn build_iteration_list(
   let conn = state.store().connect().await.map_err(|e| e.to_string())?;
 
   // Fetch all iterations to compute counts
-  let all_iterations = repo::iteration::all(
-    &conn,
-    state.project_id(),
-    &iteration::Filter {
-      all: true,
-      ..Default::default()
-    },
-  )
-  .await
-  .map_err(|e| e.to_string())?;
+  let all_iterations = repo::iteration::all(&conn, state.project_id(), &iteration::Filter::all())
+    .await
+    .map_err(|e| e.to_string())?;
 
   let active_count = all_iterations
     .iter()
@@ -336,19 +329,15 @@ async fn build_iteration_list(
     .filter(|i| i.status() == IterationStatus::Cancelled)
     .count();
 
-  let current_status = status_param.clone().unwrap_or_else(|| "active".to_owned());
+  let current_status = status_param.clone().unwrap_or_else(|| "all".to_owned());
 
-  // Filter iterations based on status param. Default (no param) shows active only;
-  // `all` shows every iteration; any other value is parsed as a concrete status.
+  // Filter iterations based on status param. Default (no param) shows every iteration;
+  // a concrete status narrows to that status.
   let filter = match current_status.as_str() {
-    "all" => iteration::Filter {
-      all: true,
-      ..Default::default()
-    },
+    "all" => iteration::Filter::all(),
     s => iteration::Filter {
-      all: true,
       status: s.parse::<IterationStatus>().ok(),
-      ..Default::default()
+      ..iteration::Filter::all()
     },
   };
 
@@ -521,14 +510,13 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn it_defaults_to_active_when_no_status_given() {
+    async fn it_defaults_to_all_when_no_status_given() {
       let state = setup().await;
 
       let (rows, active, completed, cancelled, current) = build_iteration_list(&state, &None).await.unwrap();
 
-      assert_eq!(current, "active");
-      assert_eq!(rows.len(), 2);
-      assert!(rows.iter().all(|r| r.iteration.status() == IterationStatus::Active));
+      assert_eq!(current, "all");
+      assert_eq!(rows.len(), 4);
       assert_eq!((active, completed, cancelled), (2, 1, 1));
     }
 

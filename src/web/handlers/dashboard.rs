@@ -58,13 +58,13 @@ pub async fn dashboard(State(state): State<AppState>) -> Result<Html<String>, St
   let conn = state.store().connect().await.map_err(|e| e.to_string())?;
   let pid = state.project_id();
 
-  let tasks = repo::task::all(&conn, pid, &Default::default())
+  let tasks = repo::task::all(&conn, pid, &task::Filter::all())
     .await
     .map_err(|e| e.to_string())?;
   let artifacts = repo::artifact::all(&conn, pid, &Default::default())
     .await
     .map_err(|e| e.to_string())?;
-  let iterations = repo::iteration::all(&conn, pid, &Default::default())
+  let iterations = repo::iteration::all(&conn, pid, &iteration::Filter::all())
     .await
     .map_err(|e| e.to_string())?;
 
@@ -101,13 +101,13 @@ pub async fn dashboard_fragment(State(state): State<AppState>) -> Result<Html<St
   let conn = state.store().connect().await.map_err(|e| e.to_string())?;
   let pid = state.project_id();
 
-  let tasks = repo::task::all(&conn, pid, &Default::default())
+  let tasks = repo::task::all(&conn, pid, &task::Filter::all())
     .await
     .map_err(|e| e.to_string())?;
   let artifacts = repo::artifact::all(&conn, pid, &Default::default())
     .await
     .map_err(|e| e.to_string())?;
-  let iterations = repo::iteration::all(&conn, pid, &Default::default())
+  let iterations = repo::iteration::all(&conn, pid, &iteration::Filter::all())
     .await
     .map_err(|e| e.to_string())?;
 
@@ -185,8 +185,116 @@ fn dashboard_counts(
     completed_iteration_count,
     done_count,
     in_progress_count,
-    iterations.len(),
+    active_iteration_count,
     open_count,
-    tasks.len(),
+    open_count + in_progress_count,
   )
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::store::{
+    self,
+    model::{Project, iteration as iter_model, task as task_model},
+  };
+
+  mod dashboard_counts {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn it_includes_terminal_state_tasks_and_iterations() {
+      let (store_arc, tmp) = store::open_temp().await.unwrap();
+      let conn = store_arc.connect().await.unwrap();
+      let project = Project::new("/tmp/web-dashboard-counts".into());
+      conn
+        .execute(
+          "INSERT INTO projects (id, root, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
+          [
+            project.id().to_string(),
+            project.root().to_string_lossy().into_owned(),
+            project.created_at().to_rfc3339(),
+            project.updated_at().to_rfc3339(),
+          ],
+        )
+        .await
+        .unwrap();
+      let pid = project.id().clone();
+      std::mem::forget(tmp);
+
+      for (title, status) in [
+        ("Open", TaskStatus::Open),
+        ("In progress", TaskStatus::InProgress),
+        ("Done", TaskStatus::Done),
+        ("Cancelled", TaskStatus::Cancelled),
+      ] {
+        let new = task_model::New {
+          title: title.into(),
+          status: Some(status),
+          ..Default::default()
+        };
+        repo::task::create(&conn, &pid, &new).await.unwrap();
+      }
+
+      for (title, status) in [
+        ("Active", IterationStatus::Active),
+        ("Completed", IterationStatus::Completed),
+        ("Cancelled", IterationStatus::Cancelled),
+      ] {
+        let it = repo::iteration::create(
+          &conn,
+          &pid,
+          &iter_model::New {
+            title: title.into(),
+            ..Default::default()
+          },
+        )
+        .await
+        .unwrap();
+        if status != IterationStatus::Active {
+          repo::iteration::update(
+            &conn,
+            it.id(),
+            &iter_model::Patch {
+              status: Some(status),
+              ..Default::default()
+            },
+          )
+          .await
+          .unwrap();
+        }
+      }
+
+      let tasks = repo::task::all(&conn, &pid, &task::Filter::all()).await.unwrap();
+      let artifacts = repo::artifact::all(&conn, &pid, &Default::default()).await.unwrap();
+      let iterations = repo::iteration::all(&conn, &pid, &iteration::Filter::all())
+        .await
+        .unwrap();
+
+      let (
+        active_iteration_count,
+        _artifact_count,
+        cancelled_count,
+        cancelled_iteration_count,
+        completed_iteration_count,
+        done_count,
+        in_progress_count,
+        iteration_count,
+        open_count,
+        task_count,
+      ) = dashboard_counts(&tasks, &artifacts, &iterations);
+
+      assert_eq!(task_count, 2);
+      assert_eq!(open_count, 1);
+      assert_eq!(in_progress_count, 1);
+      assert_eq!(done_count, 1);
+      assert_eq!(cancelled_count, 1);
+      assert_eq!(iteration_count, 1);
+      assert_eq!(active_iteration_count, 1);
+      assert_eq!(completed_iteration_count, 1);
+      assert_eq!(cancelled_iteration_count, 1);
+    }
+  }
 }

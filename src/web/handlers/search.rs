@@ -115,7 +115,7 @@ pub async fn search(State(state): State<AppState>, Query(params): Query<SearchQu
     (Vec::new(), Vec::new(), Vec::new())
   } else {
     let parsed = search_query::parse(&query);
-    let results = repo::search::query(&conn, state.project_id(), &parsed, false)
+    let results = repo::search::query(&conn, state.project_id(), &parsed, true)
       .await
       .map_err(|e| e.to_string())?;
     (results.tasks, results.artifacts, results.iterations)

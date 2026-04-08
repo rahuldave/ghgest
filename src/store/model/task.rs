@@ -167,3 +167,13 @@ pub struct Filter {
   pub status: Option<TaskStatus>,
   pub tag: Option<String>,
 }
+
+impl Filter {
+  /// Construct a filter that includes tasks in every status, including terminal ones.
+  pub fn all() -> Self {
+    Self {
+      all: true,
+      ..Self::default()
+    }
+  }
+}

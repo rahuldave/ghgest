@@ -708,9 +708,9 @@
       <nav class="nav">
         <span class="nav-brand">gest</span>
         <a href="/" {% block nav_dashboard %}{% endblock %}>dashboard</a>
-        <a href="/tasks" {% block nav_tasks %}{% endblock %}>tasks</a>
+        <a href="/tasks?status=open" {% block nav_tasks %}{% endblock %}>tasks</a>
         <a href="/artifacts" {% block nav_artifacts %}{% endblock %}>artifacts</a>
-        <a href="/iterations" {% block nav_iterations %}{% endblock %}>iterations</a>
+        <a href="/iterations?status=active" {% block nav_iterations %}{% endblock %}>iterations</a>
         <a href="/search" {% block nav_search %}{% endblock %}>search</a>
       </nav>
     </header>

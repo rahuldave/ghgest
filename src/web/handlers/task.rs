@@ -405,30 +405,19 @@ async fn build_task_list_data(
 ) -> Result<(Vec<TaskRow>, usize, usize, usize, usize, String), String> {
   let conn = state.store().connect().await.map_err(|e| e.to_string())?;
 
-  let all_tasks = repo::task::all(
-    &conn,
-    state.project_id(),
-    &task::Filter {
-      all: true,
-      ..Default::default()
-    },
-  )
-  .await
-  .map_err(|e| e.to_string())?;
+  let all_tasks = repo::task::all(&conn, state.project_id(), &task::Filter::all())
+    .await
+    .map_err(|e| e.to_string())?;
 
   let (open_count, in_progress_count, done_count, cancelled_count) = count_tasks_by_status(&all_tasks);
 
-  let current_status = status_param.unwrap_or_else(|| "open".to_owned());
+  let current_status = status_param.unwrap_or_else(|| "all".to_owned());
 
   let filter = match current_status.as_str() {
-    "all" => task::Filter {
-      all: true,
-      ..Default::default()
-    },
+    "all" => task::Filter::all(),
     s => task::Filter {
-      all: true,
       status: s.parse::<TaskStatus>().ok(),
-      ..Default::default()
+      ..task::Filter::all()
     },
   };
 
@@ -769,14 +758,13 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn it_defaults_to_open_when_no_status_given() {
+    async fn it_defaults_to_all_when_no_status_given() {
       let state = setup().await;
 
       let (rows, open, in_prog, done, cancelled, current) = build_task_list_data(&state, None).await.unwrap();
 
-      assert_eq!(current, "open");
-      assert_eq!(rows.len(), 2);
-      assert!(rows.iter().all(|r| r.task.status() == TaskStatus::Open));
+      assert_eq!(current, "all");
+      assert_eq!(rows.len(), 5);
       assert_eq!((open, in_prog, done, cancelled), (2, 1, 1, 1));
     }
 

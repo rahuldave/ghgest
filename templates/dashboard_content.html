@@ -1,6 +1,6 @@
 <h1 class="section-heading">Dashboard</h1>
 <div class="dash-grid">
-  <a href="/tasks" class="dash-card" aria-label="{{ task_count }} tasks">
+  <a href="/tasks?status=open" class="dash-card" aria-label="{{ task_count }} tasks">
     <div class="dash-card-count">{{ task_count }}</div>
     <div class="dash-card-label">tasks</div>
   </a>
@@ -8,7 +8,7 @@
     <div class="dash-card-count">{{ artifact_count }}</div>
     <div class="dash-card-label">artifacts</div>
   </a>
-  <a href="/iterations" class="dash-card" aria-label="{{ iteration_count }} iterations">
+  <a href="/iterations?status=active" class="dash-card" aria-label="{{ iteration_count }} iterations">
     <div class="dash-card-count">{{ iteration_count }}</div>
     <div class="dash-card-label">iterations</div>
   </a>
@@ -16,7 +16,7 @@
 
 <h2 class="section-heading">tasks by status</h2>
 <div class="dash-grid">
-  <a href="/tasks" class="dash-card" aria-label="{{ open_count }} open tasks">
+  <a href="/tasks?status=open" class="dash-card" aria-label="{{ open_count }} open tasks">
     <div class="dash-card-count status-open">{{ open_count }}</div>
     <div class="dash-card-label">open</div>
   </a>
@@ -36,7 +36,7 @@
 
 <h2 class="section-heading">iterations by status</h2>
 <div class="dash-grid">
-  <a href="/iterations" class="dash-card" aria-label="{{ active_iteration_count }} active iterations">
+  <a href="/iterations?status=active" class="dash-card" aria-label="{{ active_iteration_count }} active iterations">
     <div class="dash-card-count status-open">{{ active_iteration_count }}</div>
     <div class="dash-card-label">active</div>
   </a>
