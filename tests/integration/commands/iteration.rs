@@ -1,3 +1,4 @@
+mod when_adding;
 mod when_advancing;
 mod when_creating;
 mod when_deleting;

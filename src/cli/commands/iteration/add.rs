@@ -14,9 +14,9 @@ pub struct Command {
   iteration: String,
   /// The task ID or prefix.
   task: String,
-  /// The phase to add the task to (default: 1).
-  #[arg(long, short, default_value = "1")]
-  phase: u32,
+  /// The phase to add the task to (defaults to max existing + 1).
+  #[arg(long, short)]
+  phase: Option<u32>,
   #[command(flatten)]
   output: json::Flags,
 }
@@ -31,22 +31,30 @@ impl Command {
     let iteration_id = repo::resolve::resolve_id(&conn, "iterations", &self.iteration).await?;
     let task_id = repo::resolve::resolve_id(&conn, "tasks", &self.task).await?;
 
+    let phase = match self.phase {
+      Some(p) => p,
+      None => {
+        let max = repo::iteration::max_phase(&conn, &iteration_id).await?;
+        max.map(|m| m + 1).unwrap_or(1)
+      }
+    };
+
     let tx = repo::transaction::begin(&conn, project_id, "iteration add").await?;
-    repo::iteration::add_task(&conn, &iteration_id, &task_id, self.phase).await?;
+    repo::iteration::add_task(&conn, &iteration_id, &task_id, phase).await?;
     repo::transaction::record_event(&conn, tx.id(), "iteration_tasks", &task_id.to_string(), "created", None).await?;
 
     let short_id = task_id.short();
     let result = serde_json::json!({
       "task_id": task_id.to_string(),
       "iteration_id": iteration_id.to_string(),
-      "phase": self.phase,
+      "phase": phase,
     });
     self.output.print_entity(&result, &short_id, || {
       log::info!("added task to iteration");
       SuccessMessage::new("added task to iteration")
         .field("task", task_id.short())
         .field("iteration", iteration_id.short())
-        .field("phase", self.phase.to_string())
+        .field("phase", phase.to_string())
         .to_string()
     })?;
     Ok(())

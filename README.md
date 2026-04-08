@@ -31,17 +31,25 @@ context window. That's slow. Gest lets you decompose work into **phased iteratio
 concurrently:
 
 ```sh
+# Create the tasks
+gest task create "Add export data types"
+gest task create "Add CSV formatter"
+gest task create "Add JSON formatter"
+gest task create "Wire up CLI command"
+
+# Group them into an iteration with explicit phases
+gest iteration create "Implement export command"
+# → <iteration-id>
+
 # Phase 1 tasks run in parallel — no dependencies between them
-gest task create "Add export data types" --phase 1
-gest task create "Add CSV formatter" --phase 1
-gest task create "Add JSON formatter" --phase 1
+gest iteration add <iteration-id> <data-types-id>  --phase 1
+gest iteration add <iteration-id> <csv-id>         --phase 1
+gest iteration add <iteration-id> <json-id>        --phase 1
 
 # Phase 2 waits for Phase 1
-gest task create "Wire up CLI command" --phase 2
+gest iteration add <iteration-id> <cli-id>         --phase 2
 
-# Group into an iteration and visualize the plan
-gest iteration create "Implement export command"
-gest iteration add <iteration-id> <task-id>   # repeat for each task
+# Visualize the plan
 gest iteration graph <iteration-id>
 ```
 

@@ -190,7 +190,7 @@ gest task create [OPTIONS] [TITLE]
 | `-l, --link <LINK>`               | Create a link on the new task (repeatable, format: `<rel>:<target_id>`)             |
 | `-m, --metadata <KEY=VALUE>`      | Set a metadata key=value pair (repeatable; supports dot-paths and scalar inference) |
 | `--metadata-json <JSON>`          | Merge a JSON object into metadata (repeatable; applied after `--metadata` pairs)    |
-| `--phase <PHASE>`                 | Execution phase for parallel grouping                                               |
+| `--phase <PHASE>`                 | Phase within `--iteration` (requires `--iteration`; defaults to max + 1)            |
 | `-p, --priority <PRIORITY>`       | Priority level (0-4, where 0 is highest)                                            |
 | `-q, --quiet`                     | Print only the task ID                                                              |
 | `-s, --status <STATUS>`           | Initial status: `open`, `in-progress`, `done`, or `cancelled` (default: `open`)     |
@@ -206,10 +206,13 @@ gest task create "Implement login page"
 gest task create "Fix memory leak" -d "OOM after 24h uptime" --tag "bug,critical"
 
 # Create a high-priority task assigned to an agent
-gest task create "Write migration" -p 0 --assign agent --phase 1
+gest task create "Write migration" -p 0 --assign agent
 
 # Create a task and add it to an iteration with a link
 gest task create "Add auth" -i iter123 -l child-of:spec456
+
+# Create a task pinned to a specific phase of an iteration
+gest task create "Add auth" -i iter123 --phase 2
 
 # Pipe description from stdin
 echo "Detailed description here" | gest task create "My task"

@@ -46,8 +46,8 @@ pub struct Command {
   /// Merge a JSON object into metadata (repeatable; applied after --metadata pairs).
   #[arg(long = "metadata-json", value_name = "JSON")]
   metadata_json: Vec<String>,
-  /// The phase within the iteration (defaults to 1 or max existing + 1).
-  #[arg(long)]
+  /// The phase within the iteration (defaults to max existing + 1). Requires `--iteration`.
+  #[arg(long, requires = "iteration")]
   phase: Option<u32>,
   /// The task priority (0-4, lower is higher).
   #[arg(long, short)]

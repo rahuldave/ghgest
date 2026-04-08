@@ -51,15 +51,20 @@ gest iteration add [OPTIONS] <ID> <TASK_ID>
 
 ### Options
 
-| Flag          | Description                                        |
-|---------------|----------------------------------------------------|
-| `-j, --json`  | Output the iteration as JSON after adding the task |
-| `-q, --quiet` | Output only the iteration ID                       |
+| Flag                  | Description                                                       |
+|-----------------------|-------------------------------------------------------------------|
+| `-j, --json`          | Output the iteration as JSON after adding the task                |
+| `-p, --phase <PHASE>` | Phase to add the task to (defaults to next phase, max + 1)        |
+| `-q, --quiet`         | Output only the iteration ID                                      |
 
 ### Examples
 
 ```sh
+# Append to the next phase (max + 1)
 gest iteration add iter123 task456
+
+# Pin to an explicit phase
+gest iteration add iter123 task456 --phase 2
 ```
 
 ---
