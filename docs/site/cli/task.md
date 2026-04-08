@@ -15,8 +15,10 @@ gest task <COMMAND> [OPTIONS]
 |------------------------------|---------|---------------------------------------------------------------------|
 | [`block`](#task-block)       |         | Shortcut for `task link <id> blocks <target>`                       |
 | [`cancel`](#task-cancel)     |         | Cancel a task (shortcut for `task update <id> --status cancelled`)  |
+| [`claim`](#task-claim)       |         | Claim a task (assign and mark in-progress)                          |
 | [`complete`](#task-complete) |         | Mark a task as done (shortcut for `task update <id> --status done`) |
 | [`create`](#task-create)     | `new`   | Create a new task                                                   |
+| [`delete`](#task-delete)     | `rm`    | Delete a task and its dependent rows                                |
 | [`list`](#task-list)         | `ls`    | List tasks with optional filters                                    |
 | [`show`](#task-show)         | `view`  | Display a task's full details                                       |
 | [`update`](#task-update)     | `edit`  | Update a task's fields                                              |
@@ -93,6 +95,41 @@ gest task cancel abc123
 
 ---
 
+## task claim
+
+Claim a task by assigning it to an author and marking it `in-progress`. By default the
+author is derived from `git config user.name`; use `--as` to override.
+
+```text
+gest task claim [OPTIONS] <ID>
+```
+
+### Arguments
+
+| Argument | Description              |
+|----------|--------------------------|
+| `<ID>`   | Task ID or unique prefix |
+
+### Options
+
+| Flag               | Description                                              |
+|--------------------|----------------------------------------------------------|
+| `--as <AS_AUTHOR>` | Claim as a specific author name (defaults to git user)   |
+| `-j, --json`       | Output as JSON                                           |
+| `-q, --quiet`      | Print only the task ID                                   |
+
+### Examples
+
+```sh
+# Claim as the current git user
+gest task claim abc123
+
+# Claim on behalf of an agent
+gest task claim abc123 --as implement-agent
+```
+
+---
+
 ## task complete
 
 Mark a task as done. Shortcut for `task update <id> --status done`.
@@ -127,7 +164,9 @@ gest task complete abc123
 Create a new task with optional metadata, tags, and status.
 
 When `--description` is omitted and stdin is a terminal, `$EDITOR` opens for interactive
-editing. When stdin is a pipe, the piped content is used as the description body.
+editing. When stdin is a pipe, the piped content is used as the description body — and if
+`[TITLE]` is also omitted, the title is auto-extracted from the first `# heading` of the
+piped content.
 
 ```text
 gest task create [OPTIONS] [TITLE]
@@ -135,26 +174,27 @@ gest task create [OPTIONS] [TITLE]
 
 ### Arguments
 
-| Argument  | Description |
-|-----------|-------------|
-| `[TITLE]` | Task title  |
+| Argument  | Description                                                                   |
+|-----------|-------------------------------------------------------------------------------|
+| `[TITLE]` | Task title (auto-extracted from the first `# heading` when piping stdin)      |
 
 ### Options
 
-| Flag                              | Description                                                                     |
-|-----------------------------------|---------------------------------------------------------------------------------|
-| `--assigned-to <ASSIGNED_TO>`     | Actor assigned to this task                                                     |
-| `--batch`                         | Read NDJSON from stdin (one task per line)                                      |
-| `-d, --description <DESCRIPTION>` | Description text (opens `$EDITOR` if omitted and stdin is a terminal)           |
-| `-i, --iteration <ITERATION>`     | Add the task to an iteration (ID or prefix)                                     |
-| `-j, --json`                      | Output the created task as JSON                                                 |
-| `-l, --link <LINK>`               | Create a link on the new task (repeatable, format: `<rel>:<target_id>`)         |
-| `-m, --metadata <METADATA>`       | Key=value metadata pair (repeatable, e.g. `-m key=value`)                       |
-| `--phase <PHASE>`                 | Execution phase for parallel grouping                                           |
-| `-p, --priority <PRIORITY>`       | Priority level (0-4, where 0 is highest)                                        |
-| `-q, --quiet`                     | Print only the task ID                                                          |
-| `-s, --status <STATUS>`           | Initial status: `open`, `in-progress`, `done`, or `cancelled` (default: `open`) |
-| `--tag <TAG>`                     | Tag (repeatable, or comma-separated)                                            |
+| Flag                              | Description                                                                         |
+|-----------------------------------|-------------------------------------------------------------------------------------|
+| `--assign <ASSIGN>`               | Assign the task to an author by name                                                |
+| `--batch`                         | Read NDJSON from stdin (one task per line)                                          |
+| `-d, --description <DESCRIPTION>` | Description text (opens `$EDITOR` if omitted and stdin is a terminal)               |
+| `-i, --iteration <ITERATION>`     | Add the task to an iteration (ID or prefix)                                         |
+| `-j, --json`                      | Output the created task as JSON                                                     |
+| `-l, --link <LINK>`               | Create a link on the new task (repeatable, format: `<rel>:<target_id>`)             |
+| `-m, --metadata <KEY=VALUE>`      | Set a metadata key=value pair (repeatable; supports dot-paths and scalar inference) |
+| `--metadata-json <JSON>`          | Merge a JSON object into metadata (repeatable; applied after `--metadata` pairs)    |
+| `--phase <PHASE>`                 | Execution phase for parallel grouping                                               |
+| `-p, --priority <PRIORITY>`       | Priority level (0-4, where 0 is highest)                                            |
+| `-q, --quiet`                     | Print only the task ID                                                              |
+| `-s, --status <STATUS>`           | Initial status: `open`, `in-progress`, `done`, or `cancelled` (default: `open`)     |
+| `--tag <TAG>`                     | Tag (repeatable)                                                                    |
 
 ### Examples
 
@@ -166,7 +206,7 @@ gest task create "Implement login page"
 gest task create "Fix memory leak" -d "OOM after 24h uptime" --tag "bug,critical"
 
 # Create a high-priority task assigned to an agent
-gest task create "Write migration" -p 0 --assigned-to agent --phase 1
+gest task create "Write migration" -p 0 --assign agent --phase 1
 
 # Create a task and add it to an iteration with a link
 gest task create "Add auth" -i iter123 -l child-of:spec456
@@ -180,6 +220,46 @@ cat tasks.ndjson | gest task create --batch
 # Machine-readable output
 gest task create "Quick task" --json
 gest task create "Quick task" -q
+```
+
+---
+
+## task delete
+
+Permanently delete a task and its dependent rows (notes, metadata, tags, links). By
+default, a task that still belongs to one or more iterations will refuse to delete —
+pass `--force` to drop its iteration memberships first.
+
+```text
+gest task delete [OPTIONS] <ID>
+```
+
+### Arguments
+
+| Argument | Description              |
+|----------|--------------------------|
+| `<ID>`   | Task ID or unique prefix |
+
+### Options
+
+| Flag          | Description                                                                 |
+|---------------|-----------------------------------------------------------------------------|
+| `--yes`       | Skip the interactive confirmation prompt                                    |
+| `--force`     | Remove the task from every iteration it belongs to before deleting          |
+| `-j, --json`  | Output as JSON                                                              |
+| `-q, --quiet` | Suppress normal output                                                      |
+
+### Examples
+
+```sh
+# Interactive delete
+gest task delete abc123
+
+# Non-interactive
+gest task delete abc123 --yes
+
+# Delete even if task is still in iterations
+gest task delete abc123 --yes --force
 ```
 
 ---
@@ -198,9 +278,10 @@ gest task list [OPTIONS]
 |----------------------------------|-----------------------------------------------------------------|
 | `-a, --all`                      | Include resolved (done/cancelled) tasks                         |
 | `--assigned-to <ASSIGNED_TO>`    | Filter by assigned-to name                                      |
-| `-j, --json`                     | Output task list as JSON                                        |
+| `--limit <N>`                    | Cap the number of items returned                                |
 | `-s, --status <STATUS>`          | Filter by status: `open`, `in-progress`, `done`, or `cancelled` |
-| `--tag <TAG>`                    | Filter by tag                                                   |
+| `-t, --tag <TAG>`                | Filter by tag                                                   |
+| `-j, --json`                     | Output task list as JSON                                        |
 
 ### Examples
 
@@ -274,18 +355,19 @@ gest task update [OPTIONS] <ID>
 
 ### Options
 
-| Flag                              | Description                                                             |
-|-----------------------------------|-------------------------------------------------------------------------|
-| `--assigned-to <ASSIGNED_TO>`     | Actor assigned to this task                                             |
-| `-d, --description <DESCRIPTION>` | New description text                                                    |
-| `-j, --json`                      | Output as JSON                                                          |
-| `-m, --metadata <METADATA>`       | Key=value metadata pair, merged with existing (repeatable)              |
-| `--phase <PHASE>`                 | Execution phase for parallel grouping                                   |
-| `-p, --priority <PRIORITY>`       | Priority level (0-4, where 0 is highest)                                |
-| `-q, --quiet`                     | Print only the task ID                                                  |
-| `-s, --status <STATUS>`           | New status (done/cancelled auto-resolves; open/in-progress un-resolves) |
-| `--tag <TAG>`                     | Replace all tags (repeatable, or comma-separated)                       |
-| `-t, --title <TITLE>`             | New title                                                               |
+| Flag                              | Description                                                                         |
+|-----------------------------------|-------------------------------------------------------------------------------------|
+| `--assigned-to <ASSIGNED_TO>`     | Set the assigned author by name                                                     |
+| `-d, --description <DESCRIPTION>` | New description text                                                                |
+| `-j, --json`                      | Output as JSON                                                                      |
+| `-m, --metadata <KEY=VALUE>`      | Set a metadata key=value pair (repeatable; supports dot-paths and scalar inference) |
+| `--metadata-json <JSON>`          | Merge a JSON object into metadata (repeatable; applied after `--metadata` pairs)    |
+| `--phase <PHASE>`                 | Execution phase for parallel grouping                                               |
+| `-p, --priority <PRIORITY>`       | Priority level (0-4, where 0 is highest)                                            |
+| `-q, --quiet`                     | Print only the task ID                                                              |
+| `-s, --status <STATUS>`           | New status (done/cancelled auto-resolves; open/in-progress un-resolves)             |
+| `--tag <TAG>`                     | Replace all tags (repeatable)                                                       |
+| `-t, --title <TITLE>`             | New title                                                                           |
 
 ### Examples
 
@@ -484,13 +566,11 @@ gest task note <COMMAND>
 
 ### note add
 
-Add a note to a task. Author defaults to `git config user.name` / `user.email`.
-
-When `--body` is omitted and stdin is a terminal, `$EDITOR` opens for interactive editing.
-When stdin is a pipe, the piped content is used as the note body.
+Add a note to a task. The `--body` flag is required; pass `-` to open `$EDITOR` for
+interactive entry. Author defaults to `git config user.name` / `user.email`.
 
 ```text
-gest task note add [OPTIONS] <ID>
+gest task note add [OPTIONS] --body <BODY> <ID>
 ```
 
 | Argument | Description              |
@@ -499,8 +579,8 @@ gest task note add [OPTIONS] <ID>
 
 | Flag                | Description                                                                 |
 |---------------------|-----------------------------------------------------------------------------|
-| `--agent <AGENT>`   | Agent name for attribution (mutually exclusive with git-derived authorship) |
-| `-b, --body <BODY>` | Note body text (opens `$EDITOR` if omitted and stdin is a terminal)         |
+| `--agent <AGENT>`   | Set the author (agent) identifier for this note                             |
+| `-b, --body <BODY>` | Note body (required; use `-` to open `$EDITOR`)                             |
 | `-j, --json`        | Output as JSON                                                              |
 | `-q, --quiet`       | Print only the note ID                                                      |
 
@@ -516,22 +596,23 @@ gest task note list [OPTIONS] <ID>
 |----------|--------------------------|
 | `<ID>`   | Task ID or unique prefix |
 
-| Flag         | Description    |
-|--------------|----------------|
-| `-j, --json` | Output as JSON |
+| Flag          | Description                      |
+|---------------|----------------------------------|
+| `--limit <N>` | Cap the number of items returned |
+| `-j, --json`  | Output as JSON                   |
+| `-q, --quiet` | Print only note IDs              |
 
 ### note show
 
 Show a single note with full attribution and rendered markdown body.
 
 ```text
-gest task note show [OPTIONS] <TASK_ID> <NOTE_ID>
+gest task note show [OPTIONS] <ID>
 ```
 
-| Argument    | Description              |
-|-------------|--------------------------|
-| `<TASK_ID>` | Task ID or unique prefix |
-| `<NOTE_ID>` | Note ID or unique prefix |
+| Argument | Description              |
+|----------|--------------------------|
+| `<ID>`   | Note ID or unique prefix |
 
 | Flag         | Description    |
 |--------------|----------------|
@@ -542,32 +623,36 @@ gest task note show [OPTIONS] <TASK_ID> <NOTE_ID>
 Update a note's body.
 
 ```text
-gest task note update [OPTIONS] <TASK_ID> <NOTE_ID>
+gest task note update [OPTIONS] <ID>
 ```
 
-| Argument    | Description              |
-|-------------|--------------------------|
-| `<TASK_ID>` | Task ID or unique prefix |
-| `<NOTE_ID>` | Note ID or unique prefix |
+| Argument | Description              |
+|----------|--------------------------|
+| `<ID>`   | Note ID or unique prefix |
 
-| Flag                | Description                                                                   |
-|---------------------|-------------------------------------------------------------------------------|
-| `-b, --body <BODY>` | New body text (opens `$EDITOR` pre-filled if omitted and stdin is a terminal) |
-| `-j, --json`        | Output as JSON                                                                |
-| `-q, --quiet`       | Print only the note ID                                                        |
+| Flag                | Description                                 |
+|---------------------|---------------------------------------------|
+| `-b, --body <BODY>` | New body text (use `-` to open `$EDITOR`)   |
+| `-j, --json`        | Output as JSON                              |
+| `-q, --quiet`       | Print only the note ID                      |
 
 ### note delete
 
 Delete a note from a task.
 
 ```text
-gest task note delete <TASK_ID> <NOTE_ID>
+gest task note delete [OPTIONS] <ID>
 ```
 
-| Argument    | Description              |
-|-------------|--------------------------|
-| `<TASK_ID>` | Task ID or unique prefix |
-| `<NOTE_ID>` | Note ID or unique prefix |
+| Argument | Description              |
+|----------|--------------------------|
+| `<ID>`   | Note ID or unique prefix |
+
+| Flag          | Description                              |
+|---------------|------------------------------------------|
+| `--yes`       | Skip the interactive confirmation prompt |
+| `-j, --json`  | Output as JSON                           |
+| `-q, --quiet` | Suppress normal output                   |
 
 ### Examples
 
@@ -578,18 +663,18 @@ gest task note add abc123 --body "Found the root cause in the parser"
 # Add an agent note
 gest task note add abc123 --agent claude --body "Completed code review, no issues found"
 
-# Pipe note body from stdin
-echo "Investigation notes" | gest task note add abc123
+# Open $EDITOR for the note body
+gest task note add abc123 --body -
 
 # List notes
 gest task note list abc123
 
-# Show a specific note
-gest task note show abc123 nfkbqmrx
+# Show a specific note (by note ID)
+gest task note show nfkbqmrx
 
 # Update a note
-gest task note update abc123 nfkbqmrx --body "Updated analysis"
+gest task note update nfkbqmrx --body "Updated analysis"
 
-# Delete a note
-gest task note delete abc123 nfkbqmrx
+# Delete a note (non-interactive)
+gest task note delete nfkbqmrx --yes
 ```
