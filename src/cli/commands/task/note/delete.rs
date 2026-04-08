@@ -2,7 +2,7 @@ use clap::Args;
 
 use crate::{
   AppContext,
-  cli::Error,
+  cli::{Error, prompt},
   store::repo,
   ui::{components::SuccessMessage, json},
 };
@@ -14,6 +14,9 @@ pub struct Command {
   id: String,
   #[command(flatten)]
   output: json::Flags,
+  /// Skip the interactive confirmation prompt.
+  #[arg(long)]
+  yes: bool,
 }
 
 impl Command {
@@ -24,6 +27,10 @@ impl Command {
     let note_id = repo::resolve::resolve_id(&conn, "notes", &self.id).await?;
 
     let before_note = repo::note::find_by_id(&conn, note_id.clone()).await?;
+    if !prompt::confirm_destructive("delete", &format!("task note {}", note_id.short()), self.yes)? {
+      log::info!("task note delete: aborted by user");
+      return Ok(());
+    }
     let tx = repo::transaction::begin(&conn, project_id, "task note delete").await?;
     repo::note::delete(&conn, &note_id).await?;
     if let Some(note) = &before_note {

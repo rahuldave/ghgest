@@ -18,7 +18,7 @@ fn it_deletes_note_by_id() {
 
   let output = g
     .cmd()
-    .args(["task", "note", "delete", &note_id])
+    .args(["task", "note", "delete", &note_id, "--yes"])
     .output()
     .expect("task note delete failed");
   assert!(
@@ -41,7 +41,7 @@ fn it_errors_on_missing_note() {
 
   let output = g
     .cmd()
-    .args(["task", "note", "delete", "zzzzzzzz"])
+    .args(["task", "note", "delete", "zzzzzzzz", "--yes"])
     .output()
     .expect("task note delete failed");
 

@@ -18,7 +18,7 @@ fn it_deletes_note_by_id() {
 
   let output = g
     .cmd()
-    .args(["artifact", "note", "delete", &note_id])
+    .args(["artifact", "note", "delete", &note_id, "--yes"])
     .output()
     .expect("artifact note delete failed");
   assert!(
@@ -42,7 +42,7 @@ fn it_errors_on_missing_note() {
 
   let output = g
     .cmd()
-    .args(["artifact", "note", "delete", "zzzzzzzz"])
+    .args(["artifact", "note", "delete", "zzzzzzzz", "--yes"])
     .output()
     .expect("artifact note delete failed");
 
