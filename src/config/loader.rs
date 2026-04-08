@@ -15,7 +15,9 @@ use super::{Error, Settings, env::GEST_CONFIG};
 pub fn load() -> Result<Settings, Error> {
   let mut merged = Table::new();
 
-  if let Some(table) = read_toml(&global_config_path()?)? {
+  let global = global_config_path()?;
+  if let Some(table) = read_toml(&global)? {
+    log::debug!("config: merged global {}", global.display());
     merge_tables(&mut merged, table);
   }
 
@@ -26,6 +28,7 @@ pub fn load() -> Result<Settings, Error> {
   for dir in ancestors {
     for candidate in [dir.join(".config/gest.toml"), dir.join(".gest.toml")] {
       if let Some(table) = read_toml(&candidate)? {
+        log::debug!("config: merged {}", candidate.display());
         merge_tables(&mut merged, table);
       }
     }
@@ -82,6 +85,7 @@ fn merge_env(base: &mut Table) {
     if !key.starts_with(PREFIX) || key == GEST_CONFIG.name() {
       continue;
     }
+    log::trace!("config: env override {key}");
 
     let path: Vec<&str> = key[PREFIX.len()..].split("__").collect();
     let lowered: Vec<String> = path.iter().map(|s| s.to_lowercase()).collect();
