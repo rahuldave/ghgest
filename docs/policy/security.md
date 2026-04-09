@@ -74,11 +74,10 @@ We follow responsible disclosure practices:
 
 ## Supported Versions
 
-| Version |    Support     |
-|:-------:|:--------------:|
-|  0.5.0  | In Development |
-|  0.4.x  |   Supported    |
-|  < 0.4  |  Unsupported   |
+| Version |   Support   |
+|:-------:|:-----------:|
+|  0.5.0  |  Supported  |
+|  < 0.5  | Unsupported |
 
 ## Security Best Practices
 
