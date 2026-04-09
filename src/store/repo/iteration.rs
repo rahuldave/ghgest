@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::Utc;
 use libsql::{Connection, Error as DbError, Value};
 
@@ -30,10 +32,16 @@ const SELECT_COLUMNS: &str = "\
 
 /// A task's summary info within an iteration context.
 pub struct IterationTaskRow {
+  /// Short ids of tasks that block this task (empty when no blockers exist).
+  pub blocked_by: Vec<String>,
   /// Truncated task id suitable for display.
   pub id_short: String,
+  /// True when this task blocks at least one other task.
+  pub is_blocking: bool,
   /// Phase number within the iteration.
   pub phase: u32,
+  /// Task priority (lower numbers are higher priority).
+  pub priority: Option<u8>,
   /// Task status string as stored in the database.
   pub status: String,
   /// Task title.
@@ -52,6 +60,13 @@ pub struct StatusCounts {
   pub open: i64,
   /// Total number of tasks across all states.
   pub total: i64,
+}
+
+/// Batched blocker/blocking lookup for a single task inside an iteration.
+#[derive(Default)]
+struct BlockingInfo {
+  blockers: Vec<String>,
+  is_blocking: bool,
 }
 
 /// Add a task to an iteration at a specific phase.
@@ -235,36 +250,54 @@ pub async fn task_status_counts(conn: &Connection, iteration_id: &Id) -> Result<
   Ok(counts)
 }
 
-/// Return all tasks for an iteration, grouped with their phase and status.
+/// Return all tasks for an iteration with phase, priority, and blocking data.
+///
+/// Runs two queries: one for the base task rows (joined to the `tasks` table
+/// for priority) and a batched query over `relationships` to resolve blockers
+/// and blocking flags for every task in a single pass.
 pub async fn tasks_with_phase(conn: &Connection, iteration_id: &Id) -> Result<Vec<IterationTaskRow>, Error> {
   log::debug!("repo::iteration::tasks_with_phase");
   let mut rows = conn
     .query(
-      "SELECT t.id, t.title, t.status, it.phase FROM iteration_tasks it \
+      "SELECT t.id, t.title, t.status, t.priority, it.phase FROM iteration_tasks it \
         JOIN tasks t ON t.id = it.task_id \
         WHERE it.iteration_id = ?1 ORDER BY it.phase, t.title",
       [iteration_id.to_string()],
     )
     .await?;
 
-  let mut result = Vec::new();
+  let mut full_ids: Vec<String> = Vec::new();
+  let mut result: Vec<IterationTaskRow> = Vec::new();
   while let Some(row) = rows.next().await? {
     let full_id: String = row.get(0)?;
     let title: String = row.get(1)?;
     let status: String = row.get(2)?;
-    let phase: i64 = row.get(3)?;
-    let id_short = if full_id.len() >= 8 {
-      full_id[..8].to_string()
-    } else {
-      full_id
-    };
+    let priority: Option<i64> = row.get(3)?;
+    let phase: i64 = row.get(4)?;
     result.push(IterationTaskRow {
-      id_short,
+      blocked_by: Vec::new(),
+      id_short: short_task_id(&full_id),
+      is_blocking: false,
       phase: phase as u32,
+      priority: priority.map(|p| p as u8),
       status,
       title,
     });
+    full_ids.push(full_id);
   }
+
+  if result.is_empty() {
+    return Ok(result);
+  }
+
+  let blocking = resolve_blocking_batch(conn, iteration_id).await?;
+  for (full_id, row) in full_ids.iter().zip(result.iter_mut()) {
+    if let Some(info) = blocking.get(full_id) {
+      row.blocked_by = info.blockers.iter().map(|id| short_task_id(id)).collect();
+      row.is_blocking = info.is_blocking;
+    }
+  }
+
   Ok(result)
 }
 
@@ -288,6 +321,49 @@ pub async fn shortest_all_prefix(conn: &Connection, project_id: &Id) -> Result<u
   let ids = collect_ids(conn, "SELECT id FROM iterations WHERE project_id = ?1", project_id).await?;
   let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
   Ok(min_unique_prefix(&refs))
+}
+
+/// Return `(blockers, is_blocking)` info keyed by full task id for every task
+/// that participates in a `blocks` / `blocked-by` relationship touching the
+/// iteration. Tasks with no entries in the map have no blocking data.
+async fn resolve_blocking_batch(conn: &Connection, iteration_id: &Id) -> Result<HashMap<String, BlockingInfo>, Error> {
+  let mut rows = conn
+    .query(
+      "SELECT r.source_id, r.target_id, r.rel_type FROM relationships r \
+        WHERE r.source_type = 'task' AND r.target_type = 'task' \
+          AND r.rel_type IN ('blocks', 'blocked-by') \
+          AND (\
+            r.source_id IN (SELECT task_id FROM iteration_tasks WHERE iteration_id = ?1) \
+            OR r.target_id IN (SELECT task_id FROM iteration_tasks WHERE iteration_id = ?1)\
+          )",
+      [iteration_id.to_string()],
+    )
+    .await?;
+
+  let mut map: HashMap<String, BlockingInfo> = HashMap::new();
+  while let Some(row) = rows.next().await? {
+    let source_id: String = row.get(0)?;
+    let target_id: String = row.get(1)?;
+    let rel_type: String = row.get(2)?;
+    let (blocker, blocked) = match rel_type.as_str() {
+      "blocks" => (source_id, target_id),
+      "blocked-by" => (target_id, source_id),
+      _ => continue,
+    };
+
+    map.entry(blocker.clone()).or_default().is_blocking = true;
+    map.entry(blocked).or_default().blockers.push(blocker);
+  }
+
+  Ok(map)
+}
+
+fn short_task_id(full_id: &str) -> String {
+  if full_id.len() >= 8 {
+    full_id[..8].to_string()
+  } else {
+    full_id.to_string()
+  }
 }
 
 async fn collect_ids(conn: &Connection, sql: &str, project_id: &Id) -> Result<Vec<String>, Error> {
@@ -842,6 +918,158 @@ mod tests {
 
       assert_eq!(shortest_active_prefix(&conn, &pid).await.unwrap(), 1);
       assert_eq!(shortest_all_prefix(&conn, &pid).await.unwrap(), 1);
+    }
+  }
+
+  mod tasks_with_phase_fn {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+    use crate::store::model::primitives::{EntityType, RelationshipType};
+
+    async fn insert_task(conn: &Connection, pid: &Id, title: &str, priority: Option<u8>) -> Id {
+      let id = Id::new();
+      let priority_sql = match priority {
+        Some(p) => format!("{p}"),
+        None => "NULL".to_string(),
+      };
+      conn
+        .execute(
+          &format!("INSERT INTO tasks (id, project_id, title, priority) VALUES (?1, ?2, ?3, {priority_sql})"),
+          [id.to_string(), pid.to_string(), title.to_string()],
+        )
+        .await
+        .unwrap();
+      id
+    }
+
+    #[tokio::test]
+    async fn it_populates_blocked_by_from_blocks_relationships() {
+      let (_store, conn, _tmp, pid) = setup().await;
+      let iter = create(
+        &conn,
+        &pid,
+        &New {
+          title: "Iter".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+
+      let blocker = insert_task(&conn, &pid, "Blocker", None).await;
+      let blocked = insert_task(&conn, &pid, "Blocked", None).await;
+      add_task(&conn, iter.id(), &blocker, 1).await.unwrap();
+      add_task(&conn, iter.id(), &blocked, 1).await.unwrap();
+      crate::store::repo::relationship::create(
+        &conn,
+        RelationshipType::Blocks,
+        EntityType::Task,
+        &blocker,
+        EntityType::Task,
+        &blocked,
+      )
+      .await
+      .unwrap();
+
+      let rows = tasks_with_phase(&conn, iter.id()).await.unwrap();
+      let blocked_row = rows.iter().find(|r| r.title == "Blocked").unwrap();
+      let blocker_row = rows.iter().find(|r| r.title == "Blocker").unwrap();
+
+      assert_eq!(blocked_row.blocked_by, vec![short_task_id(&blocker.to_string())]);
+      assert!(!blocked_row.is_blocking);
+
+      assert!(blocker_row.blocked_by.is_empty());
+      assert!(blocker_row.is_blocking);
+    }
+
+    #[tokio::test]
+    async fn it_populates_blocked_by_from_blocked_by_relationships() {
+      let (_store, conn, _tmp, pid) = setup().await;
+      let iter = create(
+        &conn,
+        &pid,
+        &New {
+          title: "Iter".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+
+      let blocker = insert_task(&conn, &pid, "Blocker", None).await;
+      let blocked = insert_task(&conn, &pid, "Blocked", None).await;
+      add_task(&conn, iter.id(), &blocker, 1).await.unwrap();
+      add_task(&conn, iter.id(), &blocked, 1).await.unwrap();
+      crate::store::repo::relationship::create(
+        &conn,
+        RelationshipType::BlockedBy,
+        EntityType::Task,
+        &blocked,
+        EntityType::Task,
+        &blocker,
+      )
+      .await
+      .unwrap();
+
+      let rows = tasks_with_phase(&conn, iter.id()).await.unwrap();
+      let blocked_row = rows.iter().find(|r| r.title == "Blocked").unwrap();
+      let blocker_row = rows.iter().find(|r| r.title == "Blocker").unwrap();
+
+      assert_eq!(blocked_row.blocked_by, vec![short_task_id(&blocker.to_string())]);
+      assert!(blocker_row.is_blocking);
+    }
+
+    #[tokio::test]
+    async fn it_returns_priority_when_present_and_absent() {
+      let (_store, conn, _tmp, pid) = setup().await;
+      let iter = create(
+        &conn,
+        &pid,
+        &New {
+          title: "Iter".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+
+      let with_priority = insert_task(&conn, &pid, "High", Some(1)).await;
+      let without_priority = insert_task(&conn, &pid, "None", None).await;
+      add_task(&conn, iter.id(), &with_priority, 1).await.unwrap();
+      add_task(&conn, iter.id(), &without_priority, 1).await.unwrap();
+
+      let rows = tasks_with_phase(&conn, iter.id()).await.unwrap();
+      let high = rows.iter().find(|r| r.title == "High").unwrap();
+      let none = rows.iter().find(|r| r.title == "None").unwrap();
+
+      assert_eq!(high.priority, Some(1));
+      assert_eq!(none.priority, None);
+    }
+
+    #[tokio::test]
+    async fn it_returns_unblocked_rows_with_empty_blockers_and_no_blocking_flag() {
+      let (_store, conn, _tmp, pid) = setup().await;
+      let iter = create(
+        &conn,
+        &pid,
+        &New {
+          title: "Iter".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+
+      let solo = insert_task(&conn, &pid, "Solo", Some(2)).await;
+      add_task(&conn, iter.id(), &solo, 1).await.unwrap();
+
+      let rows = tasks_with_phase(&conn, iter.id()).await.unwrap();
+
+      assert_eq!(rows.len(), 1);
+      assert!(rows[0].blocked_by.is_empty());
+      assert!(!rows[0].is_blocking);
+      assert_eq!(rows[0].priority, Some(2));
     }
   }
 

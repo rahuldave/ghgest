@@ -37,8 +37,11 @@ impl Command {
         .iter()
         .map(|t| {
           serde_json::json!({
+            "blocked_by": t.blocked_by,
             "id": t.id_short,
+            "is_blocking": t.is_blocking,
             "phase": t.phase,
+            "priority": t.priority,
             "status": t.status,
             "title": t.title,
           })
