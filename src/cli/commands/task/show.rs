@@ -24,7 +24,7 @@ impl Command {
 
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
 
-    let id = repo::resolve::resolve_id(&conn, "tasks", &self.id).await?;
+    let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, &self.id).await?;
     let task = repo::task::find_required_by_id(&conn, id).await?;
 
     let tags = repo::tag::for_entity(&conn, EntityType::Task, task.id()).await?;

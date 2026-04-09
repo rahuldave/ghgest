@@ -101,7 +101,7 @@ struct ArtifactRow {
 pub async fn artifact_archive(State(state): State<AppState>, Path(id): Path<String>) -> handlers::Result<Redirect> {
   log::debug!("artifact_archive: artifact={id}");
   let conn = state.store().connect().await.map_err(log_err("artifact_archive"))?;
-  let artifact_id = repo::resolve::resolve_id(&conn, "artifacts", &id)
+  let artifact_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Artifacts, &id)
     .await
     .map_err(log_err("artifact_archive"))?;
   repo::artifact::archive(&conn, &artifact_id)
@@ -190,7 +190,7 @@ pub async fn artifact_edit_form(
   Path(id): Path<String>,
 ) -> handlers::Result<Html<String>> {
   let conn = state.store().connect().await.map_err(log_err("artifact_edit_form"))?;
-  let artifact_id = repo::resolve::resolve_id(&conn, "artifacts", &id)
+  let artifact_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Artifacts, &id)
     .await
     .map_err(log_err("artifact_edit_form"))?;
   let artifact = repo::artifact::find_by_id(&conn, artifact_id.clone())
@@ -259,7 +259,7 @@ pub async fn artifact_note_add(
 ) -> handlers::Result<Redirect> {
   log::debug!("artifact_note_add: artifact={id}");
   let conn = state.store().connect().await.map_err(log_err("artifact_note_add"))?;
-  let artifact_id = repo::resolve::resolve_id(&conn, "artifacts", &id)
+  let artifact_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Artifacts, &id)
     .await
     .map_err(log_err("artifact_note_add"))?;
 
@@ -283,7 +283,7 @@ pub async fn artifact_update(
 ) -> handlers::Result<Redirect> {
   log::debug!("artifact_update: artifact={id}");
   let conn = state.store().connect().await.map_err(log_err("artifact_update"))?;
-  let artifact_id = repo::resolve::resolve_id(&conn, "artifacts", &id)
+  let artifact_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Artifacts, &id)
     .await
     .map_err(log_err("artifact_update"))?;
 
@@ -337,7 +337,7 @@ async fn build_artifact_detail_data(
     .connect()
     .await
     .map_err(log_err("build_artifact_detail_data"))?;
-  let artifact_id = repo::resolve::resolve_id(&conn, "artifacts", id)
+  let artifact_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Artifacts, id)
     .await
     .map_err(log_err("build_artifact_detail_data"))?;
   let artifact = repo::artifact::find_by_id(&conn, artifact_id.clone())

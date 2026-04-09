@@ -21,7 +21,7 @@ impl Command {
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("artifact note show: entry");
     let conn = context.store().connect().await?;
-    let note_id = repo::resolve::resolve_id(&conn, "notes", &self.id).await?;
+    let note_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Notes, &self.id).await?;
 
     let note = repo::note::find_required_by_id(&conn, note_id).await?;
 

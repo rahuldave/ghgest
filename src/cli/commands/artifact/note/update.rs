@@ -25,7 +25,7 @@ impl Command {
     log::debug!("artifact note update: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
     let conn = context.store().connect().await?;
-    let note_id = repo::resolve::resolve_id(&conn, "notes", &self.id).await?;
+    let note_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Notes, &self.id).await?;
 
     let existing = repo::note::find_required_by_id(&conn, note_id.clone()).await?;
 

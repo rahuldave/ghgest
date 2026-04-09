@@ -24,7 +24,7 @@ impl Command {
     log::debug!("task tag: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
     let conn = context.store().connect().await?;
-    let id = repo::resolve::resolve_id(&conn, "tasks", &self.id).await?;
+    let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, &self.id).await?;
 
     let tx = repo::transaction::begin(&conn, project_id, "task tag").await?;
     let tag = repo::tag::attach(&conn, EntityType::Task, &id, &self.label).await?;

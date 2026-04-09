@@ -45,7 +45,7 @@ impl Command {
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
     let conn = context.store().connect().await?;
 
-    let id = repo::resolve::resolve_id(&conn, "artifacts", &self.id).await?;
+    let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Artifacts, &self.id).await?;
 
     let body = if self.edit {
       let artifact = repo::artifact::find_by_id(&conn, id.clone())

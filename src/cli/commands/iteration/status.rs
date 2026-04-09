@@ -21,7 +21,7 @@ impl Command {
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("iteration status: entry");
     let conn = context.store().connect().await?;
-    let id = repo::resolve::resolve_id(&conn, "iterations", &self.id).await?;
+    let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Iterations, &self.id).await?;
     let iteration = repo::iteration::find_required_by_id(&conn, id.clone()).await?;
 
     let counts = repo::iteration::task_status_counts(&conn, &id).await?;

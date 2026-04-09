@@ -28,8 +28,8 @@ impl Command {
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
     let conn = context.store().connect().await?;
 
-    let iteration_id = repo::resolve::resolve_id(&conn, "iterations", &self.iteration).await?;
-    let task_id = repo::resolve::resolve_id(&conn, "tasks", &self.task).await?;
+    let iteration_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Iterations, &self.iteration).await?;
+    let task_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, &self.task).await?;
 
     let phase = match self.phase {
       Some(p) => p,

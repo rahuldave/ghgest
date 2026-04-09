@@ -26,7 +26,7 @@ impl Command {
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
     let conn = context.store().connect().await?;
 
-    let id = repo::resolve::resolve_id(&conn, "iterations", &self.id).await?;
+    let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Iterations, &self.id).await?;
     let before_iter = repo::iteration::find_by_id(&conn, id.clone())
       .await?
       .ok_or(Error::UninitializedProject)?;

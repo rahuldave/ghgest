@@ -131,7 +131,7 @@ pub async fn note_add(
 ) -> handlers::Result<Redirect> {
   log::debug!("note_add: task={id}");
   let conn = state.store().connect().await.map_err(log_err("note_add"))?;
-  let task_id = repo::resolve::resolve_id(&conn, "tasks", &id)
+  let task_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, &id)
     .await
     .map_err(log_err("note_add"))?;
 
@@ -206,7 +206,7 @@ pub async fn task_create_submit(State(state): State<AppState>, body: Bytes) -> h
 /// Task detail page.
 pub async fn task_detail(State(state): State<AppState>, Path(id): Path<String>) -> handlers::Result<Html<String>> {
   let conn = state.store().connect().await.map_err(log_err("task_detail"))?;
-  let task_id = repo::resolve::resolve_id(&conn, "tasks", &id)
+  let task_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, &id)
     .await
     .map_err(log_err("task_detail"))?;
   let task = repo::task::find_by_id(&conn, task_id.clone())
@@ -239,7 +239,7 @@ pub async fn task_detail_fragment(
   Path(id): Path<String>,
 ) -> handlers::Result<Html<String>> {
   let conn = state.store().connect().await.map_err(log_err("task_detail_fragment"))?;
-  let task_id = repo::resolve::resolve_id(&conn, "tasks", &id)
+  let task_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, &id)
     .await
     .map_err(log_err("task_detail_fragment"))?;
   let task = repo::task::find_by_id(&conn, task_id.clone())
@@ -269,7 +269,7 @@ pub async fn task_detail_fragment(
 /// Task edit form.
 pub async fn task_edit_form(State(state): State<AppState>, Path(id): Path<String>) -> handlers::Result<Html<String>> {
   let conn = state.store().connect().await.map_err(log_err("task_edit_form"))?;
-  let task_id = repo::resolve::resolve_id(&conn, "tasks", &id)
+  let task_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, &id)
     .await
     .map_err(log_err("task_edit_form"))?;
   let task = repo::task::find_by_id(&conn, task_id.clone())
@@ -348,7 +348,7 @@ pub async fn task_update(
 ) -> handlers::Result<Redirect> {
   log::debug!("task_update: task={id}");
   let conn = state.store().connect().await.map_err(log_err("task_update"))?;
-  let task_id = repo::resolve::resolve_id(&conn, "tasks", &id)
+  let task_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, &id)
     .await
     .map_err(log_err("task_update"))?;
 

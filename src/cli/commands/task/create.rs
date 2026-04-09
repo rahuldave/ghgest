@@ -117,15 +117,15 @@ impl Command {
     for link_spec in &self.link {
       let (rel_type, target_id) = parse_link_spec(link_spec)?;
       let target_table = resolve_entity_table(&conn, &target_id).await;
-      let target = repo::resolve::resolve_id(&conn, &target_table, &target_id).await?;
-      let target_type = table_to_entity_type(&target_table);
+      let target = repo::resolve::resolve_id(&conn, target_table, &target_id).await?;
+      let target_type = table_to_entity_type(target_table);
       let rel = repo::relationship::create(&conn, rel_type, EntityType::Task, task.id(), target_type, &target).await?;
       repo::transaction::record_event(&conn, tx.id(), "relationships", &rel.id().to_string(), "created", None).await?;
     }
 
     // Add to iteration
     if let Some(iter_ref) = &self.iteration {
-      let iter_id = repo::resolve::resolve_id(&conn, "iterations", iter_ref).await?;
+      let iter_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Iterations, iter_ref).await?;
       let phase = match self.phase {
         Some(p) => p,
         None => {
@@ -236,22 +236,26 @@ fn parse_link_spec(spec: &str) -> Result<(RelationshipType, String), Error> {
 }
 
 /// Try to resolve the table for a target entity ID by checking multiple tables.
-async fn resolve_entity_table(conn: &Connection, id: &str) -> String {
+async fn resolve_entity_table(conn: &Connection, id: &str) -> repo::resolve::Table {
   // Try tasks first, then artifacts, then iterations
-  for table in &["tasks", "artifacts", "iterations"] {
+  for table in [
+    repo::resolve::Table::Tasks,
+    repo::resolve::Table::Artifacts,
+    repo::resolve::Table::Iterations,
+  ] {
     if repo::resolve::resolve_id(conn, table, id).await.is_ok() {
-      return table.to_string();
+      return table;
     }
   }
-  "tasks".to_string()
+  repo::resolve::Table::Tasks
 }
 
-/// Map a table name to its EntityType.
-fn table_to_entity_type(table: &str) -> EntityType {
+/// Map a table to its EntityType.
+fn table_to_entity_type(table: repo::resolve::Table) -> EntityType {
   match table {
-    "artifacts" => EntityType::Artifact,
-    "iterations" => EntityType::Iteration,
-    _ => EntityType::Task,
+    repo::resolve::Table::Artifacts => EntityType::Artifact,
+    repo::resolve::Table::Iterations => EntityType::Iteration,
+    repo::resolve::Table::Notes | repo::resolve::Table::Tasks => EntityType::Task,
   }
 }
 

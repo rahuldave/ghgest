@@ -28,8 +28,8 @@ impl Command {
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
     let conn = context.store().connect().await?;
 
-    let source_id = repo::resolve::resolve_id(&conn, "tasks", &self.id).await?;
-    let target_id = repo::resolve::resolve_id(&conn, "tasks", &self.blocked).await?;
+    let source_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, &self.id).await?;
+    let target_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, &self.blocked).await?;
 
     let tx = repo::transaction::begin(&conn, project_id, "task block").await?;
     let rel = repo::relationship::create(

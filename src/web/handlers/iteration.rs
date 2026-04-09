@@ -227,7 +227,7 @@ async fn build_iteration_board(
     .connect()
     .await
     .map_err(log_err("build_iteration_board"))?;
-  let iter_id = repo::resolve::resolve_id(&conn, "iterations", id)
+  let iter_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Iterations, id)
     .await
     .map_err(log_err("build_iteration_board"))?;
   let iteration = repo::iteration::find_by_id(&conn, iter_id.clone())
@@ -275,7 +275,7 @@ async fn build_iteration_detail(
     .connect()
     .await
     .map_err(log_err("build_iteration_detail"))?;
-  let iter_id = repo::resolve::resolve_id(&conn, "iterations", id)
+  let iter_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Iterations, id)
     .await
     .map_err(log_err("build_iteration_detail"))?;
   let iteration = repo::iteration::find_by_id(&conn, iter_id.clone())

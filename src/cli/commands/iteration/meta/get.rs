@@ -24,7 +24,7 @@ impl Command {
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("iteration meta get: entry");
     let conn = context.store().connect().await?;
-    let id = repo::resolve::resolve_id(&conn, "iterations", &self.id).await?;
+    let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Iterations, &self.id).await?;
     let iteration = repo::iteration::find_required_by_id(&conn, id).await?;
 
     let value =

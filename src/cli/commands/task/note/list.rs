@@ -23,7 +23,7 @@ impl Command {
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("task note list: entry");
     let conn = context.store().connect().await?;
-    let task_id = repo::resolve::resolve_id(&conn, "tasks", &self.id).await?;
+    let task_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, &self.id).await?;
 
     let mut notes = repo::note::for_entity(&conn, EntityType::Task, &task_id).await?;
     self.limit.apply(&mut notes);

@@ -36,7 +36,7 @@ impl Command {
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
     let conn = context.store().connect().await?;
 
-    let id = repo::resolve::resolve_id(&conn, "tasks", &self.id).await?;
+    let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, &self.id).await?;
     let task = repo::task::find_required_by_id(&conn, id).await?;
 
     let iteration_ids = iteration_memberships(&conn, task.id()).await?;

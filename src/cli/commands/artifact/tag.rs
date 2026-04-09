@@ -24,7 +24,7 @@ impl Command {
     log::debug!("artifact tag: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
     let conn = context.store().connect().await?;
-    let id = repo::resolve::resolve_id(&conn, "artifacts", &self.id).await?;
+    let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Artifacts, &self.id).await?;
     let tx = repo::transaction::begin(&conn, project_id, "artifact tag").await?;
     let tag = repo::tag::attach(&conn, EntityType::Artifact, &id, &self.label).await?;
     repo::transaction::record_event(&conn, tx.id(), "entity_tags", &tag.id().to_string(), "created", None).await?;

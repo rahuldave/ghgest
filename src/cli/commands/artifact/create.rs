@@ -106,7 +106,7 @@ impl Command {
     }
 
     if let Some(iteration_ref) = &self.iteration {
-      let iteration_id = repo::resolve::resolve_id(&conn, "iterations", iteration_ref).await?;
+      let iteration_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Iterations, iteration_ref).await?;
       let rel = repo::relationship::create(
         &conn,
         RelationshipType::RelatesTo,
@@ -179,7 +179,7 @@ impl Command {
       }
 
       if let Some(iteration_ref) = &record.iteration {
-        let iteration_id = repo::resolve::resolve_id(&conn, "iterations", iteration_ref).await?;
+        let iteration_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Iterations, iteration_ref).await?;
         let rel = repo::relationship::create(
           &conn,
           RelationshipType::RelatesTo,

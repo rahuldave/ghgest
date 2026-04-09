@@ -43,7 +43,7 @@ impl Command {
 
     let conn = context.store().connect().await?;
 
-    let id = repo::resolve::resolve_id(&conn, "iterations", &self.id).await?;
+    let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Iterations, &self.id).await?;
     let iteration = repo::iteration::find_required_by_id(&conn, id.clone()).await?;
 
     if iteration.status() != IterationStatus::Active {
@@ -66,7 +66,7 @@ impl Command {
     let mut candidates = Vec::new();
     for row in &open_rows {
       // Resolve full task ID from short prefix
-      let full_id = repo::resolve::resolve_id(&conn, "tasks", &row.id_short).await?;
+      let full_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, &row.id_short).await?;
       let task = repo::task::find_required_by_id(&conn, full_id.clone()).await?;
 
       // Check if task is blocked

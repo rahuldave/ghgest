@@ -35,7 +35,7 @@ impl Command {
     log::debug!("task note add: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
     let conn = context.store().connect().await?;
-    let task_id = repo::resolve::resolve_id(&conn, "tasks", &self.id).await?;
+    let task_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, &self.id).await?;
 
     let body = if self.body == "-" {
       crate::io::editor::edit_text_with_suffix("", ".md").map_err(|e| Error::Editor(e.to_string()))?

@@ -33,11 +33,11 @@ impl Command {
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
     let conn = context.store().connect().await?;
 
-    let source_id = repo::resolve::resolve_id(&conn, "iterations", &self.id).await?;
+    let source_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Iterations, &self.id).await?;
     let (target_type, target_table) = if self.artifact {
-      (EntityType::Artifact, "artifacts")
+      (EntityType::Artifact, repo::resolve::Table::Artifacts)
     } else {
-      (EntityType::Iteration, "iterations")
+      (EntityType::Iteration, repo::resolve::Table::Iterations)
     };
     let target_id = repo::resolve::resolve_id(&conn, target_table, &self.target).await?;
 

@@ -5,30 +5,63 @@ use crate::store::{
   model::primitives::{EntityType, Id},
 };
 
-/// Returns the SQL fragment that filters a table to its "active" set.
+/// Tables that can be searched by ID prefix resolution.
 ///
-/// Active means:
-/// - artifacts: not archived (`archived_at IS NULL`)
-/// - tasks: not in a terminal state (`status NOT IN ('done', 'cancelled')`)
-/// - iterations: not in a terminal state (`status NOT IN ('completed', 'cancelled')`)
-///
-/// Returns `None` for tables without an active concept.
-fn active_filter(table: &str) -> Option<&'static str> {
-  match table {
-    "artifacts" => Some("archived_at IS NULL"),
-    "tasks" => Some("status NOT IN ('done', 'cancelled')"),
-    "iterations" => Some("status NOT IN ('completed', 'cancelled')"),
-    _ => None,
+/// Using an enum (instead of raw `&str`) guarantees that every SQL string built
+/// in this module interpolates a canonical, hand-audited identifier — no
+/// caller-controlled table name can ever reach a SQL format string.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Table {
+  /// The `artifacts` table.
+  Artifacts,
+  /// The `iterations` table.
+  Iterations,
+  /// The `notes` table.
+  Notes,
+  /// The `tasks` table.
+  Tasks,
+}
+
+impl Table {
+  /// Returns the SQL fragment that filters this table to its "active" set.
+  ///
+  /// Active means:
+  /// - artifacts: not archived (`archived_at IS NULL`)
+  /// - tasks: not in a terminal state (`status NOT IN ('done', 'cancelled')`)
+  /// - iterations: not in a terminal state (`status NOT IN ('completed', 'cancelled')`)
+  /// - notes: no active concept — always returns `None`
+  pub fn active_filter(self) -> Option<&'static str> {
+    match self {
+      Self::Artifacts => Some("archived_at IS NULL"),
+      Self::Iterations => Some("status NOT IN ('completed', 'cancelled')"),
+      Self::Notes => None,
+      Self::Tasks => Some("status NOT IN ('done', 'cancelled')"),
+    }
+  }
+
+  /// Returns the canonical SQL identifier for this table.
+  ///
+  /// The returned string is a compile-time constant drawn from a closed set
+  /// of safe identifiers, which is what makes dynamic SQL construction in
+  /// this module safe.
+  pub fn as_sql_ident(self) -> &'static str {
+    match self {
+      Self::Artifacts => "artifacts",
+      Self::Iterations => "iterations",
+      Self::Notes => "notes",
+      Self::Tasks => "tasks",
+    }
   }
 }
 
 /// Query the given table for IDs matching the prefix, optionally restricted
 /// to the active set.
-async fn query_matches(conn: &Connection, table: &str, prefix: &str, active_only: bool) -> Result<Vec<String>, Error> {
-  let sql = if active_only && let Some(filter) = active_filter(table) {
-    format!("SELECT id FROM {table} WHERE id LIKE ?1 || '%' AND {filter}")
+async fn query_matches(conn: &Connection, table: Table, prefix: &str, active_only: bool) -> Result<Vec<String>, Error> {
+  let ident = table.as_sql_ident();
+  let sql = if active_only && let Some(filter) = table.active_filter() {
+    format!("SELECT id FROM {ident} WHERE id LIKE ?1 || '%' AND {filter}")
   } else {
-    format!("SELECT id FROM {table} WHERE id LIKE ?1 || '%'")
+    format!("SELECT id FROM {ident} WHERE id LIKE ?1 || '%'")
   };
 
   let mut rows = conn.query(&sql, [prefix.to_string()]).await?;
@@ -51,7 +84,7 @@ async fn query_matches(conn: &Connection, table: &str, prefix: &str, active_only
 /// The fallback is silent: a prefix matching one active and one
 /// archived/terminal entity returns the active one with no ambiguity error
 /// or hint.
-pub async fn resolve_id(conn: &Connection, table: &str, prefix: &str) -> Result<Id, Error> {
+pub async fn resolve_id(conn: &Connection, table: Table, prefix: &str) -> Result<Id, Error> {
   log::debug!("repo::resolve::resolve_id");
   Id::validate_prefix(prefix).map_err(Error::InvalidPrefix)?;
 
@@ -85,10 +118,10 @@ pub async fn resolve_id(conn: &Connection, table: &str, prefix: &str) -> Result<
 }
 
 /// Tables to search when resolving an entity across all types.
-const ENTITY_TABLES: &[(EntityType, &str)] = &[
-  (EntityType::Artifact, "artifacts"),
-  (EntityType::Iteration, "iterations"),
-  (EntityType::Task, "tasks"),
+const ENTITY_TABLES: &[(EntityType, Table)] = &[
+  (EntityType::Artifact, Table::Artifacts),
+  (EntityType::Iteration, Table::Iterations),
+  (EntityType::Task, Table::Tasks),
 ];
 
 /// Collect matches across all entity tables, optionally restricted to active
@@ -219,6 +252,46 @@ mod tests {
     s.parse().unwrap()
   }
 
+  mod table {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn it_returns_active_filter_for_artifacts() {
+      assert_eq!(Table::Artifacts.active_filter(), Some("archived_at IS NULL"));
+    }
+
+    #[test]
+    fn it_returns_active_filter_for_iterations() {
+      assert_eq!(
+        Table::Iterations.active_filter(),
+        Some("status NOT IN ('completed', 'cancelled')")
+      );
+    }
+
+    #[test]
+    fn it_returns_active_filter_for_tasks() {
+      assert_eq!(
+        Table::Tasks.active_filter(),
+        Some("status NOT IN ('done', 'cancelled')")
+      );
+    }
+
+    #[test]
+    fn it_returns_canonical_sql_ident_for_each_variant() {
+      assert_eq!(Table::Artifacts.as_sql_ident(), "artifacts");
+      assert_eq!(Table::Iterations.as_sql_ident(), "iterations");
+      assert_eq!(Table::Notes.as_sql_ident(), "notes");
+      assert_eq!(Table::Tasks.as_sql_ident(), "tasks");
+    }
+
+    #[test]
+    fn it_returns_no_active_filter_for_notes() {
+      assert_eq!(Table::Notes.active_filter(), None);
+    }
+  }
+
   mod resolve_entity_fn {
     use pretty_assertions::assert_eq;
 
@@ -332,7 +405,7 @@ mod tests {
       let archived = Id::new();
       insert_artifact(&conn, &pid, &archived, true).await;
 
-      let resolved = resolve_id(&conn, "artifacts", &archived.short()).await.unwrap();
+      let resolved = resolve_id(&conn, Table::Artifacts, &archived.short()).await.unwrap();
       assert_eq!(resolved, archived);
     }
 
@@ -343,7 +416,7 @@ mod tests {
       let done = Id::new();
       insert_task(&conn, &pid, &done, "done").await;
 
-      let resolved = resolve_id(&conn, "tasks", &done.short()).await.unwrap();
+      let resolved = resolve_id(&conn, Table::Tasks, &done.short()).await.unwrap();
       assert_eq!(resolved, done);
     }
 
@@ -358,7 +431,7 @@ mod tests {
       insert_artifact(&conn, &pid, &active, false).await;
       insert_artifact(&conn, &pid, &archived, true).await;
 
-      let resolved = resolve_id(&conn, "artifacts", prefix).await.unwrap();
+      let resolved = resolve_id(&conn, Table::Artifacts, prefix).await.unwrap();
       assert_eq!(resolved, active);
     }
 
@@ -369,7 +442,7 @@ mod tests {
       let id = Id::new();
       insert_task(&conn, &pid, &id, "open").await;
 
-      let resolved = resolve_id(&conn, "tasks", &id.to_string()).await.unwrap();
+      let resolved = resolve_id(&conn, Table::Tasks, &id.to_string()).await.unwrap();
       assert_eq!(resolved, id);
     }
 
@@ -380,7 +453,7 @@ mod tests {
       let id = Id::new();
       insert_task(&conn, &pid, &id, "open").await;
 
-      let resolved = resolve_id(&conn, "tasks", &id.short()).await.unwrap();
+      let resolved = resolve_id(&conn, Table::Tasks, &id.short()).await.unwrap();
       assert_eq!(resolved, id);
     }
 
@@ -394,7 +467,7 @@ mod tests {
       insert_task(&conn, &pid, &a, "open").await;
       insert_task(&conn, &pid, &b, "open").await;
 
-      let result = resolve_id(&conn, "tasks", prefix).await;
+      let result = resolve_id(&conn, Table::Tasks, prefix).await;
       assert!(matches!(result, Err(Error::Ambiguous(_, 2))));
     }
 
@@ -408,7 +481,7 @@ mod tests {
       insert_task(&conn, &pid, &a, "done").await;
       insert_task(&conn, &pid, &b, "cancelled").await;
 
-      let result = resolve_id(&conn, "tasks", prefix).await;
+      let result = resolve_id(&conn, Table::Tasks, prefix).await;
       assert!(matches!(result, Err(Error::Ambiguous(_, 2))));
     }
 
@@ -416,7 +489,7 @@ mod tests {
     async fn it_returns_error_when_invalid_prefix() {
       let (_store, conn, _tmp, _pid) = setup().await;
 
-      let result = resolve_id(&conn, "tasks", "invalid!").await;
+      let result = resolve_id(&conn, Table::Tasks, "invalid!").await;
       assert!(matches!(result, Err(Error::InvalidPrefix(_))));
     }
 
@@ -424,7 +497,7 @@ mod tests {
     async fn it_returns_error_when_not_found() {
       let (_store, conn, _tmp, _pid) = setup().await;
 
-      let result = resolve_id(&conn, "tasks", "kkkkkkkk").await;
+      let result = resolve_id(&conn, Table::Tasks, "kkkkkkkk").await;
       assert!(matches!(result, Err(Error::NotFound(_))));
     }
 
@@ -435,7 +508,7 @@ mod tests {
       let active = Id::new();
       insert_task(&conn, &pid, &active, "open").await;
 
-      let resolved = resolve_id(&conn, "tasks", &active.short()).await.unwrap();
+      let resolved = resolve_id(&conn, Table::Tasks, &active.short()).await.unwrap();
       assert_eq!(resolved, active);
     }
   }

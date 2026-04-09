@@ -8,7 +8,7 @@ use crate::{
 /// Render the full metadata blob for a task.
 pub async fn call(context: &AppContext, raw_id: &str, output: &json::Flags) -> Result<(), Error> {
   let conn = context.store().connect().await?;
-  let id = repo::resolve::resolve_id(&conn, "tasks", raw_id).await?;
+  let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, raw_id).await?;
   let task = repo::task::find_required_by_id(&conn, id).await?;
 
   let metadata = task.metadata();

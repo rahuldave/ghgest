@@ -24,7 +24,7 @@ impl Command {
     log::debug!("iteration untag: entry");
     let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
     let conn = context.store().connect().await?;
-    let id = repo::resolve::resolve_id(&conn, "iterations", &self.id).await?;
+    let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Iterations, &self.id).await?;
     let before_tag = repo::tag::find_by_label(&conn, &self.label).await?;
     let tx = repo::transaction::begin(&conn, project_id, "iteration untag").await?;
     repo::tag::detach(&conn, EntityType::Iteration, &id, &self.label).await?;

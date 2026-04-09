@@ -8,7 +8,7 @@ use crate::{
 /// Render the full metadata blob for an artifact.
 pub async fn call(context: &AppContext, raw_id: &str, output: &json::Flags) -> Result<(), Error> {
   let conn = context.store().connect().await?;
-  let id = repo::resolve::resolve_id(&conn, "artifacts", raw_id).await?;
+  let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Artifacts, raw_id).await?;
   let artifact = repo::artifact::find_required_by_id(&conn, id).await?;
 
   let metadata = artifact.metadata();
