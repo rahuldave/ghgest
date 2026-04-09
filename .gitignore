@@ -13,11 +13,6 @@ coverage/
 debug/
 target/
 
-# Node / bun
-docs/site/node_modules/
-docs/site/.vitepress/dist/
-docs/site/.vitepress/cache/
-
 # OS
 .DS_Store
 Thumbs.db

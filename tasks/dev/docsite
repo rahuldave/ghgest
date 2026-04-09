@@ -3,4 +3,4 @@
 
 set -e
 
-cd docs/site && bun docs:dev
+cd docs/site && bun docusaurus start
