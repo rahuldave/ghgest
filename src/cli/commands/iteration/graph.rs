@@ -64,8 +64,11 @@ impl Command {
     let graph_tasks: Vec<GraphTask> = tasks
       .iter()
       .map(|t| GraphTask {
+        blocked_by: t.blocked_by.clone(),
         id_short: t.id_short.clone(),
+        is_blocking: t.is_blocking,
         phase: t.phase,
+        priority: t.priority,
         status: t.status.clone(),
         title: t.title.clone(),
       })

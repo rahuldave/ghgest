@@ -26,14 +26,12 @@ impl Component {
   }
 
   /// Truncate the title to at most `width` visible characters, appending `…` if needed.
-  #[cfg(test)]
   pub fn max_width(mut self, width: usize) -> Self {
     self.max_width = Some(width);
     self
   }
 
   /// Right-pad with spaces so the title occupies at least `width` visible columns.
-  #[cfg(test)]
   pub fn pad_to(mut self, width: usize) -> Self {
     self.pad_to = Some(width);
     self

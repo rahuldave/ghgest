@@ -27,6 +27,14 @@ impl Component {
     }
   }
 
+  /// Phase header icon used by the iteration graph.
+  pub fn phase() -> Self {
+    Self {
+      ch: '\u{25C6}',
+      style: *crate::ui::style::global().iteration_graph_phase_icon(),
+    } // ◆
+  }
+
   /// Status icon for the given status string.
   pub fn status(status: &str) -> Self {
     let theme = crate::ui::style::global();
@@ -80,6 +88,11 @@ mod tests {
   #[test]
   fn it_renders_blocking_icon() {
     assert_eq!(render(&Component::blocking()), "!");
+  }
+
+  #[test]
+  fn it_renders_phase_icon() {
+    assert_eq!(render(&Component::phase()), "\u{25C6}");
   }
 
   #[test]

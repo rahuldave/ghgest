@@ -1,0 +1,10 @@
+---
+source: src/ui/components/views/iteration_graph.rs
+expression: out
+---
+
+  Iter
+  1 phase · 1 task
+
+  ◆  Phase 1  ──
+  ○  dddddddd  this title is long enough that it …  ○ open
