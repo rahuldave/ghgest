@@ -13,11 +13,22 @@
 //!
 //! This module does **not** write tombstone files, prompt the user, or
 //! begin a transaction — those concerns belong to the caller.
+//!
+//! Captured children are modeled as a typed [`CapturedChild`] enum rather
+//! than a loose `serde_json::Map`. This keeps the capture → delete → audit
+//! pipeline compile-time checked: adding a new column to a child table
+//! forces a corresponding change in the enum variant, and the audit JSON
+//! payload is only constructed once, at the point where it is handed to
+//! [`transaction::record_event`].
 
-use libsql::Connection;
+use libsql::{Connection, Value};
 use serde_json::{Map, Value as JsonValue};
 
-use crate::store::{Error, model::primitives::EntityType, repo::transaction};
+use crate::store::{
+  Error,
+  model::primitives::EntityType,
+  repo::{artifact, iteration, task, transaction},
+};
 
 /// Per-table counts of rows removed by a [`delete_with_cascade`] call.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -32,12 +43,208 @@ pub struct DeleteReport {
   pub tags: usize,
 }
 
-/// A single row captured prior to deletion, together with the metadata needed
-/// to emit a transaction event.
-struct CapturedRow {
-  data: JsonValue,
-  row_id: String,
-  table: &'static str,
+/// A typed snapshot of a dependent row captured prior to deletion.
+///
+/// Each variant carries the exact columns required to both (a) re-emit the
+/// row as an audit payload whose shape matches the on-disk format expected
+/// by transaction undo replay, and (b) issue a typed `DELETE` statement
+/// without having to round-trip through `serde_json`.
+enum CapturedChild {
+  EntityTag {
+    created_at: String,
+    entity_id: String,
+    entity_type: String,
+    tag_id: String,
+  },
+  IterationTask {
+    created_at: String,
+    iteration_id: String,
+    phase: i64,
+    task_id: String,
+  },
+  Note {
+    author_id: Option<String>,
+    body: String,
+    created_at: String,
+    entity_id: String,
+    entity_type: String,
+    id: String,
+    updated_at: String,
+  },
+  Relationship {
+    created_at: String,
+    id: String,
+    rel_type: String,
+    source_id: String,
+    source_type: String,
+    target_id: String,
+    target_type: String,
+    updated_at: String,
+  },
+}
+
+impl CapturedChild {
+  /// Logical primary key used to identify this row in the audit log.
+  fn audit_row_id(&self) -> String {
+    match self {
+      Self::EntityTag {
+        entity_id,
+        entity_type,
+        tag_id,
+        ..
+      } => format!("{entity_type}:{entity_id}:{tag_id}"),
+      Self::IterationTask {
+        iteration_id,
+        task_id,
+        ..
+      } => format!("{iteration_id}:{task_id}"),
+      Self::Note {
+        id, ..
+      }
+      | Self::Relationship {
+        id, ..
+      } => id.clone(),
+    }
+  }
+
+  /// Delete this captured row from its backing table.
+  async fn delete(&self, conn: &Connection) -> Result<(), Error> {
+    match self {
+      Self::EntityTag {
+        entity_id,
+        entity_type,
+        tag_id,
+        ..
+      } => {
+        conn
+          .execute(
+            "DELETE FROM entity_tags WHERE entity_type = ?1 AND entity_id = ?2 AND tag_id = ?3",
+            libsql::params![entity_type.clone(), entity_id.clone(), tag_id.clone()],
+          )
+          .await?;
+      }
+      Self::IterationTask {
+        iteration_id,
+        task_id,
+        ..
+      } => {
+        conn
+          .execute(
+            "DELETE FROM iteration_tasks WHERE iteration_id = ?1 AND task_id = ?2",
+            libsql::params![iteration_id.clone(), task_id.clone()],
+          )
+          .await?;
+      }
+      Self::Note {
+        id, ..
+      } => {
+        conn.execute("DELETE FROM notes WHERE id = ?1", [id.clone()]).await?;
+      }
+      Self::Relationship {
+        id, ..
+      } => {
+        conn
+          .execute("DELETE FROM relationships WHERE id = ?1", [id.clone()])
+          .await?;
+      }
+    }
+    Ok(())
+  }
+
+  /// Name of the backing SQL table this row was captured from.
+  fn table(&self) -> &'static str {
+    match self {
+      Self::EntityTag {
+        ..
+      } => "entity_tags",
+      Self::IterationTask {
+        ..
+      } => "iteration_tasks",
+      Self::Note {
+        ..
+      } => "notes",
+      Self::Relationship {
+        ..
+      } => "relationships",
+    }
+  }
+
+  /// Build the JSON payload stored in the audit log for this row.
+  ///
+  /// The shape here is load-bearing: [`transaction::undo`] reconstructs the
+  /// row via an `INSERT` whose column list is the object's key set, so the
+  /// set of keys and their value types must continue to match the backing
+  /// table's schema.
+  fn to_audit_payload(&self) -> JsonValue {
+    let mut map = Map::new();
+    match self {
+      Self::EntityTag {
+        created_at,
+        entity_id,
+        entity_type,
+        tag_id,
+      } => {
+        map.insert("entity_id".into(), JsonValue::String(entity_id.clone()));
+        map.insert("entity_type".into(), JsonValue::String(entity_type.clone()));
+        map.insert("tag_id".into(), JsonValue::String(tag_id.clone()));
+        map.insert("created_at".into(), JsonValue::String(created_at.clone()));
+      }
+      Self::IterationTask {
+        created_at,
+        iteration_id,
+        phase,
+        task_id,
+      } => {
+        map.insert("iteration_id".into(), JsonValue::String(iteration_id.clone()));
+        map.insert("task_id".into(), JsonValue::String(task_id.clone()));
+        map.insert("phase".into(), JsonValue::Number((*phase).into()));
+        map.insert("created_at".into(), JsonValue::String(created_at.clone()));
+      }
+      Self::Note {
+        author_id,
+        body,
+        created_at,
+        entity_id,
+        entity_type,
+        id,
+        updated_at,
+      } => {
+        map.insert("id".into(), JsonValue::String(id.clone()));
+        map.insert("entity_id".into(), JsonValue::String(entity_id.clone()));
+        map.insert("entity_type".into(), JsonValue::String(entity_type.clone()));
+        map.insert(
+          "author_id".into(),
+          match author_id {
+            Some(a) => JsonValue::String(a.clone()),
+            None => JsonValue::Null,
+          },
+        );
+        map.insert("body".into(), JsonValue::String(body.clone()));
+        map.insert("created_at".into(), JsonValue::String(created_at.clone()));
+        map.insert("updated_at".into(), JsonValue::String(updated_at.clone()));
+      }
+      Self::Relationship {
+        created_at,
+        id,
+        rel_type,
+        source_id,
+        source_type,
+        target_id,
+        target_type,
+        updated_at,
+      } => {
+        map.insert("id".into(), JsonValue::String(id.clone()));
+        map.insert("rel_type".into(), JsonValue::String(rel_type.clone()));
+        map.insert("source_id".into(), JsonValue::String(source_id.clone()));
+        map.insert("source_type".into(), JsonValue::String(source_type.clone()));
+        map.insert("target_id".into(), JsonValue::String(target_id.clone()));
+        map.insert("target_type".into(), JsonValue::String(target_type.clone()));
+        map.insert("created_at".into(), JsonValue::String(created_at.clone()));
+        map.insert("updated_at".into(), JsonValue::String(updated_at.clone()));
+      }
+    }
+    JsonValue::Object(map)
+  }
 }
 
 /// Delete an entity and all rows that depend on it, recording transaction
@@ -84,13 +291,13 @@ pub async fn delete_with_cascade(
   // Record + delete children first, parent last. Within each child group the
   // record-then-delete pair keeps the audit log consistent with the physical
   // mutation.
-  for row in notes
+  for child in notes
     .iter()
     .chain(entity_tags.iter())
     .chain(relationships.iter())
     .chain(iteration_tasks.iter())
   {
-    record_and_delete_child(conn, transaction_id, row).await?;
+    record_and_delete_child(conn, transaction_id, child).await?;
   }
 
   record_and_delete_parent(conn, transaction_id, entity_type, &parent, &id_str).await?;
@@ -98,7 +305,11 @@ pub async fn delete_with_cascade(
   Ok(report)
 }
 
-async fn capture_entity_tags(conn: &Connection, entity_type: &str, entity_id: &str) -> Result<Vec<CapturedRow>, Error> {
+async fn capture_entity_tags(
+  conn: &Connection,
+  entity_type: &str,
+  entity_id: &str,
+) -> Result<Vec<CapturedChild>, Error> {
   let mut rows = conn
     .query(
       "SELECT entity_id, entity_type, tag_id, created_at \
@@ -109,21 +320,11 @@ async fn capture_entity_tags(conn: &Connection, entity_type: &str, entity_id: &s
 
   let mut captured = Vec::new();
   while let Some(row) = rows.next().await? {
-    let entity_id_val: String = row.get(0)?;
-    let entity_type_val: String = row.get(1)?;
-    let tag_id: String = row.get(2)?;
-    let created_at: String = row.get(3)?;
-
-    let mut map = Map::new();
-    map.insert("entity_id".into(), JsonValue::String(entity_id_val.clone()));
-    map.insert("entity_type".into(), JsonValue::String(entity_type_val.clone()));
-    map.insert("tag_id".into(), JsonValue::String(tag_id.clone()));
-    map.insert("created_at".into(), JsonValue::String(created_at));
-
-    captured.push(CapturedRow {
-      data: JsonValue::Object(map),
-      row_id: format!("{entity_type_val}:{entity_id_val}:{tag_id}"),
-      table: "entity_tags",
+    captured.push(CapturedChild::EntityTag {
+      entity_id: row.get(0)?,
+      entity_type: row.get(1)?,
+      tag_id: row.get(2)?,
+      created_at: row.get(3)?,
     });
   }
   Ok(captured)
@@ -132,7 +333,7 @@ async fn capture_entity_tags(conn: &Connection, entity_type: &str, entity_id: &s
 async fn capture_iteration_tasks_for_iteration(
   conn: &Connection,
   iteration_id: &str,
-) -> Result<Vec<CapturedRow>, Error> {
+) -> Result<Vec<CapturedChild>, Error> {
   let mut rows = conn
     .query(
       "SELECT iteration_id, task_id, phase, created_at \
@@ -144,7 +345,7 @@ async fn capture_iteration_tasks_for_iteration(
   collect_iteration_task_rows(&mut rows).await
 }
 
-async fn capture_iteration_tasks_for_task(conn: &Connection, task_id: &str) -> Result<Vec<CapturedRow>, Error> {
+async fn capture_iteration_tasks_for_task(conn: &Connection, task_id: &str) -> Result<Vec<CapturedChild>, Error> {
   let mut rows = conn
     .query(
       "SELECT iteration_id, task_id, phase, created_at \
@@ -156,7 +357,7 @@ async fn capture_iteration_tasks_for_task(conn: &Connection, task_id: &str) -> R
   collect_iteration_task_rows(&mut rows).await
 }
 
-async fn capture_notes(conn: &Connection, entity_type: &str, entity_id: &str) -> Result<Vec<CapturedRow>, Error> {
+async fn capture_notes(conn: &Connection, entity_type: &str, entity_id: &str) -> Result<Vec<CapturedChild>, Error> {
   let mut rows = conn
     .query(
       "SELECT id, entity_id, entity_type, author_id, body, created_at, updated_at \
@@ -167,90 +368,29 @@ async fn capture_notes(conn: &Connection, entity_type: &str, entity_id: &str) ->
 
   let mut captured = Vec::new();
   while let Some(row) = rows.next().await? {
-    let id: String = row.get(0)?;
-    let entity_id_val: String = row.get(1)?;
-    let entity_type_val: String = row.get(2)?;
-    let author_id: Option<String> = row.get(3)?;
-    let body: String = row.get(4)?;
-    let created_at: String = row.get(5)?;
-    let updated_at: String = row.get(6)?;
-
-    let mut map = Map::new();
-    map.insert("id".into(), JsonValue::String(id.clone()));
-    map.insert("entity_id".into(), JsonValue::String(entity_id_val));
-    map.insert("entity_type".into(), JsonValue::String(entity_type_val));
-    map.insert(
-      "author_id".into(),
-      match author_id {
-        Some(a) => JsonValue::String(a),
-        None => JsonValue::Null,
-      },
-    );
-    map.insert("body".into(), JsonValue::String(body));
-    map.insert("created_at".into(), JsonValue::String(created_at));
-    map.insert("updated_at".into(), JsonValue::String(updated_at));
-
-    captured.push(CapturedRow {
-      data: JsonValue::Object(map),
-      row_id: id,
-      table: "notes",
+    captured.push(CapturedChild::Note {
+      id: row.get(0)?,
+      entity_id: row.get(1)?,
+      entity_type: row.get(2)?,
+      author_id: row.get(3)?,
+      body: row.get(4)?,
+      created_at: row.get(5)?,
+      updated_at: row.get(6)?,
     });
   }
   Ok(captured)
 }
 
 async fn capture_parent(conn: &Connection, entity_type: EntityType, id: &str) -> Result<JsonValue, Error> {
-  let (sql, columns): (&str, &[&str]) = match entity_type {
-    EntityType::Artifact => (
-      "SELECT id, project_id, title, body, metadata, archived_at, created_at, updated_at \
-        FROM artifacts WHERE id = ?1",
-      &[
-        "id",
-        "project_id",
-        "title",
-        "body",
-        "metadata",
-        "archived_at",
-        "created_at",
-        "updated_at",
-      ],
-    ),
-    EntityType::Iteration => (
-      "SELECT id, project_id, title, status, description, metadata, completed_at, created_at, updated_at \
-        FROM iterations WHERE id = ?1",
-      &[
-        "id",
-        "project_id",
-        "title",
-        "status",
-        "description",
-        "metadata",
-        "completed_at",
-        "created_at",
-        "updated_at",
-      ],
-    ),
-    EntityType::Task => (
-      "SELECT id, project_id, title, priority, status, description, assigned_to, metadata, \
-        resolved_at, created_at, updated_at \
-        FROM tasks WHERE id = ?1",
-      &[
-        "id",
-        "project_id",
-        "title",
-        "priority",
-        "status",
-        "description",
-        "assigned_to",
-        "metadata",
-        "resolved_at",
-        "created_at",
-        "updated_at",
-      ],
-    ),
+  let (table, select_columns) = match entity_type {
+    EntityType::Artifact => ("artifacts", artifact::SELECT_COLUMNS),
+    EntityType::Iteration => ("iterations", iteration::SELECT_COLUMNS),
+    EntityType::Task => ("tasks", task::SELECT_COLUMNS),
   };
+  let columns: Vec<&str> = select_columns.split(',').map(str::trim).collect();
+  let sql = format!("SELECT {select_columns} FROM {table} WHERE id = ?1");
 
-  let mut rows = conn.query(sql, [id.to_string()]).await?;
+  let mut rows = conn.query(&sql, [id.to_string()]).await?;
   let row = rows
     .next()
     .await?
@@ -258,7 +398,7 @@ async fn capture_parent(conn: &Connection, entity_type: EntityType, id: &str) ->
 
   let mut map = Map::new();
   for (idx, column) in columns.iter().enumerate() {
-    let value: libsql::Value = row.get(idx as i32)?;
+    let value: Value = row.get(idx as i32)?;
     map.insert((*column).to_string(), libsql_value_to_json(value));
   }
   Ok(JsonValue::Object(map))
@@ -268,7 +408,7 @@ async fn capture_relationships(
   conn: &Connection,
   entity_type: &str,
   entity_id: &str,
-) -> Result<Vec<CapturedRow>, Error> {
+) -> Result<Vec<CapturedChild>, Error> {
   let mut rows = conn
     .query(
       "SELECT id, rel_type, source_id, source_type, target_id, target_type, created_at, updated_at \
@@ -280,134 +420,59 @@ async fn capture_relationships(
 
   let mut captured = Vec::new();
   while let Some(row) = rows.next().await? {
-    let id: String = row.get(0)?;
-    let rel_type: String = row.get(1)?;
-    let source_id: String = row.get(2)?;
-    let source_type: String = row.get(3)?;
-    let target_id: String = row.get(4)?;
-    let target_type: String = row.get(5)?;
-    let created_at: String = row.get(6)?;
-    let updated_at: String = row.get(7)?;
-
-    let mut map = Map::new();
-    map.insert("id".into(), JsonValue::String(id.clone()));
-    map.insert("rel_type".into(), JsonValue::String(rel_type));
-    map.insert("source_id".into(), JsonValue::String(source_id));
-    map.insert("source_type".into(), JsonValue::String(source_type));
-    map.insert("target_id".into(), JsonValue::String(target_id));
-    map.insert("target_type".into(), JsonValue::String(target_type));
-    map.insert("created_at".into(), JsonValue::String(created_at));
-    map.insert("updated_at".into(), JsonValue::String(updated_at));
-
-    captured.push(CapturedRow {
-      data: JsonValue::Object(map),
-      row_id: id,
-      table: "relationships",
+    captured.push(CapturedChild::Relationship {
+      id: row.get(0)?,
+      rel_type: row.get(1)?,
+      source_id: row.get(2)?,
+      source_type: row.get(3)?,
+      target_id: row.get(4)?,
+      target_type: row.get(5)?,
+      created_at: row.get(6)?,
+      updated_at: row.get(7)?,
     });
   }
   Ok(captured)
 }
 
-async fn collect_iteration_task_rows(rows: &mut libsql::Rows) -> Result<Vec<CapturedRow>, Error> {
+async fn collect_iteration_task_rows(rows: &mut libsql::Rows) -> Result<Vec<CapturedChild>, Error> {
   let mut captured = Vec::new();
   while let Some(row) = rows.next().await? {
-    let iteration_id: String = row.get(0)?;
-    let task_id: String = row.get(1)?;
-    let phase: i64 = row.get(2)?;
-    let created_at: String = row.get(3)?;
-
-    let mut map = Map::new();
-    map.insert("iteration_id".into(), JsonValue::String(iteration_id.clone()));
-    map.insert("task_id".into(), JsonValue::String(task_id.clone()));
-    map.insert("phase".into(), JsonValue::Number(phase.into()));
-    map.insert("created_at".into(), JsonValue::String(created_at));
-
-    captured.push(CapturedRow {
-      data: JsonValue::Object(map),
-      row_id: format!("{iteration_id}:{task_id}"),
-      table: "iteration_tasks",
+    captured.push(CapturedChild::IterationTask {
+      iteration_id: row.get(0)?,
+      task_id: row.get(1)?,
+      phase: row.get(2)?,
+      created_at: row.get(3)?,
     });
   }
   Ok(captured)
 }
 
-fn libsql_value_to_json(value: libsql::Value) -> JsonValue {
+fn libsql_value_to_json(value: Value) -> JsonValue {
   match value {
-    libsql::Value::Null => JsonValue::Null,
-    libsql::Value::Integer(i) => JsonValue::Number(i.into()),
-    libsql::Value::Real(f) => serde_json::Number::from_f64(f).map_or(JsonValue::Null, JsonValue::Number),
-    libsql::Value::Text(s) => JsonValue::String(s),
-    libsql::Value::Blob(b) => JsonValue::String(format!("<blob {} bytes>", b.len())),
+    Value::Null => JsonValue::Null,
+    Value::Integer(i) => JsonValue::Number(i.into()),
+    Value::Real(f) => serde_json::Number::from_f64(f).map_or(JsonValue::Null, JsonValue::Number),
+    Value::Text(s) => JsonValue::String(s),
+    Value::Blob(b) => JsonValue::String(format!("<blob {} bytes>", b.len())),
   }
 }
 
 async fn record_and_delete_child(
   conn: &Connection,
   transaction_id: &crate::store::model::primitives::Id,
-  row: &CapturedRow,
+  child: &CapturedChild,
 ) -> Result<(), Error> {
-  transaction::record_event(conn, transaction_id, row.table, &row.row_id, "deleted", Some(&row.data)).await?;
-
-  match row.table {
-    "entity_tags" => {
-      let obj = row.data.as_object().expect("entity_tags row must be object");
-      let entity_type = obj
-        .get("entity_type")
-        .and_then(JsonValue::as_str)
-        .unwrap_or_default()
-        .to_string();
-      let entity_id = obj
-        .get("entity_id")
-        .and_then(JsonValue::as_str)
-        .unwrap_or_default()
-        .to_string();
-      let tag_id = obj
-        .get("tag_id")
-        .and_then(JsonValue::as_str)
-        .unwrap_or_default()
-        .to_string();
-      conn
-        .execute(
-          "DELETE FROM entity_tags WHERE entity_type = ?1 AND entity_id = ?2 AND tag_id = ?3",
-          libsql::params![entity_type, entity_id, tag_id],
-        )
-        .await?;
-    }
-    "iteration_tasks" => {
-      let obj = row.data.as_object().expect("iteration_tasks row must be object");
-      let iteration_id = obj
-        .get("iteration_id")
-        .and_then(JsonValue::as_str)
-        .unwrap_or_default()
-        .to_string();
-      let task_id = obj
-        .get("task_id")
-        .and_then(JsonValue::as_str)
-        .unwrap_or_default()
-        .to_string();
-      conn
-        .execute(
-          "DELETE FROM iteration_tasks WHERE iteration_id = ?1 AND task_id = ?2",
-          libsql::params![iteration_id, task_id],
-        )
-        .await?;
-    }
-    "notes" => {
-      conn
-        .execute("DELETE FROM notes WHERE id = ?1", [row.row_id.clone()])
-        .await?;
-    }
-    "relationships" => {
-      conn
-        .execute("DELETE FROM relationships WHERE id = ?1", [row.row_id.clone()])
-        .await?;
-    }
-    other => {
-      return Err(Error::InvalidValue(format!(
-        "unexpected child table in cascade delete: {other}"
-      )));
-    }
-  }
+  let payload = child.to_audit_payload();
+  transaction::record_event(
+    conn,
+    transaction_id,
+    child.table(),
+    &child.audit_row_id(),
+    "deleted",
+    Some(&payload),
+  )
+  .await?;
+  child.delete(conn).await?;
   Ok(())
 }
 
@@ -472,6 +537,115 @@ mod tests {
     let mut rows = conn.query(sql, params.to_vec()).await.unwrap();
     let row = rows.next().await.unwrap().unwrap();
     row.get(0).unwrap()
+  }
+
+  mod captured_child {
+    use pretty_assertions::assert_eq;
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn it_round_trips_entity_tag_payload() {
+      let child = CapturedChild::EntityTag {
+        entity_id: "task-1".into(),
+        entity_type: "task".into(),
+        tag_id: "tag-1".into(),
+        created_at: "2025-01-01T00:00:00Z".into(),
+      };
+
+      assert_eq!(child.table(), "entity_tags");
+      assert_eq!(child.audit_row_id(), "task:task-1:tag-1");
+      assert_eq!(
+        child.to_audit_payload(),
+        json!({
+          "entity_id": "task-1",
+          "entity_type": "task",
+          "tag_id": "tag-1",
+          "created_at": "2025-01-01T00:00:00Z",
+        })
+      );
+    }
+
+    #[test]
+    fn it_round_trips_iteration_task_payload() {
+      let child = CapturedChild::IterationTask {
+        iteration_id: "it-1".into(),
+        task_id: "t-1".into(),
+        phase: 3,
+        created_at: "2025-01-01T00:00:00Z".into(),
+      };
+
+      assert_eq!(child.table(), "iteration_tasks");
+      assert_eq!(child.audit_row_id(), "it-1:t-1");
+      assert_eq!(
+        child.to_audit_payload(),
+        json!({
+          "iteration_id": "it-1",
+          "task_id": "t-1",
+          "phase": 3,
+          "created_at": "2025-01-01T00:00:00Z",
+        })
+      );
+    }
+
+    #[test]
+    fn it_round_trips_note_payload_with_null_author() {
+      let child = CapturedChild::Note {
+        id: "n-1".into(),
+        entity_id: "task-1".into(),
+        entity_type: "task".into(),
+        author_id: None,
+        body: "hello".into(),
+        created_at: "2025-01-01T00:00:00Z".into(),
+        updated_at: "2025-01-01T00:00:00Z".into(),
+      };
+
+      assert_eq!(child.table(), "notes");
+      assert_eq!(child.audit_row_id(), "n-1");
+      assert_eq!(
+        child.to_audit_payload(),
+        json!({
+          "id": "n-1",
+          "entity_id": "task-1",
+          "entity_type": "task",
+          "author_id": null,
+          "body": "hello",
+          "created_at": "2025-01-01T00:00:00Z",
+          "updated_at": "2025-01-01T00:00:00Z",
+        })
+      );
+    }
+
+    #[test]
+    fn it_round_trips_relationship_payload() {
+      let child = CapturedChild::Relationship {
+        id: "r-1".into(),
+        rel_type: "blocked-by".into(),
+        source_id: "task-1".into(),
+        source_type: "task".into(),
+        target_id: "task-2".into(),
+        target_type: "task".into(),
+        created_at: "2025-01-01T00:00:00Z".into(),
+        updated_at: "2025-01-01T00:00:00Z".into(),
+      };
+
+      assert_eq!(child.table(), "relationships");
+      assert_eq!(child.audit_row_id(), "r-1");
+      assert_eq!(
+        child.to_audit_payload(),
+        json!({
+          "id": "r-1",
+          "rel_type": "blocked-by",
+          "source_id": "task-1",
+          "source_type": "task",
+          "target_id": "task-2",
+          "target_type": "task",
+          "created_at": "2025-01-01T00:00:00Z",
+          "updated_at": "2025-01-01T00:00:00Z",
+        })
+      );
+    }
   }
 
   mod delete_with_cascade_fn {

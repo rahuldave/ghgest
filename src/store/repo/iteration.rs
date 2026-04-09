@@ -14,7 +14,7 @@ use crate::{
   ui::components::min_unique_prefix,
 };
 
-const SELECT_COLUMNS: &str = "\
+pub(super) const SELECT_COLUMNS: &str = "\
   id, project_id, title, status, description, \
   metadata, completed_at, created_at, updated_at";
 
