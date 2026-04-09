@@ -8,14 +8,19 @@
 <div class="term">
   <div class="term-bar"><span class="term-title">create task</span></div>
   <div class="term-body">
+    {% if let Some(err) = error %}
+    <div class="form-error" style="margin-bottom: 12px;">{{ err }}</div>
+    {% endif %}
     <form method="post" action="/tasks">
       <div class="form-group">
         <label for="title">Title</label>
-        <input class="form-input" type="text" id="title" name="title" required autofocus placeholder="Task title...">
+        <input class="form-input" type="text" id="title" name="title" required autofocus placeholder="Task title..." value="{{ title }}">
       </div>
-      <div class="form-group">
+      <div class="form-group md-preview-container">
         <label for="description">Description</label>
-        <textarea class="form-textarea" id="description" name="description" placeholder="Markdown supported..."></textarea>
+        <button type="button" class="btn md-preview-btn md-preview-toggle" data-target="description">Preview</button>
+        <textarea class="form-textarea" id="description" name="description" placeholder="Markdown supported...">{{ description }}</textarea>
+        <div id="description-preview" class="md-preview md-content"></div>
       </div>
       <div class="form-group">
         <label for="priority">Priority</label>

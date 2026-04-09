@@ -4,7 +4,7 @@ use askama::Template;
 use axum::{
   body::Bytes,
   extract::{Form, Path, Query, State},
-  response::{Html, Redirect},
+  response::{Html, IntoResponse, Redirect, Response},
 };
 use libsql::Connection;
 use serde::Deserialize;
@@ -43,7 +43,10 @@ struct DisplayLink {
 #[derive(Template)]
 #[template(path = "tasks/create.html")]
 struct TaskCreateTemplate {
+  description: String,
+  error: Option<String>,
   priority_options: Vec<PriorityOption>,
+  title: String,
 }
 
 #[derive(Template)]
@@ -147,13 +150,16 @@ pub async fn note_add(
 /// Task create form.
 pub async fn task_create_form() -> handlers::Result<Html<String>> {
   let tmpl = TaskCreateTemplate {
+    description: String::new(),
+    error: None,
     priority_options: build_priority_options(None),
+    title: String::new(),
   };
   Ok(Html(tmpl.render().map_err(log_err("task_create_form"))?))
 }
 
 /// Handle task creation from form.
-pub async fn task_create_submit(State(state): State<AppState>, body: Bytes) -> handlers::Result<Redirect> {
+pub async fn task_create_submit(State(state): State<AppState>, body: Bytes) -> handlers::Result<Response> {
   let mut title = String::new();
   let mut description = String::new();
   let mut priority_str = String::new();
@@ -170,15 +176,17 @@ pub async fn task_create_submit(State(state): State<AppState>, body: Bytes) -> h
   let priority: Option<u8> = if priority_str.is_empty() {
     None
   } else {
-    let byte: u8 = priority_str.parse().map_err(|_| {
-      log::error!("task_create_submit: invalid priority: {priority_str}");
-      AppError::BadRequest("invalid priority".to_owned())
-    })?;
-    Priority::try_from(byte).map_err(|_| {
-      log::error!("task_create_submit: priority out of range: {byte}");
-      AppError::BadRequest("invalid priority".to_owned())
-    })?;
-    Some(byte)
+    match priority_str
+      .parse::<u8>()
+      .ok()
+      .and_then(|b| Priority::try_from(b).ok().map(|_| b))
+    {
+      Some(byte) => Some(byte),
+      None => {
+        log::error!("task_create_submit: invalid priority: {priority_str}");
+        return render_create_form_error(title, description, priority_str, "invalid priority".to_owned());
+      }
+    }
   };
 
   let conn = state.store().connect().await.map_err(log_err("task_create_submit"))?;
@@ -192,7 +200,7 @@ pub async fn task_create_submit(State(state): State<AppState>, body: Bytes) -> h
     .await
     .map_err(log_err("task_create_submit"))?;
   let _ = state.reload_tx().send(());
-  Ok(Redirect::to(&format!("/tasks/{}", task.id())))
+  Ok(Redirect::to(&format!("/tasks/{}", task.id())).into_response())
 }
 
 /// Task detail page.
@@ -606,6 +614,23 @@ async fn load_task_detail_data(
   Ok((tags, description_html, is_blocked, blocking, display_links))
 }
 
+/// Re-render the task create form, preserving user input and surfacing an error message.
+fn render_create_form_error(
+  title: String,
+  description: String,
+  priority_str: String,
+  error: String,
+) -> handlers::Result<Response> {
+  let current_priority = priority_str.parse::<u8>().ok();
+  let tmpl = TaskCreateTemplate {
+    description,
+    error: Some(error),
+    priority_options: build_priority_options(current_priority),
+    title,
+  };
+  Ok(Html(tmpl.render().map_err(log_err("task_create_submit"))?).into_response())
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -687,29 +712,29 @@ mod tests {
       body::{Bytes, to_bytes},
       extract::State,
       http::StatusCode,
-      response::IntoResponse,
     };
     use pretty_assertions::assert_eq;
 
     use super::*;
 
     #[tokio::test]
-    async fn it_rejects_an_out_of_range_priority_with_a_bad_request_html_response() {
+    async fn it_re_renders_the_create_form_with_preserved_input_when_priority_is_out_of_range() {
       let state = setup().await;
 
-      let body = Bytes::from("title=bad&description=&priority=9");
-      let err = super::super::task_create_submit(State(state), body)
+      let body = Bytes::from("title=bad-priority&description=keep+this&priority=9");
+      let response = super::super::task_create_submit(State(state), body)
         .await
-        .expect_err("priority=9 is out of Priority range and must fail");
+        .expect("validation failure should re-render, not error");
 
-      let response = err.into_response();
       let status = response.status();
       let body_bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
       let html = String::from_utf8(body_bytes.to_vec()).unwrap();
 
-      assert_eq!(status, StatusCode::BAD_REQUEST);
-      assert!(html.contains("<html"));
+      assert_eq!(status, StatusCode::OK);
       assert!(html.contains("invalid priority"));
+      assert!(html.contains("value=\"bad-priority\""));
+      assert!(html.contains("keep this"));
+      assert!(html.contains("md-preview-toggle"));
     }
 
     #[tokio::test]
@@ -717,10 +742,9 @@ mod tests {
       let state = setup().await;
 
       let body = Bytes::from("title=no-priority&description=&priority=");
-      let redirect = super::super::task_create_submit(State(state), body)
+      let response = super::super::task_create_submit(State(state), body)
         .await
         .expect("empty priority should succeed");
-      let response = redirect.into_response();
 
       assert_eq!(response.status(), StatusCode::SEE_OTHER);
     }
