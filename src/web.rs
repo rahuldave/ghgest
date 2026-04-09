@@ -54,7 +54,6 @@ use crate::{
 /// (socket binding, file watcher) and render as opaque 500s if they ever surface
 /// through a handler.
 #[derive(Debug, ThisError)]
-#[allow(dead_code)] // handler variants are wired up in phase 6 of the web refactor
 pub enum Error {
   /// 400 Bad Request with a user-facing message.
   #[error("{0}")]

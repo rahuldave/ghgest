@@ -13,10 +13,7 @@ use axum::{
 
 use crate::{
   store::avatar_cache::AvatarCache,
-  web::{
-    AppState,
-    handlers::{AppError, log_err},
-  },
+  web::{self, AppState},
 };
 
 /// Browser cache lifetime advertised for successful avatar responses.
@@ -40,19 +37,16 @@ const MAX_HASH_LEN: usize = 64;
 /// `Content-Type` reported by either the upstream fetch or the fallback used
 /// on cache hits, and a long `Cache-Control` header so browsers avoid
 /// re-requesting the same avatar on every page load.
-pub async fn avatar_get(
-  State(state): State<AppState>,
-  Path(hash): Path<String>,
-) -> crate::web::handlers::Result<Response> {
+pub async fn avatar_get(State(state): State<AppState>, Path(hash): Path<String>) -> Result<Response, web::Error> {
   // Validate the hash in the handler so we can cleanly distinguish malformed
   // input (400) from transient upstream fetch failures (500) — both of which
   // surface as `store::Error::InvalidValue` out of `AvatarCache::get_or_fetch`.
   if hash.is_empty() || hash.len() > MAX_HASH_LEN || !hash.chars().all(|c| c.is_ascii_hexdigit()) {
-    return Err(AppError::BadRequest(format!("invalid avatar hash: {hash:?}")));
+    return Err(web::Error::BadRequest(format!("invalid avatar hash: {hash:?}")));
   }
 
   let cache: &AvatarCache = state.avatar_cache();
-  let (bytes, mime) = cache.get_or_fetch(&hash).await.map_err(log_err("avatar_get"))?;
+  let (bytes, mime) = cache.get_or_fetch(&hash).await?;
 
   Ok(
     (
@@ -119,7 +113,7 @@ mod tests {
       let result = super::super::avatar_get(State(state), Path("../escape".to_owned())).await;
 
       let err = result.unwrap_err();
-      assert!(matches!(err, AppError::BadRequest(_)), "got {err:?}");
+      assert!(matches!(err, web::Error::BadRequest(_)), "got {err:?}");
     }
 
     #[tokio::test]

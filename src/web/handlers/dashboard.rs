@@ -12,10 +12,7 @@ use crate::{
     },
     repo,
   },
-  web::{
-    AppState,
-    handlers::{self, log_err},
-  },
+  web::{self, AppState},
 };
 
 #[derive(Template)]
@@ -49,19 +46,13 @@ struct DashboardTemplate {
 }
 
 /// Dashboard page showing project summary.
-pub async fn dashboard(State(state): State<AppState>) -> handlers::Result<Html<String>> {
-  let conn = state.store().connect().await.map_err(log_err("dashboard"))?;
+pub async fn dashboard(State(state): State<AppState>) -> Result<Html<String>, web::Error> {
+  let conn = state.store().connect().await?;
   let pid = state.project_id();
 
-  let tasks = repo::task::all(&conn, pid, &task::Filter::all())
-    .await
-    .map_err(log_err("dashboard"))?;
-  let artifacts = repo::artifact::all(&conn, pid, &Default::default())
-    .await
-    .map_err(log_err("dashboard"))?;
-  let iterations = repo::iteration::all(&conn, pid, &iteration::Filter::all())
-    .await
-    .map_err(log_err("dashboard"))?;
+  let tasks = repo::task::all(&conn, pid, &task::Filter::all()).await?;
+  let artifacts = repo::artifact::all(&conn, pid, &Default::default()).await?;
+  let iterations = repo::iteration::all(&conn, pid, &iteration::Filter::all()).await?;
 
   let (
     active_iteration_count,
@@ -88,23 +79,17 @@ pub async fn dashboard(State(state): State<AppState>) -> handlers::Result<Html<S
     open_count,
     task_count,
   };
-  Ok(Html(tmpl.render().map_err(log_err("dashboard"))?))
+  Ok(Html(tmpl.render()?))
 }
 
 /// Dashboard content fragment for live reload.
-pub async fn dashboard_fragment(State(state): State<AppState>) -> handlers::Result<Html<String>> {
-  let conn = state.store().connect().await.map_err(log_err("dashboard_fragment"))?;
+pub async fn dashboard_fragment(State(state): State<AppState>) -> Result<Html<String>, web::Error> {
+  let conn = state.store().connect().await?;
   let pid = state.project_id();
 
-  let tasks = repo::task::all(&conn, pid, &task::Filter::all())
-    .await
-    .map_err(log_err("dashboard_fragment"))?;
-  let artifacts = repo::artifact::all(&conn, pid, &Default::default())
-    .await
-    .map_err(log_err("dashboard_fragment"))?;
-  let iterations = repo::iteration::all(&conn, pid, &iteration::Filter::all())
-    .await
-    .map_err(log_err("dashboard_fragment"))?;
+  let tasks = repo::task::all(&conn, pid, &task::Filter::all()).await?;
+  let artifacts = repo::artifact::all(&conn, pid, &Default::default()).await?;
+  let iterations = repo::iteration::all(&conn, pid, &iteration::Filter::all()).await?;
 
   let (
     active_iteration_count,
@@ -131,7 +116,7 @@ pub async fn dashboard_fragment(State(state): State<AppState>) -> handlers::Resu
     open_count,
     task_count,
   };
-  Ok(Html(tmpl.render().map_err(log_err("dashboard_fragment"))?))
+  Ok(Html(tmpl.render()?))
 }
 
 /// Compute dashboard status counts from task, artifact, and iteration lists.

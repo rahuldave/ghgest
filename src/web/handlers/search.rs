@@ -13,10 +13,7 @@ use crate::{
     model::{artifact, iteration, task},
     repo, search_query,
   },
-  web::{
-    AppState,
-    handlers::{self, log_err},
-  },
+  web::{self, AppState},
 };
 
 /// Query parameters for the JSON search API.
@@ -115,17 +112,15 @@ pub async fn api_search(State(state): State<AppState>, Query(params): Query<ApiS
 pub async fn search(
   State(state): State<AppState>,
   Query(params): Query<SearchQuery>,
-) -> handlers::Result<Html<String>> {
-  let conn = state.store().connect().await.map_err(log_err("search"))?;
+) -> Result<Html<String>, web::Error> {
+  let conn = state.store().connect().await?;
   let query = params.q.unwrap_or_default();
 
   let (tasks, artifacts, iterations) = if query.is_empty() {
     (Vec::new(), Vec::new(), Vec::new())
   } else {
     let parsed = search_query::parse(&query);
-    let results = repo::search::query(&conn, state.project_id(), &parsed, true)
-      .await
-      .map_err(log_err("search"))?;
+    let results = repo::search::query(&conn, state.project_id(), &parsed, true).await?;
     (results.tasks, results.artifacts, results.iterations)
   };
 
@@ -135,5 +130,5 @@ pub async fn search(
     query,
     tasks,
   };
-  Ok(Html(tmpl.render().map_err(log_err("search"))?))
+  Ok(Html(tmpl.render()?))
 }
