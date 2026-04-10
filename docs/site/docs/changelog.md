@@ -2,6 +2,57 @@
 
 What's new in gest — told version by version.
 
+## v0.5.1
+
+<span style={{opacity: 0.5}}>2026-04-10</span>
+
+### Web Security and Error Handling
+
+The web dashboard received a comprehensive security and reliability pass. A CSP nonce middleware replaces
+the previous `'unsafe-inline'` script/style policy, and new CSRF protection via double-submit signed
+cookies guards all mutating requests. Gravatar avatars are now proxied through a first-party
+`/avatars/{hash}` endpoint, so the dashboard no longer leaks browsing activity to an external origin and
+works in air-gapped environments. Additional security headers — `Referrer-Policy`, `Permissions-Policy`,
+`frame-ancestors`, `base-uri`, and `form-action` — round out the hardening.
+
+Error handling has been unified under a single error type. Store "not found" errors now surface as proper
+HTTP 404 responses instead of generic 500s, and validation failures return 400 with an HTML error page.
+
+### Web Forms and Usability
+
+Task create and edit forms gained a markdown preview toggle (matching the existing artifact form), and the
+priority field is now a dropdown instead of a free-text numeric input — out-of-range values surface as a
+user-friendly error with the form fields preserved.
+
+Iteration tags now render as clickable `#` links, matching the pattern used in task and artifact views.
+
+### Performance
+
+Web list pages (tasks, iterations, artifacts) now batch tag and relationship lookups into two queries
+instead of issuing per-row fan-out, and a new status counts query replaces the double-pass
+count-then-filter pattern on the dashboard.
+
+### Priority Labels
+
+`--priority` on `task create` and `task update` now accepts `critical`, `high`, `medium`, `low`, and
+`lowest` (case-insensitive) in addition to the 0–4 integer form.
+
+### Iteration Graph
+
+The iteration graph view has been rebuilt with phase headers, `◆` icons, parallel column indicators with
+branch-drawing connectors, priority badges, and blocked/blocking dependency markers — restoring and
+extending the detail level from v0.4.4.
+
+### CLI Improvements
+
+- `--json` output on entity commands now uses an Envelope format that includes relationships, tags, and
+  notes alongside the entity data
+- `--batch` flag on `iteration add` supports bulk NDJSON task addition with per-record phase control and
+  all-or-nothing rollback semantics
+- `--tag` and `--tags` arguments accept comma-separated values (e.g. `--tag a,b`)
+- Confirmation prompts use an interactive Yes/No selector with arrow-key navigation instead of text input
+- Rendered markdown headings in terminal output now show `#` level markers for visual distinction
+
 ## v0.5.0
 
 v0.5.0 is the storage rewrite. Entity data moves from flat TOML/Markdown files under `.gest/` into a

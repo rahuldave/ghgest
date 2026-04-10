@@ -7,6 +7,52 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [v0.5.1]
+
+### Added
+
+- Priority labels (`critical`, `high`, `medium`, `low`, `lowest`) accepted on `task create --priority` and
+  `task update --priority` alongside the existing 0–4 integer form (see [#34])
+- Priority dropdown on web task create and edit forms, replacing the free-text numeric input (see [#34])
+- Markdown preview toggle on web task create and edit forms, with input preservation on validation failure
+  (see [#36])
+- Iteration graph view restored with phase headers, priority badges, parallel column indicators, and
+  blocked/blocking dependency markers (see [#37])
+- CSP nonce middleware replaces `'unsafe-inline'` script/style sources, plus `Referrer-Policy`,
+  `Permissions-Policy`, `frame-ancestors`, `base-uri`, and `form-action` directives (see [#47])
+- CSRF protection via double-submit signed cookies on all mutating web requests (see [#49])
+- First-party avatar proxy at `/avatars/{hash}` so the web dashboard no longer leaks browsing activity to
+  Gravatar and works in air-gapped deployments (see [#50])
+- `#` level markers on rendered markdown headings in terminal output (see [#53])
+- `--json` output on entity commands now uses an Envelope format with relationships, tags, and notes
+  sidecars (see [#54])
+- `--batch` flag on `iteration add` for bulk NDJSON task addition with per-record phase control and
+  all-or-nothing semantics
+- Interactive Yes/No confirmation selector with arrow-key, h/l, j/k, and y/n navigation, replacing the
+  text-based `[y/N]` prompt
+
+### Changed
+
+- Web handler errors unified under a single `web::Error` type — store `NotFound` surfaces as HTTP 404 and
+  bad requests as 400 instead of generic 500s (see [#45])
+- Web list pages batch tag and relationship lookups in two queries, eliminating per-row N+1 fan-out
+  (see [#46])
+- Store errors consolidated into a single `store::Error` enum with `find_required_by_id` helpers, removing
+  per-module error types (see [#43])
+- SQL table references in the resolver use a closed `Table` enum instead of caller-supplied strings
+  (see [#44])
+- Typed error page in the web UI renders proper HTML with contextual status codes instead of plain-text
+  error strings (see [#35])
+
+### Fixed
+
+- Iteration tags now render as clickable `#` links in the web UI (see [#52])
+- `--tag` and `--tags` arguments accept comma-separated values (e.g. `--tag a,b` produces two tags)
+  (see [#51])
+- Empty priority on web task create no longer returns a plain-text 500 (see [#34])
+- Banner author coloring restored to amber bold
+- Self-update changelog link updated for the Docusaurus docs site URL scheme
+
 ## [v0.5.0]
 
 ### Added
@@ -368,8 +414,23 @@ Initial release
 [#24]: https://github.com/aaronmallen/gest/issues/24
 
 [#31]: https://github.com/aaronmallen/gest/issues/31
+[#34]: https://github.com/aaronmallen/gest/issues/34
+[#35]: https://github.com/aaronmallen/gest/issues/35
+[#36]: https://github.com/aaronmallen/gest/issues/36
+[#37]: https://github.com/aaronmallen/gest/issues/37
+[#43]: https://github.com/aaronmallen/gest/issues/43
+[#44]: https://github.com/aaronmallen/gest/issues/44
+[#45]: https://github.com/aaronmallen/gest/issues/45
+[#46]: https://github.com/aaronmallen/gest/issues/46
+[#47]: https://github.com/aaronmallen/gest/issues/47
+[#49]: https://github.com/aaronmallen/gest/issues/49
+[#50]: https://github.com/aaronmallen/gest/issues/50
+[#51]: https://github.com/aaronmallen/gest/issues/51
+[#52]: https://github.com/aaronmallen/gest/issues/52
+[#53]: https://github.com/aaronmallen/gest/issues/53
+[#54]: https://github.com/aaronmallen/gest/issues/54
 
-[Unreleased]: https://github.com/aaronmallen/gest/compare/0.5.0...main
+[Unreleased]: https://github.com/aaronmallen/gest/compare/0.5.1...main
 [v0.2.0]: https://github.com/aaronmallen/gest/compare/0.1.0...0.2.0
 [v0.2.1]: https://github.com/aaronmallen/gest/compare/0.2.0...0.2.1
 [v0.2.2]: https://github.com/aaronmallen/gest/compare/0.2.1...0.2.2
@@ -386,3 +447,4 @@ Initial release
 [v0.4.3]: https://github.com/aaronmallen/gest/compare/0.4.2...0.4.3
 [v0.4.4]: https://github.com/aaronmallen/gest/compare/0.4.3...0.4.4
 [v0.5.0]: https://github.com/aaronmallen/gest/compare/0.4.4...0.5.0
+[v0.5.1]: https://github.com/aaronmallen/gest/compare/0.5.0...0.5.1
