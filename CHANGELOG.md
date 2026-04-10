@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
-## [v0.5.1]
+## [v0.5.1] - 2026-04-10
 
 ### Added
 
@@ -53,7 +53,7 @@ The format is based on [Keep a Changelog], and this project adheres to
 - Banner author coloring restored to amber bold
 - Self-update changelog link updated for the Docusaurus docs site URL scheme
 
-## [v0.5.0]
+## [v0.5.0] - 2026-04-08
 
 ### Added
 
