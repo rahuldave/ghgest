@@ -40,8 +40,10 @@ impl Command {
       };
 
       if target_version != current_version {
+        let parts: Vec<&str> = target_version.splitn(3, '.').collect();
+        let version_path = format!("{}.{}", parts[0], parts.get(1).unwrap_or(&"0"));
         println!(
-          "review the changelog: https://gest.aaronmallen.dev/changelog#{}",
+          "review the changelog: https://gest.aaronmallen.dev/docs/{version_path}/changelog#{}",
           changelog_anchor(&target_version)
         );
       }
@@ -66,9 +68,9 @@ impl Command {
   }
 }
 
-/// Build the changelog anchor fragment for a given semver version (e.g. `0.5.1` → `v0-5-1`).
+/// Build the changelog anchor fragment for a given semver version (e.g. `0.5.1` → `v051`).
 fn changelog_anchor(version: &str) -> String {
-  format!("v{}", version.replace('.', "-"))
+  format!("v{}", version.replace('.', ""))
 }
 
 #[cfg(test)]
@@ -79,9 +81,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_replaces_dots_with_dashes_and_prefixes_v() {
-      assert_eq!(changelog_anchor("0.5.1"), "v0-5-1");
-      assert_eq!(changelog_anchor("1.0.0"), "v1-0-0");
+    fn it_strips_dots_and_prefixes_v() {
+      assert_eq!(changelog_anchor("0.5.1"), "v051");
+      assert_eq!(changelog_anchor("1.0.0"), "v100");
     }
   }
 }
