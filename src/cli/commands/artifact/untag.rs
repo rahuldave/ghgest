@@ -4,7 +4,7 @@ use crate::{
   AppContext,
   cli::Error,
   store::{model::primitives::EntityType, repo},
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Remove a tag from an artifact.
@@ -52,7 +52,8 @@ impl Command {
       repo::artifact::shortest_active_prefix(&conn, project_id).await?
     };
     let short_id = id.short();
-    self.output.print_delete(|| {
+    let envelope = Envelope::load_one(&conn, EntityType::Artifact, artifact.id(), &artifact, true).await?;
+    self.output.print_envelope(&envelope, &short_id, || {
       SuccessMessage::new("untagged artifact")
         .id(short_id.clone())
         .prefix_len(prefix_len)

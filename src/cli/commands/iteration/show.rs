@@ -3,9 +3,13 @@ use clap::Args;
 use crate::{
   AppContext,
   cli::Error,
-  store::{model::primitives::IterationStatus, repo},
+  store::{
+    model::primitives::{EntityType, IterationStatus},
+    repo,
+  },
   ui::{
     components::{IterationDetail, TaskCounts},
+    envelope::Envelope,
     json,
   },
 };
@@ -31,7 +35,8 @@ impl Command {
 
     let short_id = iteration.id().short();
     if self.output.json || self.output.quiet {
-      self.output.print_entity(&iteration, &short_id, String::new)?;
+      let envelope = Envelope::load_one(&conn, EntityType::Iteration, &id, &iteration, true).await?;
+      self.output.print_envelope(&envelope, &short_id, String::new)?;
       return Ok(());
     }
 

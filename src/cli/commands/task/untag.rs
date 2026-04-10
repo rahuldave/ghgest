@@ -4,7 +4,7 @@ use crate::{
   AppContext,
   cli::Error,
   store::{model::primitives::EntityType, repo},
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Remove a tag from a task.
@@ -48,6 +48,8 @@ impl Command {
 
     // Pool follows the tagged task's status.
     let task = repo::task::find_required_by_id(&conn, id.clone()).await?;
+    let envelope = Envelope::load_one(&conn, EntityType::Task, task.id(), &task, true).await?;
+
     let prefix_len = if task.status().is_terminal() {
       repo::task::shortest_all_prefix(&conn, project_id).await?
     } else {
@@ -55,7 +57,7 @@ impl Command {
     };
 
     let short_id = id.short();
-    self.output.print_delete(|| {
+    self.output.print_envelope(&envelope, &short_id, || {
       log::info!("untagged task");
       SuccessMessage::new("untagged task")
         .id(short_id.clone())

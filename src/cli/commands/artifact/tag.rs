@@ -4,7 +4,7 @@ use crate::{
   AppContext,
   cli::Error,
   store::{model::primitives::EntityType, repo},
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Add a tag to an artifact.
@@ -36,7 +36,8 @@ impl Command {
       repo::artifact::shortest_active_prefix(&conn, project_id).await?
     };
     let short_id = id.short();
-    self.output.print_entity(&tag, &short_id, || {
+    let envelope = Envelope::load_one(&conn, EntityType::Artifact, artifact.id(), &artifact, true).await?;
+    self.output.print_envelope(&envelope, &short_id, || {
       SuccessMessage::new("tagged artifact")
         .id(id.short())
         .prefix_len(prefix_len)

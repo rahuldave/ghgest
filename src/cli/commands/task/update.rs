@@ -10,7 +10,7 @@ use crate::{
     },
     repo,
   },
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Update a task.
@@ -173,6 +173,8 @@ impl Command {
       }
     }
 
+    let envelope = Envelope::load_one(&conn, EntityType::Task, task.id(), &task, true).await?;
+
     let prefix_len = if task.status().is_terminal() {
       repo::task::shortest_all_prefix(&conn, project_id).await?
     } else {
@@ -180,7 +182,7 @@ impl Command {
     };
 
     let short_id = task.id().short();
-    self.output.print_entity(&task, &short_id, || {
+    self.output.print_envelope(&envelope, &short_id, || {
       log::info!("updated task");
       SuccessMessage::new("updated task")
         .id(task.id().short())

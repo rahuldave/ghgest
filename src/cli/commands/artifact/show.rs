@@ -4,7 +4,7 @@ use crate::{
   AppContext,
   cli::Error,
   store::{model::primitives::EntityType, repo},
-  ui::{components::ArtifactDetail, json},
+  ui::{components::ArtifactDetail, envelope::Envelope, json},
 };
 
 /// Show an artifact by ID or prefix.
@@ -28,7 +28,8 @@ impl Command {
 
     let short_id = artifact.id().short();
     if self.output.json || self.output.quiet {
-      self.output.print_entity(&artifact, &short_id, String::new)?;
+      let envelope = Envelope::load_one(&conn, EntityType::Artifact, artifact.id(), &artifact, true).await?;
+      self.output.print_envelope(&envelope, &short_id, String::new)?;
       return Ok(());
     }
 

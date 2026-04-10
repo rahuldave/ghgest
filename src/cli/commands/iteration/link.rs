@@ -7,7 +7,7 @@ use crate::{
     model::primitives::{EntityType, RelationshipType},
     repo,
   },
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Link an iteration to another entity.
@@ -77,8 +77,10 @@ impl Command {
 
     let prefix_len = repo::iteration::shortest_active_prefix(&conn, project_id).await?;
 
+    let iteration = repo::iteration::find_required_by_id(&conn, source_id.clone()).await?;
     let short_id = source_id.short();
-    self.output.print_entity(&rel, &short_id, || {
+    let envelope = Envelope::load_one(&conn, EntityType::Iteration, &source_id, &iteration, true).await?;
+    self.output.print_envelope(&envelope, &short_id, || {
       SuccessMessage::new("linked iteration")
         .id(source_id.short())
         .prefix_len(prefix_len)

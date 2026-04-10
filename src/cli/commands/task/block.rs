@@ -7,7 +7,7 @@ use crate::{
     model::primitives::{EntityType, RelationshipType},
     repo,
   },
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Mark a task as blocking another task (shortcut for `task link <id> <blocked> --rel blocks`).
@@ -45,6 +45,8 @@ impl Command {
 
     // Pool follows the source task's status.
     let source_task = repo::task::find_required_by_id(&conn, source_id.clone()).await?;
+    let envelope = Envelope::load_one(&conn, EntityType::Task, source_task.id(), &source_task, true).await?;
+
     let prefix_len = if source_task.status().is_terminal() {
       repo::task::shortest_all_prefix(&conn, project_id).await?
     } else {
@@ -52,7 +54,7 @@ impl Command {
     };
 
     let short_id = source_id.short();
-    self.output.print_entity(&rel, &short_id, || {
+    self.output.print_envelope(&envelope, &short_id, || {
       log::info!("linked task");
       SuccessMessage::new("linked task")
         .id(source_id.short())

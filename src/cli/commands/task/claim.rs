@@ -6,12 +6,12 @@ use crate::{
   io::git,
   store::{
     model::{
-      primitives::{AuthorType, TaskStatus},
+      primitives::{AuthorType, EntityType, TaskStatus},
       task::Patch,
     },
     repo,
   },
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Claim a task (assign to self and mark in-progress).
@@ -75,11 +75,13 @@ impl Command {
     )
     .await?;
 
+    let envelope = Envelope::load_one(&conn, EntityType::Task, task.id(), &task, true).await?;
+
     // Claim moves to in-progress, which is active.
     let prefix_len = repo::task::shortest_active_prefix(&conn, project_id).await?;
 
     let short_id = task.id().short();
-    self.output.print_entity(&task, &short_id, || {
+    self.output.print_envelope(&envelope, &short_id, || {
       log::info!("claimed task");
       SuccessMessage::new("claimed task")
         .id(task.id().short())

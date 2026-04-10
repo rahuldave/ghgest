@@ -4,7 +4,7 @@ use crate::{
   AppContext,
   cli::Error,
   store::{model::primitives::EntityType, repo},
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Remove a tag from an iteration.
@@ -47,8 +47,10 @@ impl Command {
 
     let prefix_len = repo::iteration::shortest_active_prefix(&conn, project_id).await?;
 
+    let iteration = repo::iteration::find_required_by_id(&conn, id.clone()).await?;
     let short_id = id.short();
-    self.output.print_delete(|| {
+    let envelope = Envelope::load_one(&conn, EntityType::Iteration, &id, &iteration, true).await?;
+    self.output.print_envelope(&envelope, &short_id, || {
       SuccessMessage::new("untagged iteration")
         .id(short_id.clone())
         .prefix_len(prefix_len)

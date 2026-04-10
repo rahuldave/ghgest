@@ -3,8 +3,12 @@ use clap::Args;
 use crate::{
   AppContext,
   cli::Error,
-  store::{meta, model::task::Patch, repo},
-  ui::{components::SuccessMessage, json},
+  store::{
+    meta,
+    model::{primitives::EntityType, task::Patch},
+    repo,
+  },
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Remove a metadata value from a task at a dot-delimited path.
@@ -43,8 +47,10 @@ impl Command {
     repo::transaction::record_event(&conn, tx.id(), "tasks", &id.to_string(), "modified", Some(&before)).await?;
 
     let updated = repo::task::find_required_by_id(&conn, id.clone()).await?;
+    let envelope = Envelope::load_one(&conn, EntityType::Task, updated.id(), &updated, true).await?;
+
     let short_id = id.short();
-    self.output.print_entity(&updated, &short_id, || {
+    self.output.print_envelope(&envelope, &short_id, || {
       SuccessMessage::new("unset metadata")
         .id(id.short())
         .field("path", self.path.clone())

@@ -4,7 +4,7 @@ use crate::{
   AppContext,
   cli::Error,
   store::{model::primitives::EntityType, repo},
-  ui::{components::TaskDetail, json},
+  ui::{components::TaskDetail, envelope::Envelope, json},
 };
 
 /// Show a task by ID or prefix.
@@ -27,7 +27,7 @@ impl Command {
     let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, &self.id).await?;
     let task = repo::task::find_required_by_id(&conn, id).await?;
 
-    let tags = repo::tag::for_entity(&conn, EntityType::Task, task.id()).await?;
+    let envelope = Envelope::load_one(&conn, EntityType::Task, task.id(), &task, true).await?;
 
     // Highlighted prefix tracks the task's own pool: an active task gets
     // the active-only minimum, while a terminal task uses the all-rows
@@ -38,8 +38,10 @@ impl Command {
       repo::task::shortest_active_prefix(&conn, project_id).await?
     };
 
+    let tags = repo::tag::for_entity(&conn, EntityType::Task, task.id()).await?;
+
     let short_id = task.id().short();
-    self.output.print_entity(&task, &short_id, || {
+    self.output.print_envelope(&envelope, &short_id, || {
       let status_str = task.status().to_string();
       let id_short = task.id().short();
       let mut view = TaskDetail::new(&id_short, task.title(), &status_str)

@@ -4,10 +4,13 @@ use crate::{
   AppContext,
   cli::{Error, meta_args},
   store::{
-    model::{iteration::Patch, primitives::IterationStatus},
+    model::{
+      iteration::Patch,
+      primitives::{EntityType, IterationStatus},
+    },
     repo,
   },
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Update an iteration.
@@ -73,7 +76,8 @@ impl Command {
     };
 
     let short_id = iteration.id().short();
-    self.output.print_entity(&iteration, &short_id, || {
+    let envelope = Envelope::load_one(&conn, EntityType::Iteration, &id, &iteration, true).await?;
+    self.output.print_envelope(&envelope, &short_id, || {
       log::info!("updated iteration");
       SuccessMessage::new("updated iteration")
         .id(iteration.id().short())

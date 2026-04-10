@@ -8,7 +8,7 @@ use crate::{
     repo,
     sync::{paths, tombstone},
   },
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Delete an iteration and drop its task memberships. Tasks themselves are
@@ -57,6 +57,9 @@ impl Command {
       return Ok(());
     }
 
+    // Load the envelope before deletion so sidecars are still available.
+    let envelope = Envelope::load_one(&conn, EntityType::Iteration, iteration.id(), &iteration, true).await?;
+
     let tx = repo::transaction::begin(&conn, project_id, "iteration delete").await?;
     let report =
       repo::entity::delete::delete_with_cascade(&conn, tx.id(), EntityType::Iteration, iteration.id()).await?;
@@ -66,7 +69,7 @@ impl Command {
     invalidate_sync_digest(&conn, project_id, iteration.id()).await?;
 
     let short_id = iteration.id().short();
-    self.output.print_entity(&iteration, &short_id, || {
+    self.output.print_envelope(&envelope, &short_id, || {
       log::info!("deleted iteration");
       SuccessMessage::new("deleted iteration")
         .id(short_id.clone())

@@ -8,7 +8,7 @@ use crate::{
     model::{artifact::Patch, primitives::EntityType},
     repo,
   },
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Update an artifact.
@@ -95,7 +95,8 @@ impl Command {
       repo::artifact::shortest_active_prefix(&conn, project_id).await?
     };
     let short_id = artifact.id().short();
-    self.output.print_entity(&artifact, &short_id, || {
+    let envelope = Envelope::load_one(&conn, EntityType::Artifact, artifact.id(), &artifact, true).await?;
+    self.output.print_envelope(&envelope, &short_id, || {
       log::info!("updated artifact");
       SuccessMessage::new("updated artifact")
         .id(artifact.id().short())

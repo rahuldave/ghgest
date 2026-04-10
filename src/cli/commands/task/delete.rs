@@ -8,7 +8,7 @@ use crate::{
     repo,
     sync::{paths, tombstone},
   },
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Delete a task and all of its dependent rows.
@@ -67,6 +67,9 @@ impl Command {
       return Ok(());
     }
 
+    // Capture the envelope before the cascade deletes sidecars.
+    let envelope = Envelope::load_one(&conn, EntityType::Task, task.id(), &task, true).await?;
+
     let tx = repo::transaction::begin(&conn, project_id, "task delete").await?;
     let report = repo::entity::delete::delete_with_cascade(&conn, tx.id(), EntityType::Task, task.id()).await?;
 
@@ -75,7 +78,7 @@ impl Command {
     invalidate_sync_digest(&conn, project_id, task.id()).await?;
 
     let short_id = task.id().short();
-    self.output.print_entity(&task, &short_id, || {
+    self.output.print_envelope(&envelope, &short_id, || {
       log::info!("deleted task");
       SuccessMessage::new("deleted task")
         .id(short_id.clone())

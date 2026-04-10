@@ -13,7 +13,7 @@ use crate::{
     },
     repo,
   },
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Create a new task.
@@ -136,6 +136,8 @@ impl Command {
       repo::iteration::add_task(&conn, &iter_id, task.id(), phase).await?;
     }
 
+    let envelope = Envelope::load_one(&conn, EntityType::Task, task.id(), &task, true).await?;
+
     let prefix_len = if task.status().is_terminal() {
       repo::task::shortest_all_prefix(&conn, project_id).await?
     } else {
@@ -144,7 +146,7 @@ impl Command {
 
     let short_id = task.id().short();
     log::info!("created task {short_id}");
-    self.output.print_entity(&task, &short_id, || {
+    self.output.print_envelope(&envelope, &short_id, || {
       let mut message = SuccessMessage::new("created task")
         .id(task.id().short())
         .prefix_len(prefix_len);

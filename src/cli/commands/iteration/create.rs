@@ -10,7 +10,7 @@ use crate::{
     },
     repo,
   },
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Create a new iteration.
@@ -91,7 +91,8 @@ impl Command {
 
     let short_id = iteration.id().short();
     log::info!("created iteration {short_id}");
-    self.output.print_entity(&iteration, &short_id, || {
+    let envelope = Envelope::load_one(&conn, EntityType::Iteration, iteration.id(), &iteration, true).await?;
+    self.output.print_envelope(&envelope, &short_id, || {
       SuccessMessage::new("created iteration")
         .id(iteration.id().short())
         .prefix_len(prefix_len)

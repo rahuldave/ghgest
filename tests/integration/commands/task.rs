@@ -6,6 +6,7 @@ mod when_completing;
 mod when_creating;
 mod when_deleting;
 mod when_deleting_notes;
+mod when_emitting_envelope_json;
 mod when_limiting;
 mod when_linking;
 mod when_listing;

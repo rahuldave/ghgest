@@ -4,8 +4,12 @@ use serde_json::Value;
 use crate::{
   AppContext,
   cli::Error,
-  store::{meta, model::iteration::Patch, repo},
-  ui::{components::SuccessMessage, json},
+  store::{
+    meta,
+    model::{iteration::Patch, primitives::EntityType},
+    repo,
+  },
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Set a metadata value on an iteration at a dot-delimited path.
@@ -59,7 +63,8 @@ impl Command {
 
     let updated = repo::iteration::find_required_by_id(&conn, id.clone()).await?;
     let short_id = id.short();
-    self.output.print_entity(&updated, &short_id, || {
+    let envelope = Envelope::load_one(&conn, EntityType::Iteration, &id, &updated, true).await?;
+    self.output.print_envelope(&envelope, &short_id, || {
       SuccessMessage::new("set metadata")
         .id(id.short())
         .field("path", self.path.clone())

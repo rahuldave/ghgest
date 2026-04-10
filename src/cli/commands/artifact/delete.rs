@@ -4,7 +4,7 @@ use crate::{
   AppContext,
   cli::{Error, prompt},
   store::{model::primitives::EntityType, repo, sync::tombstone},
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Delete an artifact and all of its dependent rows.
@@ -50,6 +50,9 @@ impl Command {
       return Ok(());
     }
 
+    // Build the envelope before cascade-delete removes sidecars from the database.
+    let envelope = Envelope::load_one(&conn, EntityType::Artifact, artifact.id(), &artifact, true).await?;
+
     let tx = repo::transaction::begin(&conn, project_id, "artifact delete").await?;
     let report = repo::entity::delete::delete_with_cascade(&conn, tx.id(), EntityType::Artifact, artifact.id()).await?;
 
@@ -73,7 +76,7 @@ impl Command {
     }
 
     let short_id = artifact.id().short();
-    self.output.print_entity(&artifact, &short_id, || {
+    self.output.print_envelope(&envelope, &short_id, || {
       log::info!("deleted artifact");
       SuccessMessage::new("deleted artifact")
         .id(short_id.clone())

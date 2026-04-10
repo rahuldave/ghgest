@@ -324,7 +324,6 @@ mod tests {
 
   mod relationship_view {
     use chrono::Utc;
-    use pretty_assertions::assert_eq;
     use serde_json::Value;
 
     use super::*;

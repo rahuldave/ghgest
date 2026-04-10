@@ -4,10 +4,13 @@ use crate::{
   AppContext,
   cli::Error,
   store::{
-    model::{primitives::TaskStatus, task::Patch},
+    model::{
+      primitives::{EntityType, TaskStatus},
+      task::Patch,
+    },
     repo,
   },
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Cancel a task.
@@ -51,11 +54,13 @@ impl Command {
     )
     .await?;
 
+    let envelope = Envelope::load_one(&conn, EntityType::Task, task.id(), &task, true).await?;
+
     // Cancelled is terminal, so highlight against the all-rows pool.
     let prefix_len = repo::task::shortest_all_prefix(&conn, project_id).await?;
 
     let short_id = task.id().short();
-    self.output.print_entity(&task, &short_id, || {
+    self.output.print_envelope(&envelope, &short_id, || {
       log::info!("cancelled task");
       SuccessMessage::new("cancelled task")
         .id(task.id().short())

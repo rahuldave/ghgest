@@ -4,11 +4,15 @@ use crate::{
   AppContext,
   cli::{Error, limit::LimitArgs},
   store::{
-    model::{iteration::Filter, primitives::IterationStatus},
+    model::{
+      iteration::Filter,
+      primitives::{EntityType, Id, IterationStatus},
+    },
     repo,
   },
   ui::{
     components::{IterationEntry, IterationListView},
+    envelope::Envelope,
     json,
   },
 };
@@ -54,7 +58,9 @@ impl Command {
     let id_shorts: Vec<String> = iterations.iter().map(|i| i.id().short().to_string()).collect();
 
     if self.output.json {
-      let json = serde_json::to_string_pretty(&iterations)?;
+      let pairs: Vec<(Id, _)> = iterations.into_iter().map(|i| (i.id().clone(), i)).collect();
+      let envelopes = Envelope::load_many(&conn, EntityType::Iteration, &pairs, false).await?;
+      let json = serde_json::to_string_pretty(&envelopes)?;
       println!("{json}");
       return Ok(());
     }

@@ -4,11 +4,15 @@ use crate::{
   AppContext,
   cli::{Error, limit::LimitArgs},
   store::{
-    model::{artifact::Filter, primitives::EntityType},
+    model::{
+      artifact::Filter,
+      primitives::{EntityType, Id},
+    },
     repo,
   },
   ui::{
     components::{ArtifactEntry, ArtifactListView},
+    envelope::Envelope,
     json,
   },
 };
@@ -50,7 +54,9 @@ impl Command {
     let id_shorts: Vec<String> = artifacts.iter().map(|a| a.id().short().to_string()).collect();
 
     if self.output.json {
-      let json = serde_json::to_string_pretty(&artifacts)?;
+      let pairs: Vec<(Id, _)> = artifacts.iter().map(|a| (a.id().clone(), a.clone())).collect();
+      let envelopes = Envelope::load_many(&conn, EntityType::Artifact, &pairs, false).await?;
+      let json = serde_json::to_string_pretty(&envelopes)?;
       println!("{json}");
       return Ok(());
     }

@@ -3,8 +3,11 @@ use clap::Args;
 use crate::{
   AppContext,
   cli::Error,
-  store::{model::primitives::TaskStatus, repo},
-  ui::{components::SuccessMessage, json},
+  store::{
+    model::primitives::{EntityType, TaskStatus},
+    repo,
+  },
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Validate the active phase is complete and advance to the next phase.
@@ -87,15 +90,11 @@ impl Command {
         // Determine the next phase (next higher phase number that exists)
         let next_phase = tasks.iter().map(|t| t.phase).filter(|&p| p > phase).min();
 
+        let short_id = id.short();
+        let envelope = Envelope::load_one(&conn, EntityType::Iteration, &id, &iteration, true).await?;
         match next_phase {
           Some(next) => {
-            let short_id = id.short();
-            let result = serde_json::json!({
-              "id": id.to_string(),
-              "from_phase": phase,
-              "to_phase": next,
-            });
-            self.output.print_entity(&result, &short_id, || {
+            self.output.print_envelope(&envelope, &short_id, || {
               SuccessMessage::new("advanced iteration")
                 .id(id.short())
                 .prefix_len(prefix_len)
@@ -113,12 +112,7 @@ impl Command {
                 id.short()
               )));
             }
-            let short_id = id.short();
-            let result = serde_json::json!({
-              "id": id.to_string(),
-              "status": "all_phases_complete",
-            });
-            self.output.print_entity(&result, &short_id, || {
+            self.output.print_envelope(&envelope, &short_id, || {
               SuccessMessage::new("all phases complete")
                 .id(id.short())
                 .prefix_len(prefix_len)

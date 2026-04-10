@@ -4,10 +4,13 @@ use crate::{
   AppContext,
   cli::Error,
   store::{
-    model::{iteration::Patch, primitives::IterationStatus},
+    model::{
+      iteration::Patch,
+      primitives::{EntityType, IterationStatus},
+    },
     repo,
   },
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Complete an iteration.
@@ -54,7 +57,8 @@ impl Command {
     let prefix_len = repo::iteration::shortest_all_prefix(&conn, project_id).await?;
 
     let short_id = iteration.id().short();
-    self.output.print_entity(&iteration, &short_id, || {
+    let envelope = Envelope::load_one(&conn, EntityType::Iteration, &id, &iteration, true).await?;
+    self.output.print_envelope(&envelope, &short_id, || {
       log::info!("completed iteration");
       SuccessMessage::new("completed iteration")
         .id(iteration.id().short())

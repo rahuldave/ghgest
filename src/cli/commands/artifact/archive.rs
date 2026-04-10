@@ -3,8 +3,8 @@ use clap::Args;
 use crate::{
   AppContext,
   cli::Error,
-  store::repo,
-  ui::{components::SuccessMessage, json},
+  store::{model::primitives::EntityType, repo},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Archive an artifact.
@@ -45,7 +45,8 @@ impl Command {
 
     let prefix_len = repo::artifact::shortest_all_prefix(&conn, project_id).await?;
     let short_id = artifact.id().short();
-    self.output.print_entity(&artifact, &short_id, || {
+    let envelope = Envelope::load_one(&conn, EntityType::Artifact, artifact.id(), &artifact, true).await?;
+    self.output.print_envelope(&envelope, &short_id, || {
       log::info!("archived artifact");
       SuccessMessage::new("archived artifact")
         .id(artifact.id().short())

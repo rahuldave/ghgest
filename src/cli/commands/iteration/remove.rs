@@ -3,8 +3,8 @@ use clap::Args;
 use crate::{
   AppContext,
   cli::Error,
-  store::repo,
-  ui::{components::SuccessMessage, json},
+  store::{model::primitives::EntityType, repo},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Remove a task from an iteration.
@@ -44,7 +44,10 @@ impl Command {
     )
     .await?;
 
-    self.output.print_delete(|| {
+    let iteration = repo::iteration::find_required_by_id(&conn, iteration_id.clone()).await?;
+    let short_id = iteration_id.short();
+    let envelope = Envelope::load_one(&conn, EntityType::Iteration, &iteration_id, &iteration, true).await?;
+    self.output.print_envelope(&envelope, &short_id, || {
       log::info!("removed task from iteration");
       SuccessMessage::new("removed task from iteration")
         .field("task", task_id.short())

@@ -5,13 +5,14 @@ use crate::{
   cli::{Error, limit::LimitArgs},
   store::{
     model::{
-      primitives::{EntityType, TaskStatus},
+      primitives::{EntityType, Id, TaskStatus},
       task::Filter,
     },
     repo,
   },
   ui::{
     components::{TaskEntry, TaskListView},
+    envelope::Envelope,
     json,
   },
 };
@@ -54,18 +55,21 @@ impl Command {
     let mut tasks = repo::task::all(&conn, project_id, &filter).await?;
     self.limit.apply(&mut tasks);
 
-    let id_shorts: Vec<String> = tasks.iter().map(|t| t.id().short().to_string()).collect();
-
-    if self.output.json {
-      let json = serde_json::to_string_pretty(&tasks)?;
-      println!("{json}");
+    if self.output.quiet {
+      for task in &tasks {
+        println!("{}", task.id().short());
+      }
       return Ok(());
     }
 
-    if self.output.quiet {
-      for id in &id_shorts {
-        println!("{id}");
-      }
+    if self.output.json {
+      let pairs: Vec<(Id, _)> = tasks.iter().map(|t| (t.id().clone(), t.clone())).collect();
+      let envelopes = Envelope::load_many(&conn, EntityType::Task, &pairs, false).await?;
+      self.output.print_envelopes(
+        &envelopes,
+        || unreachable!("json flag is set"),
+        || unreachable!("json flag is set"),
+      )?;
       return Ok(());
     }
 
@@ -80,6 +84,7 @@ impl Command {
       repo::task::shortest_active_prefix(&conn, project_id).await?
     };
 
+    let id_shorts: Vec<String> = tasks.iter().map(|t| t.id().short().to_string()).collect();
     let mut entries = Vec::new();
     for (task, id_short) in tasks.iter().zip(id_shorts.iter()) {
       let tags = repo::tag::for_entity(&conn, EntityType::Task, task.id()).await?;
