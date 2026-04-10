@@ -1,5 +1,6 @@
 mod when_adding;
 mod when_advancing;
+mod when_batch_adding;
 mod when_creating;
 mod when_deleting;
 mod when_graphing;

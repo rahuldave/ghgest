@@ -365,6 +365,19 @@ cat tasks.ndjson | gest task create --batch
 cat artifacts.ndjson | gest artifact create --batch
 ```
 
+Batch-add tasks to an iteration with per-record phase control:
+
+```sh
+cat <<'EOF' | gest iteration add <iteration-id> --batch
+{"task":"<task-id-1>","phase":1}
+{"task":"<task-id-2>","phase":1}
+{"task":"<task-id-3>","phase":2}
+{"task":"<task-id-4>"}
+EOF
+```
+
+When `phase` is omitted, it auto-increments from the current max phase + 1.
+
 ### Iteration and link flags
 
 Create tasks that are pre-linked and assigned to an iteration in a single

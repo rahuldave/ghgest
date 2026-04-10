@@ -36,26 +36,37 @@ gest iteration <COMMAND> [OPTIONS]
 
 ## iteration add
 
-Add an existing task to an iteration.
+Add an existing task to an iteration. In single mode, one task is added per
+invocation. In batch mode, NDJSON records are read from stdin.
 
 ```text
-gest iteration add [OPTIONS] <ID> <TASK_ID>
+gest iteration add [OPTIONS] <ID> [TASK_ID]
 ```
 
 ### Arguments
 
-| Argument    | Description                     |
-|-------------|---------------------------------|
-| `<ID>`      | Iteration ID or unique prefix   |
-| `<TASK_ID>` | Task ID or unique prefix to add |
+| Argument    | Description                                                |
+|-------------|------------------------------------------------------------|
+| `<ID>`      | Iteration ID or unique prefix                              |
+| `[TASK_ID]` | Task ID or unique prefix to add (conflicts with `--batch`) |
 
 ### Options
 
-| Flag                  | Description                                                       |
-|-----------------------|-------------------------------------------------------------------|
-| `-j, --json`          | Output the iteration as JSON after adding the task                |
-| `-p, --phase <PHASE>` | Phase to add the task to (defaults to next phase, max + 1)        |
-| `-q, --quiet`         | Output only the iteration ID                                      |
+| Flag                  | Description                                                                          |
+|-----------------------|--------------------------------------------------------------------------------------|
+| `--batch`             | Read NDJSON task records from stdin (conflicts with `TASK_ID` and `--phase`)         |
+| `-j, --json`          | Output as JSON                                                                       |
+| `-p, --phase <PHASE>` | Phase to add the task to (defaults to next phase, max + 1; conflicts with `--batch`) |
+| `-q, --quiet`         | Output only the task or iteration ID                                                 |
+
+### Batch NDJSON schema
+
+Each line must be a JSON object with these fields:
+
+| Field   | Type   | Required | Description                                                 |
+|---------|--------|----------|-------------------------------------------------------------|
+| `task`  | string | yes      | Task ID or unique prefix                                    |
+| `phase` | number | no       | Phase to assign (auto-increments from max + 1 when omitted) |
 
 ### Examples
 
@@ -65,6 +76,13 @@ gest iteration add iter123 task456
 
 # Pin to an explicit phase
 gest iteration add iter123 task456 --phase 2
+
+# Batch-add from NDJSON stdin
+cat <<'EOF' | gest iteration add iter123 --batch
+{"task":"task456","phase":1}
+{"task":"task789","phase":2}
+{"task":"taskABC"}
+EOF
 ```
 
 ---
