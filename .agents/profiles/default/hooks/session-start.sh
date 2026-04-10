@@ -29,5 +29,5 @@ Before responding, check if any of the following skills apply to the user's requ
 CONTEXT_EOF
 
 # Output in Claude Code hook format
-printf '{"hookSpecificOutput": {"additionalContext": "%s"}}' \
+printf '{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": "%s"}}' \
   "$(printf '%s' "$CONTEXT" | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/g' | tr -d '\n')"

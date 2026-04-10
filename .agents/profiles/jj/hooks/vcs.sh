@@ -11,5 +11,5 @@ repository. VCS commands are inline in each skill — do not delegate to a separ
 `jj` commands exclusively. Never run raw `git` commands for write operations.
 CONTEXT_EOF
 
-printf '{"hookSpecificOutput": {"additionalContext": "%s"}}' \
+printf '{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": "%s"}}' \
   "$(printf '%s' "$CONTEXT" | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/g' | tr -d '\n')"
