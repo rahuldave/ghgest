@@ -46,11 +46,9 @@ impl Command {
     }
 
     let artifact = repo::artifact::find_required_by_id(&conn, id.clone()).await?;
-    let prefix_len = if artifact.is_archived() {
-      repo::artifact::shortest_all_prefix(&conn, project_id).await?
-    } else {
-      repo::artifact::shortest_active_prefix(&conn, project_id).await?
-    };
+    let id_str = artifact.id().to_string();
+    let prefix_lens = repo::artifact::prefix_lengths(&conn, project_id, &[id_str.as_str()]).await?;
+    let prefix_len = prefix_lens[0];
     let short_id = id.short();
     let envelope = Envelope::load_one(&conn, EntityType::Artifact, artifact.id(), &artifact, true).await?;
     self.output.print_envelope(&envelope, &short_id, || {

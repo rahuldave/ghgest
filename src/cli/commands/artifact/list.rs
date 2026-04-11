@@ -68,24 +68,23 @@ impl Command {
       return Ok(());
     }
 
-    let prefix_len = if self.all || self.archived {
-      repo::artifact::shortest_all_prefix(&conn, project_id).await?
-    } else {
-      repo::artifact::shortest_active_prefix(&conn, project_id).await?
-    };
+    let id_full_strs: Vec<String> = artifacts.iter().map(|a| a.id().to_string()).collect();
+    let id_refs: Vec<&str> = id_full_strs.iter().map(String::as_str).collect();
+    let prefix_lens = repo::artifact::prefix_lengths(&conn, project_id, &id_refs).await?;
 
     let mut entries = Vec::new();
-    for (artifact, id_short) in artifacts.iter().zip(id_shorts.iter()) {
+    for (i, (artifact, id_short)) in artifacts.iter().zip(id_shorts.iter()).enumerate() {
       let tags = repo::tag::for_entity(&conn, EntityType::Artifact, artifact.id()).await?;
       entries.push(ArtifactEntry {
         archived: artifact.is_archived(),
         id: id_short.clone(),
+        prefix_len: prefix_lens[i],
         tags,
         title: artifact.title().to_string(),
       });
     }
 
-    crate::io::pager::page(&format!("{}\n", ArtifactListView::new(entries, prefix_len)), context)?;
+    crate::io::pager::page(&format!("{}\n", ArtifactListView::new(entries)), context)?;
 
     Ok(())
   }

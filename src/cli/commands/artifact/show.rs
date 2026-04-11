@@ -33,11 +33,9 @@ impl Command {
       return Ok(());
     }
 
-    let prefix_len = if artifact.is_archived() {
-      repo::artifact::shortest_all_prefix(&conn, project_id).await?
-    } else {
-      repo::artifact::shortest_active_prefix(&conn, project_id).await?
-    };
+    let id_str = artifact.id().to_string();
+    let prefix_lens = repo::artifact::prefix_lengths(&conn, project_id, &[id_str.as_str()]).await?;
+    let prefix_len = prefix_lens[0];
 
     let tags = repo::tag::for_entity(&conn, EntityType::Artifact, artifact.id()).await?;
     let notes = repo::note::for_entity(&conn, EntityType::Artifact, artifact.id()).await?;

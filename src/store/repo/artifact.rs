@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::Utc;
 use libsql::{Connection, Value};
 
@@ -9,7 +11,7 @@ use crate::{
       primitives::Id,
     },
   },
-  ui::components::min_unique_prefix,
+  ui::components::{min_unique_prefix, prefix_lengths_two_tier},
 };
 
 pub(super) const SELECT_COLUMNS: &str = "\
@@ -126,6 +128,31 @@ pub async fn find_required_by_id(conn: &Connection, id: impl Into<Id>) -> Result
   find_by_id(conn, id.clone())
     .await?
     .ok_or_else(|| Error::NotFound(format!("artifact {}", id.short())))
+}
+
+/// Return per-ID prefix lengths for a set of artifacts using a two-tier pool:
+/// active (non-archived) IDs are resolved against the active pool only, while
+/// archived IDs are resolved against the full pool.
+///
+/// The returned `Vec<usize>` is aligned to `ids`.
+pub async fn prefix_lengths(conn: &Connection, project_id: &Id, ids: &[&str]) -> Result<Vec<usize>, Error> {
+  log::debug!("repo::artifact::prefix_lengths");
+  let active_ids = collect_ids(
+    conn,
+    "SELECT id FROM artifacts WHERE project_id = ?1 AND archived_at IS NULL",
+    project_id,
+  )
+  .await?;
+  let all_ids = collect_ids(conn, "SELECT id FROM artifacts WHERE project_id = ?1", project_id).await?;
+
+  let active_refs: Vec<&str> = active_ids.iter().map(String::as_str).collect();
+  let all_refs: Vec<&str> = all_ids.iter().map(String::as_str).collect();
+  let pool_lengths = prefix_lengths_two_tier(&active_refs, &all_refs);
+
+  // Build a lookup from full ID → prefix length
+  let pool_map: HashMap<&str, usize> = all_refs.iter().copied().zip(pool_lengths).collect();
+
+  Ok(ids.iter().map(|id| pool_map.get(id).copied().unwrap_or(1)).collect())
 }
 
 /// Return the minimum unique prefix length over all active (non-archived)

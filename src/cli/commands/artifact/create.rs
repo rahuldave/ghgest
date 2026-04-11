@@ -119,7 +119,9 @@ impl Command {
       repo::transaction::record_event(&conn, tx.id(), "relationships", &rel.id().to_string(), "created", None).await?;
     }
 
-    let prefix_len = repo::artifact::shortest_active_prefix(&conn, project_id).await?;
+    let id_str = artifact.id().to_string();
+    let prefix_lens = repo::artifact::prefix_lengths(&conn, project_id, &[id_str.as_str()]).await?;
+    let prefix_len = prefix_lens[0];
     let short_id = artifact.id().short();
     log::info!("created artifact {short_id}");
     let envelope = Envelope::load_one(&conn, EntityType::Artifact, artifact.id(), &artifact, true).await?;

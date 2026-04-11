@@ -13,6 +13,8 @@ pub struct ArtifactEntry {
   pub archived: bool,
   /// Short ID string displayed as the leading column.
   pub id: String,
+  /// Number of highlighted prefix characters for this entry's ID.
+  pub prefix_len: usize,
   /// Tag labels rendered as `#tag` chips after the title.
   pub tags: Vec<String>,
   /// Artifact title rendered in the title column.
@@ -22,15 +24,13 @@ pub struct ArtifactEntry {
 /// Full artifact list view using Grid for column alignment.
 pub struct Component {
   entries: Vec<ArtifactEntry>,
-  prefix_len: usize,
 }
 
 impl Component {
-  /// Create a list view from the entries, using `prefix_len` highlighted chars in each ID.
-  pub fn new(entries: Vec<ArtifactEntry>, prefix_len: usize) -> Self {
+  /// Create a list view from the entries, using per-entry `prefix_len` for each ID.
+  pub fn new(entries: Vec<ArtifactEntry>) -> Self {
     Self {
       entries,
-      prefix_len,
     }
   }
 }
@@ -47,7 +47,7 @@ impl Display for Component {
     let mut grid = Grid::new().spacing(2);
 
     for entry in &self.entries {
-      let id = Id::new(&entry.id).prefix_len(self.prefix_len);
+      let id = Id::new(&entry.id).prefix_len(entry.prefix_len);
 
       let title_style = if entry.archived {
         *theme.artifact_list_title_archived()
