@@ -56,6 +56,7 @@ impl Command {
     self.limit.apply(&mut iterations);
 
     let id_shorts: Vec<String> = iterations.iter().map(|i| i.id().short().to_string()).collect();
+    let full_ids: Vec<String> = iterations.iter().map(|i| i.id().to_string()).collect();
 
     if self.output.json {
       let pairs: Vec<(Id, _)> = iterations.into_iter().map(|i| (i.id().clone(), i)).collect();
@@ -72,22 +73,11 @@ impl Command {
       return Ok(());
     }
 
-    // Use the active pool by default, the all pool when --all is set or any
-    // filter that may surface terminal iterations is in effect, so prefix
-    // highlighting matches the resolver's pool selection.
-    let use_all_pool = self.all
-      || matches!(
-        self.status,
-        Some(IterationStatus::Completed) | Some(IterationStatus::Cancelled)
-      );
-    let prefix_len = if use_all_pool {
-      repo::iteration::shortest_all_prefix(&conn, project_id).await?
-    } else {
-      repo::iteration::shortest_active_prefix(&conn, project_id).await?
-    };
+    let full_id_refs: Vec<&str> = full_ids.iter().map(String::as_str).collect();
+    let prefix_lengths = repo::iteration::prefix_lengths_for_project(&conn, project_id, &full_id_refs).await?;
 
     let mut entries = Vec::new();
-    for (iteration, id_short) in iterations.iter().zip(id_shorts.iter()) {
+    for (i, (iteration, id_short)) in iterations.iter().zip(id_shorts.iter()).enumerate() {
       let phase_count = repo::iteration::max_phase(&conn, iteration.id())
         .await?
         .map(|m| m as usize + 1)
@@ -101,12 +91,13 @@ impl Command {
       );
       entries.push(IterationEntry {
         id: id_short.clone(),
+        prefix_len: prefix_lengths[i],
         summary,
         title: iteration.title().to_string(),
       });
     }
 
-    crate::io::pager::page(&format!("{}\n", IterationListView::new(entries, prefix_len)), context)?;
+    crate::io::pager::page(&format!("{}\n", IterationListView::new(entries)), context)?;
 
     Ok(())
   }

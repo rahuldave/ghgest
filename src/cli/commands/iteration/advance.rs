@@ -57,7 +57,10 @@ impl Command {
       .min();
 
     let max_phase = tasks.iter().map(|t| t.phase).max().unwrap_or(0);
-    let prefix_len = repo::iteration::shortest_active_prefix(&conn, project_id).await?;
+    let full_id = iteration.id().to_string();
+    let full_id_refs: Vec<&str> = vec![full_id.as_str()];
+    let prefix_lengths = repo::iteration::prefix_lengths_for_project(&conn, project_id, &full_id_refs).await?;
+    let prefix_len = prefix_lengths[0];
 
     match active_phase {
       None => {

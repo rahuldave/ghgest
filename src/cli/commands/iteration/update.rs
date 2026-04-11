@@ -4,10 +4,7 @@ use crate::{
   AppContext,
   cli::{Error, meta_args},
   store::{
-    model::{
-      iteration::Patch,
-      primitives::{EntityType, IterationStatus},
-    },
+    model::{iteration::Patch, primitives::EntityType},
     repo,
   },
   ui::{components::SuccessMessage, envelope::Envelope, json},
@@ -68,12 +65,10 @@ impl Command {
     let iteration = repo::iteration::update(&conn, &id, &patch).await?;
     repo::transaction::record_event(&conn, tx.id(), "iterations", &id.to_string(), "modified", Some(&before)).await?;
 
-    let prefix_len = match iteration.status() {
-      IterationStatus::Completed | IterationStatus::Cancelled => {
-        repo::iteration::shortest_all_prefix(&conn, project_id).await?
-      }
-      _ => repo::iteration::shortest_active_prefix(&conn, project_id).await?,
-    };
+    let full_id = iteration.id().to_string();
+    let full_id_refs: Vec<&str> = vec![full_id.as_str()];
+    let prefix_lengths = repo::iteration::prefix_lengths_for_project(&conn, project_id, &full_id_refs).await?;
+    let prefix_len = prefix_lengths[0];
 
     let short_id = iteration.id().short();
     let envelope = Envelope::load_one(&conn, EntityType::Iteration, &id, &iteration, true).await?;

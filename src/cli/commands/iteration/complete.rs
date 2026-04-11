@@ -54,7 +54,10 @@ impl Command {
     )
     .await?;
 
-    let prefix_len = repo::iteration::shortest_all_prefix(&conn, project_id).await?;
+    let full_id = iteration.id().to_string();
+    let full_id_refs: Vec<&str> = vec![full_id.as_str()];
+    let prefix_lengths = repo::iteration::prefix_lengths_for_project(&conn, project_id, &full_id_refs).await?;
+    let prefix_len = prefix_lengths[0];
 
     let short_id = iteration.id().short();
     let envelope = Envelope::load_one(&conn, EntityType::Iteration, &id, &iteration, true).await?;

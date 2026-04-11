@@ -11,7 +11,7 @@ use crate::{
       primitives::{Id, IterationStatus},
     },
   },
-  ui::components::min_unique_prefix,
+  ui::components::{min_unique_prefix, prefix_lengths_two_tier},
 };
 
 pub(super) const SELECT_COLUMNS: &str = "\
@@ -198,6 +198,41 @@ pub async fn max_phase(conn: &Connection, iteration_id: &Id) -> Result<Option<u3
     }
     None => Ok(None),
   }
+}
+
+/// Return per-ID prefix lengths using two-tier resolution: active iterations
+/// (non-terminal status) are resolved against the active pool, while archived
+/// iterations (completed/cancelled) are resolved against the full pool.
+///
+/// The returned `Vec<usize>` is aligned to `iteration_ids`.
+pub async fn prefix_lengths_for_project(
+  conn: &Connection,
+  project_id: &Id,
+  iteration_ids: &[&str],
+) -> Result<Vec<usize>, Error> {
+  log::debug!("repo::iteration::prefix_lengths_for_project");
+  let active_ids = collect_ids(
+    conn,
+    "SELECT id FROM iterations WHERE project_id = ?1 AND status NOT IN ('completed', 'cancelled')",
+    project_id,
+  )
+  .await?;
+  let all_ids = collect_ids(conn, "SELECT id FROM iterations WHERE project_id = ?1", project_id).await?;
+
+  let active_refs: Vec<&str> = active_ids.iter().map(String::as_str).collect();
+  let all_refs: Vec<&str> = all_ids.iter().map(String::as_str).collect();
+
+  let lengths = prefix_lengths_two_tier(&active_refs, &all_refs);
+
+  // Build a lookup from full ID → prefix length
+  let len_map: HashMap<&str, usize> = all_refs.iter().copied().zip(lengths).collect();
+
+  Ok(
+    iteration_ids
+      .iter()
+      .map(|id| len_map.get(id).copied().unwrap_or(2))
+      .collect(),
+  )
 }
 
 /// Remove a task from an iteration.

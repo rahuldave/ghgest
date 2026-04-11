@@ -5,7 +5,7 @@ use crate::{
   cli::Error,
   store::repo,
   ui::{
-    components::{GraphTask, IterationGraphView},
+    components::{GraphTask, IterationGraphView, unique_prefix_lengths},
     json,
   },
 };
@@ -23,7 +23,7 @@ impl Command {
   /// Render the iteration's tasks grouped by phase as a dependency graph view.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("iteration graph: entry");
-    let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
+    let _project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
     let conn = context.store().connect().await?;
     let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Iterations, &self.id).await?;
     let iteration = repo::iteration::find_required_by_id(&conn, id.clone()).await?;
@@ -59,25 +59,25 @@ impl Command {
       return Ok(());
     }
 
+    let id_short_refs: Vec<&str> = tasks.iter().map(|t| t.id_short.as_str()).collect();
+    let prefix_lengths = unique_prefix_lengths(&id_short_refs);
+
     let graph_tasks: Vec<GraphTask> = tasks
       .iter()
-      .map(|t| GraphTask {
+      .enumerate()
+      .map(|(i, t)| GraphTask {
         blocked_by: t.blocked_by.clone(),
         id_short: t.id_short.clone(),
         is_blocking: t.is_blocking,
         phase: t.phase,
+        prefix_len: prefix_lengths[i],
         priority: t.priority,
         status: t.status.clone(),
         title: t.title.clone(),
       })
       .collect();
 
-    let task_prefix_len = repo::task::shortest_all_prefix(&conn, project_id).await?;
-
-    print!(
-      "{}",
-      IterationGraphView::new(iteration.title(), graph_tasks).prefix_len(task_prefix_len)
-    );
+    print!("{}", IterationGraphView::new(iteration.title(), graph_tasks));
 
     Ok(())
   }

@@ -23,7 +23,6 @@ const CONTINUATION: &str = "\u{2502}";
 /// Phased dependency graph with box-drawing connectors.
 pub struct Component {
   iteration_title: String,
-  prefix_len: usize,
   tasks: Vec<GraphTask>,
 }
 
@@ -37,6 +36,8 @@ pub struct GraphTask {
   pub is_blocking: bool,
   /// Phase number used to group tasks under phase headers.
   pub phase: u32,
+  /// Number of highlighted prefix characters for this task's ID.
+  pub prefix_len: usize,
   /// Task priority used to render the `[Pn]` badge.
   pub priority: Option<u8>,
   /// Task status, used to select the row icon and color.
@@ -50,15 +51,8 @@ impl Component {
   pub fn new(iteration_title: impl Into<String>, tasks: Vec<GraphTask>) -> Self {
     Self {
       iteration_title: iteration_title.into(),
-      prefix_len: 2,
       tasks,
     }
-  }
-
-  /// Sets the highlighted prefix length passed to rendered task IDs.
-  pub fn prefix_len(mut self, len: usize) -> Self {
-    self.prefix_len = len;
-    self
   }
 }
 
@@ -114,7 +108,7 @@ impl Display for Component {
           &task.status,
           task.priority,
           priority_pad,
-          self.prefix_len,
+          task.prefix_len,
           &task.blocked_by,
           task.is_blocking,
         );

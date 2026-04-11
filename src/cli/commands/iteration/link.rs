@@ -75,9 +75,11 @@ impl Command {
       .await?;
     }
 
-    let prefix_len = repo::iteration::shortest_active_prefix(&conn, project_id).await?;
-
     let iteration = repo::iteration::find_required_by_id(&conn, source_id.clone()).await?;
+    let full_id = iteration.id().to_string();
+    let full_id_refs: Vec<&str> = vec![full_id.as_str()];
+    let prefix_lengths = repo::iteration::prefix_lengths_for_project(&conn, project_id, &full_id_refs).await?;
+    let prefix_len = prefix_lengths[0];
     let short_id = source_id.short();
     let envelope = Envelope::load_one(&conn, EntityType::Iteration, &source_id, &iteration, true).await?;
     self.output.print_envelope(&envelope, &short_id, || {

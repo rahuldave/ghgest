@@ -11,6 +11,8 @@ use crate::ui::components::{
 pub struct IterationEntry {
   /// Short ID string displayed as the leading column.
   pub id: String,
+  /// Number of highlighted prefix characters for this entry's ID.
+  pub prefix_len: usize,
   /// Pre-rendered summary fragment (e.g. task count breakdown) shown after the title.
   pub summary: String,
   /// Iteration title rendered in the title column.
@@ -20,15 +22,13 @@ pub struct IterationEntry {
 /// Full iteration list view using Grid for column alignment.
 pub struct Component {
   entries: Vec<IterationEntry>,
-  prefix_len: usize,
 }
 
 impl Component {
-  /// Create a list view from the entries, using `prefix_len` highlighted chars in each ID.
-  pub fn new(entries: Vec<IterationEntry>, prefix_len: usize) -> Self {
+  /// Create a list view from the entries, each carrying its own prefix length.
+  pub fn new(entries: Vec<IterationEntry>) -> Self {
     Self {
       entries,
-      prefix_len,
     }
   }
 }
@@ -45,7 +45,7 @@ impl Display for Component {
     let mut grid = Grid::new().spacing(2);
 
     for entry in &self.entries {
-      let id = Id::new(&entry.id).prefix_len(self.prefix_len);
+      let id = Id::new(&entry.id).prefix_len(entry.prefix_len);
       let title = Title::new(&entry.title, *theme.iteration_list_title());
 
       let row = Row::new()
