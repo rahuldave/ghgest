@@ -1,7 +1,7 @@
 //! Two-tone entity identifier display for terminal output.
 
 use std::{
-  collections::{HashMap, HashSet},
+  collections::HashMap,
   fmt::{self, Display, Formatter},
 };
 
@@ -56,7 +56,10 @@ impl Display for Component<'_> {
 /// in the set (each ID is first truncated to 8 chars).
 ///
 /// Returns at least 1 and at most 8.
+#[cfg(test)]
 pub fn min_unique_prefix(ids: &[&str]) -> usize {
+  use std::collections::HashSet;
+
   let shorts: Vec<String> = ids.iter().map(|id| id.chars().take(8).collect()).collect();
 
   for len in 1..=8 {

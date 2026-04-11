@@ -11,7 +11,7 @@ use crate::{
       primitives::Id,
     },
   },
-  ui::components::{min_unique_prefix, prefix_lengths_two_tier},
+  ui::components::prefix_lengths_two_tier,
 };
 
 pub(super) const SELECT_COLUMNS: &str = "\
@@ -157,6 +157,7 @@ pub async fn prefix_lengths(conn: &Connection, project_id: &Id, ids: &[&str]) ->
 
 /// Return the minimum unique prefix length over all active (non-archived)
 /// artifacts in the project.
+#[cfg(test)]
 pub async fn shortest_active_prefix(conn: &Connection, project_id: &Id) -> Result<usize, Error> {
   log::debug!("repo::artifact::shortest_active_prefix");
   let ids = collect_ids(
@@ -166,16 +167,17 @@ pub async fn shortest_active_prefix(conn: &Connection, project_id: &Id) -> Resul
   )
   .await?;
   let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
-  Ok(min_unique_prefix(&refs))
+  Ok(crate::ui::components::min_unique_prefix(&refs))
 }
 
 /// Return the minimum unique prefix length over every artifact in the project,
 /// including archived rows.
+#[cfg(test)]
 pub async fn shortest_all_prefix(conn: &Connection, project_id: &Id) -> Result<usize, Error> {
   log::debug!("repo::artifact::shortest_all_prefix");
   let ids = collect_ids(conn, "SELECT id FROM artifacts WHERE project_id = ?1", project_id).await?;
   let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
-  Ok(min_unique_prefix(&refs))
+  Ok(crate::ui::components::min_unique_prefix(&refs))
 }
 
 async fn collect_ids(conn: &Connection, sql: &str, project_id: &Id) -> Result<Vec<String>, Error> {

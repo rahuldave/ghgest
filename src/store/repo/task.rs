@@ -12,7 +12,7 @@ use crate::{
     },
     repo::iteration::StatusCounts,
   },
-  ui::components::{min_unique_prefix, prefix_lengths_two_tier},
+  ui::components::prefix_lengths_two_tier,
 };
 
 pub(super) const SELECT_COLUMNS: &str = "\
@@ -152,6 +152,7 @@ pub async fn find_required_by_id(conn: &Connection, id: impl Into<Id>) -> Result
 
 /// Return the minimum unique prefix length over all active tasks (status not
 /// `done` or `cancelled`) in the project.
+#[cfg(test)]
 pub async fn shortest_active_prefix(conn: &Connection, project_id: &Id) -> Result<usize, Error> {
   log::debug!("repo::task::shortest_active_prefix");
   let ids = collect_ids(
@@ -161,16 +162,17 @@ pub async fn shortest_active_prefix(conn: &Connection, project_id: &Id) -> Resul
   )
   .await?;
   let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
-  Ok(min_unique_prefix(&refs))
+  Ok(crate::ui::components::min_unique_prefix(&refs))
 }
 
 /// Return the minimum unique prefix length over every task in the project,
 /// including resolved rows.
+#[cfg(test)]
 pub async fn shortest_all_prefix(conn: &Connection, project_id: &Id) -> Result<usize, Error> {
   log::debug!("repo::task::shortest_all_prefix");
   let ids = collect_ids(conn, "SELECT id FROM tasks WHERE project_id = ?1", project_id).await?;
   let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
-  Ok(min_unique_prefix(&refs))
+  Ok(crate::ui::components::min_unique_prefix(&refs))
 }
 
 /// Return per-ID prefix lengths for all tasks in the project using two-tier
