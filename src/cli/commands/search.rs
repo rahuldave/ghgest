@@ -50,28 +50,29 @@ impl Command {
       return Ok(());
     }
 
-    let (task_prefix_len, artifact_prefix_len, iteration_prefix_len) = if self.show_all {
-      (
-        repo::task::shortest_all_prefix(&conn, project_id).await?,
-        repo::artifact::shortest_all_prefix(&conn, project_id).await?,
-        repo::iteration::shortest_all_prefix(&conn, project_id).await?,
-      )
-    } else {
-      (
-        repo::task::shortest_active_prefix(&conn, project_id).await?,
-        repo::artifact::shortest_active_prefix(&conn, project_id).await?,
-        repo::iteration::shortest_active_prefix(&conn, project_id).await?,
-      )
-    };
+    let task_prefix_map = repo::task::per_id_prefix_lengths(&conn, project_id).await?;
+    let task_prefix_lens: Vec<usize> = results
+      .tasks
+      .iter()
+      .map(|t| task_prefix_map.get(&t.id().to_string()).copied().unwrap_or(2))
+      .collect();
+
+    let artifact_ids: Vec<String> = results.artifacts.iter().map(|a| a.id().to_string()).collect();
+    let artifact_refs: Vec<&str> = artifact_ids.iter().map(String::as_str).collect();
+    let artifact_prefix_lens = repo::artifact::prefix_lengths(&conn, project_id, &artifact_refs).await?;
+
+    let iteration_ids: Vec<String> = results.iterations.iter().map(|i| i.id().to_string()).collect();
+    let iteration_refs: Vec<&str> = iteration_ids.iter().map(String::as_str).collect();
+    let iteration_prefix_lens = repo::iteration::prefix_lengths_for_project(&conn, project_id, &iteration_refs).await?;
 
     let view = SearchResults::new(
       self.query.clone(),
       results.tasks,
       results.artifacts,
       results.iterations,
-      task_prefix_len,
-      artifact_prefix_len,
-      iteration_prefix_len,
+      task_prefix_lens,
+      artifact_prefix_lens,
+      iteration_prefix_lens,
     )
     .expanded(self.expand);
     crate::io::pager::page(&format!("{view}\n"), context)?;

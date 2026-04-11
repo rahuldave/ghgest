@@ -5,7 +5,7 @@ use crate::{
   cli::{Error, limit::LimitArgs},
   store::repo,
   ui::{
-    components::{ProjectEntry, ProjectListView, min_unique_prefix},
+    components::{ProjectEntry, ProjectListView, unique_prefix_lengths},
     json,
   },
 };
@@ -42,21 +42,23 @@ impl Command {
       return Ok(());
     }
 
-    let prefix_len = {
+    let prefix_lens = {
       let refs: Vec<&str> = id_shorts.iter().map(String::as_str).collect();
-      min_unique_prefix(&refs)
+      unique_prefix_lengths(&refs)
     };
 
     let entries: Vec<ProjectEntry> = projects
       .iter()
       .zip(id_shorts.iter())
-      .map(|(project, id_short)| ProjectEntry {
+      .zip(prefix_lens.iter())
+      .map(|((project, id_short), &prefix_len)| ProjectEntry {
         id: id_short.clone(),
+        prefix_len,
         root: project.root().display().to_string(),
       })
       .collect();
 
-    crate::io::pager::page(&format!("{}\n", ProjectListView::new(entries, prefix_len)), context)?;
+    crate::io::pager::page(&format!("{}\n", ProjectListView::new(entries)), context)?;
 
     Ok(())
   }

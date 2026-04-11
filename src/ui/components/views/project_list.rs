@@ -11,6 +11,8 @@ use crate::ui::components::{
 pub struct ProjectEntry {
   /// Short ID string displayed as the leading column.
   pub id: String,
+  /// Number of highlighted prefix characters for this entry's ID.
+  pub prefix_len: usize,
   /// Absolute root path of the project.
   pub root: String,
 }
@@ -18,15 +20,13 @@ pub struct ProjectEntry {
 /// Full project list view using Grid for column alignment.
 pub struct Component {
   entries: Vec<ProjectEntry>,
-  prefix_len: usize,
 }
 
 impl Component {
-  /// Create a list view from the entries, using `prefix_len` highlighted chars in each ID.
-  pub fn new(entries: Vec<ProjectEntry>, prefix_len: usize) -> Self {
+  /// Create a list view from the entries, each with its own prefix length.
+  pub fn new(entries: Vec<ProjectEntry>) -> Self {
     Self {
       entries,
-      prefix_len,
     }
   }
 }
@@ -43,7 +43,7 @@ impl Display for Component {
     let mut grid = Grid::new().spacing(2);
 
     for entry in &self.entries {
-      let id = Id::new(&entry.id).prefix_len(self.prefix_len);
+      let id = Id::new(&entry.id).prefix_len(entry.prefix_len);
       let root = Title::new(&entry.root, *theme.project_list_root());
 
       let row = Row::new().col(Column::natural(id)).col(Column::natural(root));

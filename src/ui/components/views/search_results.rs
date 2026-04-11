@@ -15,35 +15,35 @@ use crate::{
 
 /// Complete search results view with grouped sections and summary.
 pub struct Component {
-  artifact_prefix_len: usize,
+  artifact_prefix_lens: Vec<usize>,
   artifacts: Vec<artifact::Model>,
   expanded: bool,
-  iteration_prefix_len: usize,
+  iteration_prefix_lens: Vec<usize>,
   iterations: Vec<iteration::Model>,
   query: String,
-  task_prefix_len: usize,
+  task_prefix_lens: Vec<usize>,
   tasks: Vec<task::Model>,
 }
 
 impl Component {
-  /// Create a new search results view.
+  /// Create a new search results view with per-ID prefix lengths.
   pub fn new(
     query: String,
     tasks: Vec<task::Model>,
     artifacts: Vec<artifact::Model>,
     iterations: Vec<iteration::Model>,
-    task_prefix_len: usize,
-    artifact_prefix_len: usize,
-    iteration_prefix_len: usize,
+    task_prefix_lens: Vec<usize>,
+    artifact_prefix_lens: Vec<usize>,
+    iteration_prefix_lens: Vec<usize>,
   ) -> Self {
     Self {
-      artifact_prefix_len,
+      artifact_prefix_lens,
       artifacts,
       expanded: false,
-      iteration_prefix_len,
+      iteration_prefix_lens,
       iterations,
       query,
-      task_prefix_len,
+      task_prefix_lens,
       tasks,
     }
   }
@@ -87,7 +87,7 @@ impl Display for Component {
         "  {}",
         Separator::labeled(format!("tasks ({})", self.tasks.len()), *theme.border())
       )?;
-      for task in &self.tasks {
+      for (task, &prefix_len) in self.tasks.iter().zip(self.task_prefix_lens.iter()) {
         writeln!(f)?;
         let body = if self.expanded {
           let d = task.description();
@@ -102,7 +102,7 @@ impl Display for Component {
             task.id().short(),
             task.title().to_string(),
             task.status().to_string(),
-            self.task_prefix_len,
+            prefix_len,
           )
           .body(body)
           .expanded(self.expanded),
@@ -118,7 +118,7 @@ impl Display for Component {
         "  {}",
         Separator::labeled(format!("artifacts ({})", self.artifacts.len()), *theme.border()),
       )?;
-      for artifact in &self.artifacts {
+      for (artifact, &prefix_len) in self.artifacts.iter().zip(self.artifact_prefix_lens.iter()) {
         writeln!(f)?;
         let body = if self.expanded {
           let b = artifact.body();
@@ -129,13 +129,9 @@ impl Display for Component {
         write!(
           f,
           "{}",
-          SearchResult::artifact(
-            artifact.id().short(),
-            artifact.title().to_string(),
-            self.artifact_prefix_len
-          )
-          .body(body)
-          .expanded(self.expanded),
+          SearchResult::artifact(artifact.id().short(), artifact.title().to_string(), prefix_len)
+            .body(body)
+            .expanded(self.expanded),
         )?;
       }
     }
@@ -148,7 +144,7 @@ impl Display for Component {
         "  {}",
         Separator::labeled(format!("iterations ({})", self.iterations.len()), *theme.border()),
       )?;
-      for iteration in &self.iterations {
+      for (iteration, &prefix_len) in self.iterations.iter().zip(self.iteration_prefix_lens.iter()) {
         writeln!(f)?;
         let body = if self.expanded {
           let d = iteration.description();
@@ -163,7 +159,7 @@ impl Display for Component {
             iteration.id().short(),
             iteration.title().to_string(),
             iteration.status().to_string(),
-            self.iteration_prefix_len,
+            prefix_len,
           )
           .body(body)
           .expanded(self.expanded),
