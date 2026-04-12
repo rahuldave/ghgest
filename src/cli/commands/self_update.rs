@@ -24,6 +24,7 @@ impl Command {
         .repo_owner("aaronmallen")
         .repo_name("gest")
         .bin_name("gest")
+        .identifier("tar.gz")
         .current_version(current_version)
         .show_download_progress(true)
         .no_confirm(true);
