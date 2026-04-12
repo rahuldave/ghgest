@@ -7,6 +7,24 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [v0.5.2] - 2026-04-12
+
+### Added
+
+- `gest project archive` and `gest project unarchive` commands for soft-archiving projects, with entity count display,
+  workspace detach reporting, and a reattach hint on unarchive (see [#38])
+- `--all` flag on `project list` to include archived projects, which are hidden by default and shown with
+  an `[archived]` badge (see [#38])
+- `gest project delete` command for non-undoable cascade deletion of a project and all owned entities
+  (tasks, iterations, artifacts), with confirmation prompt and `--yes` bypass (see [#38])
+- `gest purge` command for bulk cleanup of terminal tasks, terminal iterations, archived artifacts, archived projects,
+  dangling relationships, and orphan tombstones — supports `--dry-run` preview and `--yes` bypass (see [#39])
+
+### Changed
+
+- ID prefixes in list and search output now use per-ID variable lengths, showing the shortest unique prefix for each
+  entity instead of a single shared minimum
+
 ## [v0.5.1] - 2026-04-10
 
 ### Added
@@ -430,7 +448,10 @@ Initial release
 [#53]: https://github.com/aaronmallen/gest/issues/53
 [#54]: https://github.com/aaronmallen/gest/issues/54
 
-[Unreleased]: https://github.com/aaronmallen/gest/compare/0.5.1...main
+[#38]: https://github.com/aaronmallen/gest/issues/38
+[#39]: https://github.com/aaronmallen/gest/issues/39
+
+[Unreleased]: https://github.com/aaronmallen/gest/compare/0.5.2...main
 [v0.2.0]: https://github.com/aaronmallen/gest/compare/0.1.0...0.2.0
 [v0.2.1]: https://github.com/aaronmallen/gest/compare/0.2.0...0.2.1
 [v0.2.2]: https://github.com/aaronmallen/gest/compare/0.2.1...0.2.2
@@ -448,3 +469,4 @@ Initial release
 [v0.4.4]: https://github.com/aaronmallen/gest/compare/0.4.3...0.4.4
 [v0.5.0]: https://github.com/aaronmallen/gest/compare/0.4.4...0.5.0
 [v0.5.1]: https://github.com/aaronmallen/gest/compare/0.5.0...0.5.1
+[v0.5.2]: https://github.com/aaronmallen/gest/compare/0.5.1...0.5.2

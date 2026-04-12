@@ -2,6 +2,39 @@
 
 What's new in gest — told version by version.
 
+## v0.5.2
+
+<span style={{opacity: 0.5}}>2026-04-12</span>
+
+### Project Lifecycle Management
+
+Projects now have a full archive/delete lifecycle. `gest project archive` soft-archives a project — it disappears from
+`project list` by default (use `--all` to reveal it with an `[archived]` badge) and detaches from any workspaces.
+`gest project unarchive` reverses the operation. For permanent removal, `gest project delete` performs a non-undoable
+cascade deletion of the project and all its owned tasks, iterations, and artifacts, with a confirmation prompt showing
+exactly what will be removed.
+
+- Archive and unarchive with entity count display and workspace reporting
+  ([#38](https://github.com/aaronmallen/gest/issues/38))
+- Cascade delete with tombstone fan-out for sync safety
+  ([#38](https://github.com/aaronmallen/gest/issues/38))
+
+### Bulk Purge
+
+The new `gest purge` command consolidates cleanup into a single operation. It can remove terminal tasks, terminal
+iterations, archived artifacts, archived projects, dangling relationships, and orphan tombstones — individually via
+selector flags or all at once. `--dry-run` previews what would be removed without touching the database, and `--yes`
+bypasses the confirmation prompt for scripted use.
+
+- Selector flags: `--tasks`, `--iterations`, `--artifacts`, `--projects`, `--relationships`,
+  `--tombstones` ([#39](https://github.com/aaronmallen/gest/issues/39))
+
+### Smarter ID Prefixes
+
+List and search output now displays the shortest unique prefix per entity instead of a single shared minimum length
+across all IDs of the same type. This means shorter, easier-to-type prefixes for most entities while still guaranteeing
+uniqueness.
+
 ## v0.5.1
 
 <span style={{opacity: 0.5}}>2026-04-10</span>
