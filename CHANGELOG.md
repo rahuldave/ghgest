@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [v0.5.3] - 2026-04-12
+
+### Fixed
+
+- `gest self-update` downloads the `.sha256` checksum file instead of the `.tar.gz` release archive —
+  the asset identifier filter was dropped during the v0.5.0 rewrite, broken since v0.5.0
+
 ## [v0.5.2] - 2026-04-12
 
 ### Added
@@ -451,7 +458,7 @@ Initial release
 [#38]: https://github.com/aaronmallen/gest/issues/38
 [#39]: https://github.com/aaronmallen/gest/issues/39
 
-[Unreleased]: https://github.com/aaronmallen/gest/compare/0.5.2...main
+[Unreleased]: https://github.com/aaronmallen/gest/compare/0.5.3...main
 [v0.2.0]: https://github.com/aaronmallen/gest/compare/0.1.0...0.2.0
 [v0.2.1]: https://github.com/aaronmallen/gest/compare/0.2.0...0.2.1
 [v0.2.2]: https://github.com/aaronmallen/gest/compare/0.2.1...0.2.2
@@ -470,3 +477,4 @@ Initial release
 [v0.5.0]: https://github.com/aaronmallen/gest/compare/0.4.4...0.5.0
 [v0.5.1]: https://github.com/aaronmallen/gest/compare/0.5.0...0.5.1
 [v0.5.2]: https://github.com/aaronmallen/gest/compare/0.5.1...0.5.2
+[v0.5.3]: https://github.com/aaronmallen/gest/compare/0.5.2...0.5.3

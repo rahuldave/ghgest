@@ -2,6 +2,15 @@
 
 What's new in gest — told version by version.
 
+## v0.5.3
+
+<span style={{opacity: 0.5}}>2026-04-12</span>
+
+### Bug Fixes
+
+- `gest self-update` was downloading the `.sha256` checksum file instead of the `.tar.gz` release archive — the asset
+  identifier filter was dropped during the v0.5.0 rewrite, broken since v0.5.0
+
 ## v0.5.2
 
 <span style={{opacity: 0.5}}>2026-04-12</span>
