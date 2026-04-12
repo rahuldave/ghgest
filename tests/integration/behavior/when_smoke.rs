@@ -74,6 +74,22 @@ fn it_runs_project() {
 }
 
 #[test]
+fn it_runs_purge() {
+  let g = GestCmd::new();
+
+  let output = g
+    .cmd()
+    .args(["purge", "--dry-run"])
+    .output()
+    .expect("purge failed to run");
+
+  assert!(
+    output.status.success(),
+    "purge --dry-run should succeed on an empty project"
+  );
+}
+
+#[test]
 fn it_runs_search() {
   let g = GestCmd::new();
 

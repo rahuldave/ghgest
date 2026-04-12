@@ -7,6 +7,7 @@ pub mod init;
 pub mod iteration;
 pub mod migrate;
 pub mod project;
+pub mod purge;
 pub mod search;
 pub mod self_update;
 pub mod serve;

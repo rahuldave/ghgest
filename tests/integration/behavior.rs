@@ -6,5 +6,6 @@ mod when_deleting_projects;
 mod when_global_flags;
 mod when_local_sync;
 mod when_project_archive_command;
+mod when_purging;
 mod when_smoke;
 mod when_workflows;

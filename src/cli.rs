@@ -142,6 +142,8 @@ enum Command {
   /// Show or manage the current project.
   #[command(visible_alias = "p")]
   Project(commands::project::Command),
+  /// Purge terminal, archived, and orphaned data from the store.
+  Purge(commands::purge::Command),
   /// Search across all entity types.
   #[command(alias = "grep")]
   Search(commands::search::Command),
@@ -174,6 +176,7 @@ impl Command {
       Self::Iteration(command) => command.call(context).await,
       Self::Migrate(command) => command.call(context).await,
       Self::Project(command) => command.call(context).await,
+      Self::Purge(command) => command.call(context).await,
       Self::Search(command) => command.call(context).await,
       Self::SelfUpdate(command) => command.call(context).await,
       Self::Serve(command) => command.call(context).await,
@@ -192,6 +195,7 @@ impl Command {
       | Self::Init(_)
       | Self::Migrate(_)
       | Self::Project(_)
+      | Self::Purge(_)
       | Self::SelfUpdate(_)
       | Self::Undo(_)
       | Self::Version(_) => false,
