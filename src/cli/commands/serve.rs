@@ -117,7 +117,9 @@ fn resolve_csrf_key(configured: Option<&str>) -> Result<CsrfKey, Error> {
   if let Some(hex) = configured {
     match CsrfKey::from_hex(hex) {
       Ok(key) => return Ok(key),
-      Err(err) => log::warn!("serve: invalid csrf_signing_key in config: {err}; regenerating"),
+      Err(err) => {
+        log::warn!("serve: invalid csrf_signing_key in config: {err}; regenerating")
+      }
     }
   }
 

@@ -10,6 +10,7 @@ pub mod entity;
 pub mod iteration;
 pub mod note;
 pub mod project;
+pub mod purge;
 pub mod relationship;
 pub mod resolve;
 pub mod search;
