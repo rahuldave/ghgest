@@ -18,6 +18,8 @@ pub enum Table {
   Iterations,
   /// The `notes` table.
   Notes,
+  /// The `projects` table.
+  Projects,
   /// The `tasks` table.
   Tasks,
 }
@@ -32,7 +34,7 @@ impl Table {
   /// - notes: no active concept — always returns `None`
   pub fn active_filter(self) -> Option<&'static str> {
     match self {
-      Self::Artifacts => Some("archived_at IS NULL"),
+      Self::Artifacts | Self::Projects => Some("archived_at IS NULL"),
       Self::Iterations => Some("status NOT IN ('completed', 'cancelled')"),
       Self::Notes => None,
       Self::Tasks => Some("status NOT IN ('done', 'cancelled')"),
@@ -49,6 +51,7 @@ impl Table {
       Self::Artifacts => "artifacts",
       Self::Iterations => "iterations",
       Self::Notes => "notes",
+      Self::Projects => "projects",
       Self::Tasks => "tasks",
     }
   }
@@ -263,6 +266,11 @@ mod tests {
     }
 
     #[test]
+    fn it_returns_active_filter_for_projects() {
+      assert_eq!(Table::Projects.active_filter(), Some("archived_at IS NULL"));
+    }
+
+    #[test]
     fn it_returns_active_filter_for_iterations() {
       assert_eq!(
         Table::Iterations.active_filter(),
@@ -283,6 +291,7 @@ mod tests {
       assert_eq!(Table::Artifacts.as_sql_ident(), "artifacts");
       assert_eq!(Table::Iterations.as_sql_ident(), "iterations");
       assert_eq!(Table::Notes.as_sql_ident(), "notes");
+      assert_eq!(Table::Projects.as_sql_ident(), "projects");
       assert_eq!(Table::Tasks.as_sql_ident(), "tasks");
     }
 

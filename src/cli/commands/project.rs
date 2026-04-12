@@ -1,6 +1,7 @@
 //! `gest project` subcommand tree for showing, attaching, and listing projects.
 
 mod attach;
+mod delete;
 mod detach;
 mod list;
 
@@ -22,6 +23,9 @@ pub struct Command {
 enum Sub {
   /// Attach the current directory to an existing project as a workspace.
   Attach(attach::Command),
+  /// Delete a project and all of its owned entities.
+  #[command(visible_alias = "rm")]
+  Delete(delete::Command),
   /// Detach the current directory from its project.
   Detach(detach::Command),
   /// List all known projects.
@@ -35,6 +39,7 @@ impl Command {
     log::debug!("project: entry");
     match &self.subcommand {
       Some(Sub::Attach(command)) => command.call(context).await,
+      Some(Sub::Delete(command)) => command.call(context).await,
       Some(Sub::Detach(command)) => command.call(context).await,
       Some(Sub::List(command)) => command.call(context).await,
       None => self.show(context).await,
