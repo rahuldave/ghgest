@@ -149,7 +149,6 @@ impl Command {
 
     let summary = summary_lines.join("\n");
     println!("Purge summary:\n{summary}");
-    println!("\nThis will run as a single undoable transaction. Continue? [y/N]");
 
     if self.dry_run {
       return Ok(());
