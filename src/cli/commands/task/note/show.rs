@@ -1,11 +1,6 @@
 use clap::Args;
 
-use crate::{
-  AppContext,
-  cli::Error,
-  store::repo,
-  ui::{components::FieldList, json},
-};
+use crate::{AppContext, actions, cli::Error, ui::json};
 
 /// Show a single note.
 #[derive(Args, Debug)]
@@ -20,26 +15,6 @@ impl Command {
   /// Render the resolved note's body and metadata.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("task note show: entry");
-    let conn = context.store().connect().await?;
-    let note_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Notes, &self.id).await?;
-
-    let note = repo::note::find_required_by_id(&conn, note_id).await?;
-
-    let short_id = note.id().short();
-    self.output.print_entity(&note, &short_id, || {
-      let mut fields = FieldList::new()
-        .field("id", note.id().short())
-        .field("body", note.body().to_string())
-        .field("created", note.created_at().to_rfc3339());
-
-      if let Some(author) = note.author_id() {
-        fields = fields.field("author", author.short());
-      }
-
-      fields = fields.field("updated", note.updated_at().to_rfc3339());
-
-      fields.to_string()
-    })?;
-    Ok(())
+    actions::note::show(context, &self.id, &self.output).await
   }
 }
