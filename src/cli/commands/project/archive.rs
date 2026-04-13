@@ -4,7 +4,7 @@ use crate::{
   AppContext,
   cli::{Error, prompt},
   store::repo,
-  ui::components::SuccessMessage,
+  ui::{components::SuccessMessage, json},
 };
 
 /// Soft-archive a project, detaching all workspaces and hiding owned entities from list views.
@@ -12,6 +12,8 @@ use crate::{
 pub struct Command {
   /// The project ID or prefix.
   id: String,
+  #[command(flatten)]
+  output: json::Flags,
   /// Skip the interactive confirmation prompt.
   #[arg(long)]
   yes: bool,
@@ -46,15 +48,29 @@ impl Command {
 
     repo::project::archive(&conn, project.id()).await?;
 
-    let message = SuccessMessage::new("archived project")
-      .id(project.id().short())
-      .field("root", project.root().display().to_string())
-      .field("workspaces detached", counts.workspaces.to_string())
-      .field("tasks hidden", counts.tasks.to_string())
-      .field("iterations hidden", counts.iterations.to_string())
-      .field("artifacts hidden", counts.artifacts.to_string());
-
-    println!("{message}");
+    let short_id = project.id().short();
+    if self.output.json {
+      let json = serde_json::json!({
+        "id": project.id().to_string(),
+        "root": project.root().display().to_string(),
+        "workspaces_detached": counts.workspaces,
+        "tasks_hidden": counts.tasks,
+        "iterations_hidden": counts.iterations,
+        "artifacts_hidden": counts.artifacts,
+      });
+      println!("{}", serde_json::to_string_pretty(&json)?);
+    } else if self.output.quiet {
+      println!("{short_id}");
+    } else {
+      let message = SuccessMessage::new("archived project")
+        .id(short_id)
+        .field("root", project.root().display().to_string())
+        .field("workspaces detached", counts.workspaces.to_string())
+        .field("tasks hidden", counts.tasks.to_string())
+        .field("iterations hidden", counts.iterations.to_string())
+        .field("artifacts hidden", counts.artifacts.to_string());
+      println!("{message}");
+    }
     Ok(())
   }
 }

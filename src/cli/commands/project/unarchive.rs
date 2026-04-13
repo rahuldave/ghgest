@@ -1,12 +1,19 @@
 use clap::Args;
 
-use crate::{AppContext, cli::Error, store::repo, ui::components::SuccessMessage};
+use crate::{
+  AppContext,
+  cli::Error,
+  store::repo,
+  ui::{components::SuccessMessage, json},
+};
 
 /// Restore an archived project to active status.
 #[derive(Args, Debug)]
 pub struct Command {
   /// The project ID or prefix.
   id: String,
+  #[command(flatten)]
+  output: json::Flags,
 }
 
 impl Command {
@@ -22,16 +29,26 @@ impl Command {
 
     repo::project::unarchive(&conn, project.id()).await?;
 
-    let message = SuccessMessage::new("unarchived project")
-      .id(project.id().short())
-      .field("root", project.root().display().to_string());
-
-    println!("{message}");
-    println!();
-    println!(
-      "  Workspace paths are not automatically restored \u{2014} run `gest project attach {}` to re-enable workspace discovery.",
-      project.id().short()
-    );
+    let short_id = project.id().short();
+    if self.output.json {
+      let json = serde_json::json!({
+        "id": project.id().to_string(),
+        "root": project.root().display().to_string(),
+      });
+      println!("{}", serde_json::to_string_pretty(&json)?);
+    } else if self.output.quiet {
+      println!("{short_id}");
+    } else {
+      let message = SuccessMessage::new("unarchived project")
+        .id(short_id.clone())
+        .field("root", project.root().display().to_string());
+      println!("{message}");
+      println!();
+      println!(
+        "  Workspace paths are not automatically restored \u{2014} run `gest project attach {}` to re-enable workspace discovery.",
+        short_id
+      );
+    }
     Ok(())
   }
 }

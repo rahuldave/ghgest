@@ -4,7 +4,7 @@ use crate::{
   AppContext,
   cli::{Error, prompt},
   store::repo,
-  ui::components::SuccessMessage,
+  ui::{components::SuccessMessage, json},
 };
 
 /// Delete a project and all of its owned entities.
@@ -17,6 +17,8 @@ use crate::{
 pub struct Command {
   /// The project ID or prefix.
   id: String,
+  #[command(flatten)]
+  output: json::Flags,
   /// Skip the interactive confirmation prompt.
   #[arg(long)]
   yes: bool,
@@ -55,17 +57,33 @@ impl Command {
     let summary = repo::project::delete(&conn, &id, context.gest_dir().as_deref(), deleted_at).await?;
 
     let short_id = id.short();
-    log::info!("deleted project");
-    let msg = SuccessMessage::new("deleted project")
-      .id(short_id)
-      .field("root", project.root().display().to_string())
-      .field("tasks", summary.tasks.to_string())
-      .field("iterations", summary.iterations.to_string())
-      .field("artifacts", summary.artifacts.to_string())
-      .field("notes", summary.notes.to_string())
-      .field("tags", summary.tags.to_string())
-      .field("relationships", summary.relationships.to_string());
-    println!("{msg}");
+    if self.output.json {
+      let json = serde_json::json!({
+        "id": id.to_string(),
+        "root": project.root().display().to_string(),
+        "tasks": summary.tasks,
+        "iterations": summary.iterations,
+        "artifacts": summary.artifacts,
+        "notes": summary.notes,
+        "tags": summary.tags,
+        "relationships": summary.relationships,
+      });
+      println!("{}", serde_json::to_string_pretty(&json)?);
+    } else if self.output.quiet {
+      println!("{short_id}");
+    } else {
+      log::info!("deleted project");
+      let msg = SuccessMessage::new("deleted project")
+        .id(short_id)
+        .field("root", project.root().display().to_string())
+        .field("tasks", summary.tasks.to_string())
+        .field("iterations", summary.iterations.to_string())
+        .field("artifacts", summary.artifacts.to_string())
+        .field("notes", summary.notes.to_string())
+        .field("tags", summary.tags.to_string())
+        .field("relationships", summary.relationships.to_string());
+      println!("{msg}");
+    }
     Ok(())
   }
 }
