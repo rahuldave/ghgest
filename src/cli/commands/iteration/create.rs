@@ -2,6 +2,7 @@ use clap::Args;
 
 use crate::{
   AppContext,
+  actions::{Iteration, Prefixable},
   cli::{Error, meta_args, tag_arg},
   store::{
     model::{iteration::New, primitives::EntityType},
@@ -79,10 +80,7 @@ impl Command {
       repo::tag::attach(&conn, EntityType::Iteration, iteration.id(), &label).await?;
     }
 
-    let full_id = iteration.id().to_string();
-    let full_id_refs: Vec<&str> = vec![full_id.as_str()];
-    let prefix_lengths = repo::iteration::prefix_lengths_for_project(&conn, project_id, &full_id_refs).await?;
-    let prefix_len = prefix_lengths[0];
+    let prefix_len = Iteration::prefix_length(&conn, project_id, &iteration.id().to_string()).await?;
 
     let short_id = iteration.id().short();
     log::info!("created iteration {short_id}");

@@ -2,6 +2,7 @@ use clap::Args;
 
 use crate::{
   AppContext,
+  actions::{Iteration, Prefixable},
   cli::Error,
   store::{
     model::primitives::{EntityType, TaskStatus},
@@ -57,10 +58,7 @@ impl Command {
       .min();
 
     let max_phase = tasks.iter().map(|t| t.phase).max().unwrap_or(0);
-    let full_id = iteration.id().to_string();
-    let full_id_refs: Vec<&str> = vec![full_id.as_str()];
-    let prefix_lengths = repo::iteration::prefix_lengths_for_project(&conn, project_id, &full_id_refs).await?;
-    let prefix_len = prefix_lengths[0];
+    let prefix_len = Iteration::prefix_length(&conn, project_id, &iteration.id().to_string()).await?;
 
     match active_phase {
       None => {

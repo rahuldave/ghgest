@@ -2,6 +2,7 @@ use clap::Args;
 
 use crate::{
   AppContext,
+  actions::{Iteration, Prefixable},
   cli::Error,
   store::{model::primitives::EntityType, repo},
   ui::{
@@ -51,9 +52,7 @@ impl Command {
       total: status_counts.total as usize,
     };
 
-    let full_id = iteration.id().to_string();
-    let full_id_refs: Vec<&str> = vec![full_id.as_str()];
-    let prefix_lengths = repo::iteration::prefix_lengths_for_project(&conn, project_id, &full_id_refs).await?;
+    let prefix_len = Iteration::prefix_length(&conn, project_id, &iteration.id().to_string()).await?;
 
     let view = IterationDetail::new(
       iteration.id().short(),
@@ -61,7 +60,7 @@ impl Command {
       phase_count,
       counts,
     )
-    .prefix_len(prefix_lengths[0]);
+    .prefix_len(prefix_len);
 
     print!("{view}");
     Ok(())
