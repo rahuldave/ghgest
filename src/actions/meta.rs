@@ -1,4 +1,4 @@
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 use super::HasMetadata;
 use crate::{
@@ -6,7 +6,7 @@ use crate::{
   cli::Error,
   store::{meta, repo},
   ui::{
-    components::{FieldList, SuccessMessage},
+    components::{FieldList, MetaGet, SuccessMessage},
     envelope::Envelope,
     json,
   },
@@ -19,6 +19,27 @@ pub async fn bare<E: HasMetadata>(context: &AppContext, raw_id: &str, output: &j
   let model = E::find_by_id(&conn, id).await?;
   let metadata = E::metadata(&model);
   output.print_raw_or(metadata, || render_raw(metadata), || render_normal(metadata))
+}
+
+/// Resolve an entity and print a single metadata value at a dot-delimited path.
+pub async fn get<E: HasMetadata>(
+  context: &AppContext,
+  raw_id: &str,
+  path: &str,
+  output: &json::Flags,
+) -> Result<(), Error> {
+  let conn = context.store().connect().await?;
+  let id = repo::resolve::resolve_id(&conn, E::table(), raw_id).await?;
+  let model = E::find_by_id(&conn, id).await?;
+  let value = meta::resolve_path(E::metadata(&model), path).ok_or_else(|| Error::MetaKeyNotFound(path.to_owned()))?;
+  let mut wrapped = Map::new();
+  wrapped.insert(path.to_owned(), value.clone());
+  let wrapped = Value::Object(wrapped);
+  output.print_raw_or(
+    &wrapped,
+    || meta::format_meta_value(value),
+    || MetaGet::new(meta::format_meta_value(value)).to_string(),
+  )
 }
 
 /// Set a metadata value on an entity at a dot-delimited path within a recorded transaction.
