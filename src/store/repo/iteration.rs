@@ -39,6 +39,7 @@ pub struct IterationTaskRow {
 }
 
 /// Status counts for tasks in an iteration.
+#[derive(Clone, Default)]
 pub struct StatusCounts {
   /// Number of tasks in the `cancelled` state.
   pub cancelled: i64,
@@ -200,6 +201,80 @@ pub async fn max_phase(conn: &Connection, iteration_id: &Id) -> Result<Option<u3
     }
     None => Ok(None),
   }
+}
+
+/// Get the maximum phase number for each iteration in a single query.
+///
+/// Iterations with no tasks will not appear in the returned map.
+pub async fn max_phases_batch(conn: &Connection, iteration_ids: &[Id]) -> Result<HashMap<Id, Option<u32>>, Error> {
+  log::debug!("repo::iteration::max_phases_batch");
+  let mut map: HashMap<Id, Option<u32>> = HashMap::new();
+  if iteration_ids.is_empty() {
+    return Ok(map);
+  }
+
+  let placeholders = (1..=iteration_ids.len())
+    .map(|i| format!("?{i}"))
+    .collect::<Vec<_>>()
+    .join(", ");
+  let sql = format!(
+    "SELECT iteration_id, MAX(phase) FROM iteration_tasks \
+      WHERE iteration_id IN ({placeholders}) GROUP BY iteration_id"
+  );
+
+  let params: Vec<Value> = iteration_ids.iter().map(|id| Value::from(id.to_string())).collect();
+  let mut rows = conn.query(&sql, libsql::params_from_iter(params)).await?;
+  while let Some(row) = rows.next().await? {
+    let id_str: String = row.get(0)?;
+    let max: Option<i64> = row.get(1)?;
+    let id = Id::from_str(&id_str).map_err(Error::InvalidValue)?;
+    map.insert(id, max.map(|m| m as u32));
+  }
+  Ok(map)
+}
+
+/// Return task counts grouped by status for each iteration in a single query.
+///
+/// Iterations with no tasks will not appear in the returned map.
+pub async fn task_status_counts_batch(
+  conn: &Connection,
+  iteration_ids: &[Id],
+) -> Result<HashMap<Id, StatusCounts>, Error> {
+  log::debug!("repo::iteration::task_status_counts_batch");
+  let mut map: HashMap<Id, StatusCounts> = HashMap::new();
+  if iteration_ids.is_empty() {
+    return Ok(map);
+  }
+
+  let placeholders = (1..=iteration_ids.len())
+    .map(|i| format!("?{i}"))
+    .collect::<Vec<_>>()
+    .join(", ");
+  let sql = format!(
+    "SELECT it.iteration_id, t.status, COUNT(*) FROM iteration_tasks it \
+      JOIN tasks t ON t.id = it.task_id \
+      WHERE it.iteration_id IN ({placeholders}) \
+      GROUP BY it.iteration_id, t.status"
+  );
+
+  let params: Vec<Value> = iteration_ids.iter().map(|id| Value::from(id.to_string())).collect();
+  let mut rows = conn.query(&sql, libsql::params_from_iter(params)).await?;
+  while let Some(row) = rows.next().await? {
+    let id_str: String = row.get(0)?;
+    let status: String = row.get(1)?;
+    let count: i64 = row.get(2)?;
+    let id = Id::from_str(&id_str).map_err(Error::InvalidValue)?;
+    let counts = map.entry(id).or_default();
+    counts.total += count;
+    match status.as_str() {
+      "cancelled" => counts.cancelled = count,
+      "done" => counts.done = count,
+      "in-progress" => counts.in_progress = count,
+      "open" => counts.open = count,
+      _ => {}
+    }
+  }
+  Ok(map)
 }
 
 /// Return per-ID prefix lengths using two-tier resolution: active iterations

@@ -76,13 +76,18 @@ impl Command {
     let full_id_refs: Vec<&str> = full_ids.iter().map(String::as_str).collect();
     let prefix_lengths = repo::iteration::prefix_lengths_for_project(&conn, project_id, &full_id_refs).await?;
 
+    let iteration_ids: Vec<Id> = iterations.iter().map(|it| it.id().clone()).collect();
+    let phase_map = repo::iteration::max_phases_batch(&conn, &iteration_ids).await?;
+    let counts_map = repo::iteration::task_status_counts_batch(&conn, &iteration_ids).await?;
+
     let mut entries = Vec::new();
     for (i, (iteration, id_short)) in iterations.iter().zip(id_shorts.iter()).enumerate() {
-      let phase_count = repo::iteration::max_phase(&conn, iteration.id())
-        .await?
+      let phase_count = phase_map
+        .get(iteration.id())
+        .and_then(|m| *m)
         .map(|m| m as usize + 1)
         .unwrap_or(0);
-      let status_counts = repo::iteration::task_status_counts(&conn, iteration.id()).await?;
+      let status_counts = counts_map.get(iteration.id()).cloned().unwrap_or_default();
       let summary = format!(
         "{} {} · {} tasks",
         phase_count,
