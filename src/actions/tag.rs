@@ -1,1 +1,95 @@
-// Placeholder — action functions will be added in a later task.
+use super::Taggable;
+use crate::{
+  AppContext,
+  cli::Error,
+  store::repo,
+  ui::{components::SuccessMessage, envelope::Envelope, json},
+};
+
+/// Attach a tag label to the entity identified by `raw_id`.
+pub async fn tag<E: Taggable>(
+  context: &AppContext,
+  raw_id: &str,
+  label: &str,
+  output: &json::Flags,
+) -> Result<(), Error> {
+  let entity_name = E::entity_type().to_string();
+  log::debug!("{entity_name} tag: entry");
+
+  let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
+  let conn = context.store().connect().await?;
+  let id = repo::resolve::resolve_id(&conn, E::table(), raw_id).await?;
+
+  let tx = repo::transaction::begin(&conn, project_id, &format!("{entity_name} tag")).await?;
+  let tag = repo::tag::attach(&conn, E::entity_type(), &id, label).await?;
+  repo::transaction::record_event(&conn, tx.id(), "entity_tags", &tag.id().to_string(), "created", None).await?;
+
+  let model = E::find_by_id(&conn, id.clone()).await?;
+  let envelope = Envelope::load_one(&conn, E::entity_type(), &id, &model, true).await?;
+
+  let prefix_len = E::prefix_length(&conn, project_id, &id.to_string()).await?;
+
+  let short_id = id.short();
+  output.print_envelope(&envelope, &short_id, || {
+    let msg = format!("tagged {entity_name}");
+    log::info!("{msg}");
+    SuccessMessage::new(&msg)
+      .id(id.short())
+      .prefix_len(prefix_len)
+      .field("tag", label.to_owned())
+      .to_string()
+  })?;
+  Ok(())
+}
+
+/// Detach a tag label from the entity identified by `raw_id`.
+pub async fn untag<E: Taggable>(
+  context: &AppContext,
+  raw_id: &str,
+  label: &str,
+  output: &json::Flags,
+) -> Result<(), Error> {
+  let entity_name = E::entity_type().to_string();
+  log::debug!("{entity_name} untag: entry");
+
+  let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
+  let conn = context.store().connect().await?;
+  let id = repo::resolve::resolve_id(&conn, E::table(), raw_id).await?;
+
+  let before_tag = repo::tag::find_by_label(&conn, label).await?;
+  let tx = repo::transaction::begin(&conn, project_id, &format!("{entity_name} untag")).await?;
+  repo::tag::detach(&conn, E::entity_type(), &id, label).await?;
+  if let Some(tag) = &before_tag {
+    let before = serde_json::to_value(crate::store::model::entity_tag::Model::new(
+      E::entity_type(),
+      id.clone(),
+      tag.id().clone(),
+    ))?;
+    repo::transaction::record_event(
+      &conn,
+      tx.id(),
+      "entity_tags",
+      &tag.id().to_string(),
+      "deleted",
+      Some(&before),
+    )
+    .await?;
+  }
+
+  let model = E::find_by_id(&conn, id.clone()).await?;
+  let envelope = Envelope::load_one(&conn, E::entity_type(), &id, &model, true).await?;
+
+  let prefix_len = E::prefix_length(&conn, project_id, &id.to_string()).await?;
+
+  let short_id = id.short();
+  output.print_envelope(&envelope, &short_id, || {
+    let msg = format!("untagged {entity_name}");
+    log::info!("{msg}");
+    SuccessMessage::new(&msg)
+      .id(short_id.clone())
+      .prefix_len(prefix_len)
+      .field("tag", label.to_owned())
+      .to_string()
+  })?;
+  Ok(())
+}

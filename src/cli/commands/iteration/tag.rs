@@ -1,11 +1,6 @@
 use clap::Args;
 
-use crate::{
-  AppContext,
-  cli::Error,
-  store::{model::primitives::EntityType, repo},
-  ui::{components::SuccessMessage, envelope::Envelope, json},
-};
+use crate::{AppContext, actions, cli::Error, ui::json};
 
 /// Add a tag to an iteration.
 #[derive(Args, Debug)]
@@ -21,28 +16,6 @@ pub struct Command {
 impl Command {
   /// Attach the given tag label to the resolved iteration within a recorded transaction.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
-    log::debug!("iteration tag: entry");
-    let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
-    let conn = context.store().connect().await?;
-    let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Iterations, &self.id).await?;
-    let tx = repo::transaction::begin(&conn, project_id, "iteration tag").await?;
-    let tag = repo::tag::attach(&conn, EntityType::Iteration, &id, &self.label).await?;
-    repo::transaction::record_event(&conn, tx.id(), "entity_tags", &tag.id().to_string(), "created", None).await?;
-
-    let iteration = repo::iteration::find_required_by_id(&conn, id.clone()).await?;
-    let full_id = iteration.id().to_string();
-    let full_id_refs: Vec<&str> = vec![full_id.as_str()];
-    let prefix_lengths = repo::iteration::prefix_lengths_for_project(&conn, project_id, &full_id_refs).await?;
-    let prefix_len = prefix_lengths[0];
-    let short_id = id.short();
-    let envelope = Envelope::load_one(&conn, EntityType::Iteration, &id, &iteration, true).await?;
-    self.output.print_envelope(&envelope, &short_id, || {
-      SuccessMessage::new("tagged iteration")
-        .id(id.short())
-        .prefix_len(prefix_len)
-        .field("tag", self.label.clone())
-        .to_string()
-    })?;
-    Ok(())
+    actions::tag::tag::<actions::Iteration>(context, &self.id, &self.label, &self.output).await
   }
 }

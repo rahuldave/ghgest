@@ -1,11 +1,6 @@
 use clap::Args;
 
-use crate::{
-  AppContext,
-  cli::Error,
-  store::{model::primitives::EntityType, repo},
-  ui::{components::SuccessMessage, envelope::Envelope, json},
-};
+use crate::{AppContext, actions, cli::Error, ui::json};
 
 /// Add a tag to a task.
 #[derive(Args, Debug)]
@@ -21,31 +16,6 @@ pub struct Command {
 impl Command {
   /// Attach the given tag label to the resolved task within a recorded transaction.
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
-    log::debug!("task tag: entry");
-    let project_id = context.project_id().as_ref().ok_or(Error::UninitializedProject)?;
-    let conn = context.store().connect().await?;
-    let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, &self.id).await?;
-
-    let tx = repo::transaction::begin(&conn, project_id, "task tag").await?;
-    let tag = repo::tag::attach(&conn, EntityType::Task, &id, &self.label).await?;
-    repo::transaction::record_event(&conn, tx.id(), "entity_tags", &tag.id().to_string(), "created", None).await?;
-
-    // Pool follows the tagged task's status.
-    let task = repo::task::find_required_by_id(&conn, id.clone()).await?;
-    let envelope = Envelope::load_one(&conn, EntityType::Task, task.id(), &task, true).await?;
-
-    let prefix_map = repo::task::per_id_prefix_lengths(&conn, project_id).await?;
-    let prefix_len = prefix_map.get(&id.to_string()).copied().unwrap_or(1);
-
-    let short_id = id.short();
-    self.output.print_envelope(&envelope, &short_id, || {
-      log::info!("tagged task");
-      SuccessMessage::new("tagged task")
-        .id(id.short())
-        .prefix_len(prefix_len)
-        .field("tag", self.label.clone())
-        .to_string()
-    })?;
-    Ok(())
+    actions::tag::tag::<actions::Task>(context, &self.id, &self.label, &self.output).await
   }
 }
