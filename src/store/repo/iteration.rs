@@ -22,6 +22,8 @@ pub(super) const SELECT_COLUMNS: &str = "\
 pub struct IterationTaskRow {
   /// Short ids of tasks that block this task (empty when no blockers exist).
   pub blocked_by: Vec<String>,
+  /// Full task id.
+  pub id: String,
   /// Truncated task id suitable for display.
   pub id_short: String,
   /// True when this task blocks at least one other task.
@@ -308,6 +310,7 @@ pub async fn tasks_with_phase(conn: &Connection, iteration_id: &Id) -> Result<Ve
     let id_short = Id::from_str(&full_id).map_err(Error::InvalidValue)?.short();
     result.push(IterationTaskRow {
       blocked_by: Vec::new(),
+      id: full_id.clone(),
       id_short,
       is_blocking: false,
       phase: phase as u32,

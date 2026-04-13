@@ -108,6 +108,9 @@ pub enum Error {
   /// A metadata key was not found on the entity.
   #[error("metadata key not found: {0}")]
   MetaKeyNotFound(String),
+  /// The requested resource is not available (e.g. no unblocked tasks).
+  #[error("{0}")]
+  NotAvailable(String),
   /// A serialization error (e.g. snapshotting entity state for transactions).
   #[error(transparent)]
   Serialize(#[from] serde_json::Error),

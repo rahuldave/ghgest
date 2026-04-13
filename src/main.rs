@@ -85,7 +85,9 @@ async fn main() {
 
   log::info!("command dispatched");
   if let Err(e) = app.call(&context).await {
-    die::<()>(e);
+    let code = if matches!(e, cli::Error::NotAvailable(_)) { 2 } else { 1 };
+    eprintln!("{}", ErrorMessage::new(e.to_string()));
+    std::process::exit(code);
   }
 
   store.export_if_needed().await.unwrap_or_else(die);

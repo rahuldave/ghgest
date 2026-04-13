@@ -79,3 +79,45 @@ fn it_skips_blocked_tasks() {
     String::from_utf8_lossy(&second.stderr)
   );
 }
+
+#[test]
+fn it_rejects_agent_without_claim() {
+  let g = GestCmd::new();
+  let iter_id = g.create_iteration_with_phases("agent sprint", &[&["some task"]]);
+
+  let output = g
+    .cmd()
+    .args(["iteration", "next", &iter_id, "--agent", "foo"])
+    .output()
+    .expect("iteration next failed");
+
+  assert!(!output.status.success(), "--agent without --claim should exit non-zero");
+  let stderr = String::from_utf8_lossy(&output.stderr);
+  assert!(
+    stderr.contains("--agent requires --claim"),
+    "stderr should mention '--agent requires --claim', got: {stderr}"
+  );
+}
+
+#[test]
+fn it_supports_raw_flag() {
+  let g = GestCmd::new();
+  let iter_id = g.create_iteration_with_phases("raw sprint", &[&["raw task"]]);
+
+  let output = g
+    .cmd()
+    .args(["iteration", "next", &iter_id, "--raw"])
+    .output()
+    .expect("iteration next --raw failed");
+
+  assert!(
+    output.status.success(),
+    "iteration next --raw should succeed: {}",
+    String::from_utf8_lossy(&output.stderr)
+  );
+  let stdout = String::from_utf8_lossy(&output.stdout);
+  assert!(
+    !stdout.trim().is_empty(),
+    "iteration next --raw should produce output, got empty stdout"
+  );
+}

@@ -1,16 +1,15 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, collections::HashMap};
 
 use clap::Args;
-use serde_json::json;
 
 use crate::{
   AppContext,
   cli::Error,
   store::{
-    model::primitives::{AuthorType, EntityType, IterationStatus, RelationshipType, TaskStatus},
+    model::primitives::{AuthorType, Id, IterationStatus, TaskStatus},
     repo,
   },
-  ui::components::FieldList,
+  ui::{components::FieldList, json},
 };
 
 /// Return the next available task in an iteration.
@@ -24,12 +23,8 @@ pub struct Command {
   /// Claim the task (set to in-progress).
   #[arg(long)]
   claim: bool,
-  /// Output as JSON.
-  #[arg(short, long)]
-  json: bool,
-  /// Print only the task ID.
-  #[arg(short, long)]
-  quiet: bool,
+  #[command(flatten)]
+  output: json::Flags,
 }
 
 impl Command {
@@ -37,8 +32,7 @@ impl Command {
   pub async fn call(&self, context: &AppContext) -> Result<(), Error> {
     log::debug!("iteration next: entry");
     if self.agent.is_some() && !self.claim {
-      eprintln!("--agent requires --claim");
-      std::process::exit(1);
+      return Err(Error::Argument("--agent requires --claim".into()));
     }
 
     let conn = context.store().connect().await?;
@@ -47,56 +41,47 @@ impl Command {
     let iteration = repo::iteration::find_required_by_id(&conn, id.clone()).await?;
 
     if iteration.status() != IterationStatus::Active {
-      eprintln!("iteration is not active");
-      std::process::exit(1);
+      return Err(Error::Argument("iteration is not active".into()));
     }
 
     let rows = repo::iteration::tasks_with_phase(&conn, &id).await?;
 
-    // Filter to open tasks only
-    let open_rows: Vec<_> = rows.iter().filter(|r| r.status == "open").collect();
+    // Build a status lookup for all iteration tasks (id_short → status) so we
+    // can check whether blockers have reached a terminal state without extra queries.
+    let status_map: HashMap<&str, &str> = rows.iter().map(|r| (r.id_short.as_str(), r.status.as_str())).collect();
 
-    // Check which open tasks are blocked
-    struct Candidate {
-      full_id: String,
+    // Filter to open, unblocked tasks using the batch-loaded blocking data.
+    struct Candidate<'a> {
+      full_id: &'a str,
+      id_short: &'a str,
       phase: u32,
       priority: Option<u8>,
     }
 
     let mut candidates = Vec::new();
-    for row in &open_rows {
-      // Resolve full task ID from short prefix
-      let full_id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Tasks, &row.id_short).await?;
-      let task = repo::task::find_required_by_id(&conn, full_id.clone()).await?;
-
-      // Check if task is blocked
-      let rels = repo::relationship::for_entity(&conn, EntityType::Task, &full_id).await?;
-      let mut blocked = false;
-      for rel in &rels {
-        // Task is blocked if it's the target of a "blocks" relationship
-        // or the source of a "blocked-by" relationship
-        let blocker_id = if rel.rel_type() == RelationshipType::Blocks && rel.target_id() == &full_id {
-          Some(rel.source_id())
-        } else if rel.rel_type() == RelationshipType::BlockedBy && rel.source_id() == &full_id {
-          Some(rel.target_id())
-        } else {
-          None
-        };
-
-        if let Some(blocker_id) = blocker_id
-          && let Some(blocker) = repo::task::find_by_id(&conn, blocker_id.clone()).await?
-          && !blocker.status().is_terminal()
-        {
-          blocked = true;
-          break;
-        }
+    for row in &rows {
+      if row.status != "open" {
+        continue;
       }
+
+      // A task is blocked if any of its blockers are non-terminal.
+      let blocked = row.blocked_by.iter().any(|blocker_short| {
+        status_map
+          .get(blocker_short.as_str())
+          .map(|s| {
+            // Parse to TaskStatus to check terminality
+            s.parse::<TaskStatus>().map(|ts| !ts.is_terminal()).unwrap_or(true)
+          })
+          // Blocker not in this iteration — conservatively treat as blocking
+          .unwrap_or(true)
+      });
 
       if !blocked {
         candidates.push(Candidate {
-          full_id: full_id.to_string(),
+          full_id: &row.id,
+          id_short: &row.id_short,
           phase: row.phase,
-          priority: task.priority(),
+          priority: row.priority,
         });
       }
     }
@@ -112,11 +97,10 @@ impl Command {
     });
 
     let Some(next) = candidates.first() else {
-      eprintln!("no available tasks");
-      std::process::exit(2);
+      return Err(Error::NotAvailable("no available tasks".into()));
     };
 
-    let task_id: crate::store::model::primitives::Id = next
+    let task_id: Id = next
       .full_id
       .parse()
       .map_err(|e: String| Error::Argument(format!("invalid task id: {e}")))?;
@@ -158,47 +142,43 @@ impl Command {
     };
 
     let phase = next.phase;
+    let short_id = next.id_short;
 
-    if self.json {
-      let json_out = json!({
+    self.output.print_entity(
+      &serde_json::json!({
         "assigned_to": task.assigned_to().as_ref().map(|a| a.to_string()),
         "id": task.id().to_string(),
         "phase": phase,
         "priority": task.priority(),
         "status": task.status().to_string(),
         "title": task.title(),
-      });
-      println!("{}", serde_json::to_string_pretty(&json_out)?);
-      return Ok(());
-    }
+      }),
+      short_id,
+      || {
+        FieldList::new()
+          .field("id", short_id.to_string())
+          .field("title", task.title().to_string())
+          .field("status", task.status().to_string())
+          .field("phase", phase.to_string())
+          .field(
+            "priority",
+            task
+              .priority()
+              .map(|p| p.to_string())
+              .unwrap_or_else(|| "-".to_string()),
+          )
+          .field(
+            "assigned to",
+            task
+              .assigned_to()
+              .as_ref()
+              .map(|a| a.short())
+              .unwrap_or_else(|| "-".to_string()),
+          )
+          .to_string()
+      },
+    )?;
 
-    if self.quiet {
-      println!("{}", task.id().short());
-      return Ok(());
-    }
-
-    let fields = FieldList::new()
-      .field("id", task.id().short())
-      .field("title", task.title().to_string())
-      .field("status", task.status().to_string())
-      .field("phase", phase.to_string())
-      .field(
-        "priority",
-        task
-          .priority()
-          .map(|p| p.to_string())
-          .unwrap_or_else(|| "-".to_string()),
-      )
-      .field(
-        "assigned to",
-        task
-          .assigned_to()
-          .as_ref()
-          .map(|a| a.short())
-          .unwrap_or_else(|| "-".to_string()),
-      );
-
-    println!("{fields}");
     Ok(())
   }
 }
