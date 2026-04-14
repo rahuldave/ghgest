@@ -22,7 +22,7 @@ use crate::{
     },
   },
   web::{
-    self, AppState,
+    self, AppState, markdown,
     timeline::{self, TimelineItem},
   },
 };
@@ -64,6 +64,7 @@ struct IterationBoardTemplate {
 
 /// Shared data backing both the full iteration detail page and the SSE fragment.
 struct IterationDetailData {
+  description_html: String,
   iteration: iteration::Model,
   phases: Vec<PhaseGroup>,
   status_counts: StatusCounts,
@@ -75,6 +76,7 @@ struct IterationDetailData {
 #[derive(Template)]
 #[template(path = "iterations/detail_content.html")]
 struct IterationDetailFragmentTemplate {
+  description_html: String,
   iteration: iteration::Model,
   phases: Vec<PhaseGroup>,
   status_counts: StatusCounts,
@@ -86,6 +88,7 @@ struct IterationDetailFragmentTemplate {
 #[derive(Template)]
 #[template(path = "iterations/detail.html")]
 struct IterationDetailTemplate {
+  description_html: String,
   iteration: iteration::Model,
   phases: Vec<PhaseGroup>,
   status_counts: StatusCounts,
@@ -174,6 +177,7 @@ pub async fn iteration_detail(
 ) -> Result<Html<String>, web::Error> {
   let data = load_iteration_detail(&state, &id).await?;
   let tmpl = IterationDetailTemplate {
+    description_html: data.description_html,
     iteration: data.iteration,
     phases: data.phases,
     status_counts: data.status_counts,
@@ -191,6 +195,7 @@ pub async fn iteration_detail_fragment(
 ) -> Result<Html<String>, web::Error> {
   let data = load_iteration_detail(&state, &id).await?;
   let tmpl = IterationDetailFragmentTemplate {
+    description_html: data.description_html,
     iteration: data.iteration,
     phases: data.phases,
     status_counts: data.status_counts,
@@ -324,11 +329,13 @@ async fn load_iteration_detail(state: &AppState, id: &str) -> Result<IterationDe
     .collect();
 
   let task_count = status_counts.total;
+  let description_html = markdown::render_markdown_to_html(iteration.description());
   let timeline_items = timeline::build_timeline(&conn, EntityType::Iteration, &iter_id)
     .await
     .map_err(web::Error::Internal)?;
 
   Ok(IterationDetailData {
+    description_html,
     iteration,
     phases,
     status_counts,

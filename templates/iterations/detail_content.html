@@ -71,11 +71,11 @@
       </tbody>
     </table>
 
-    {% if !iteration.description().is_empty() %}
+    {% if !description_html.is_empty() %}
     <hr class="rule">
     <h2 class="section-heading">Description</h2>
     <div class="md-content">
-      {{ iteration.description() }}
+      {{ description_html|safe }}
     </div>
     {% endif %}
   </div>

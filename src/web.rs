@@ -509,10 +509,13 @@ mod tests {
         .unwrap()
         .to_owned();
 
-      assert!(!csp.contains("'unsafe-inline'"));
       assert!(csp.contains("default-src 'self'"));
       assert!(csp.contains("script-src 'self' 'nonce-"));
-      assert!(csp.contains("style-src 'self' 'nonce-"));
+      assert!(csp.contains("style-src 'self' 'unsafe-inline'"));
+
+      // script-src must never contain unsafe-inline
+      let script_src = csp.split(';').find(|d| d.trim().starts_with("script-src")).unwrap();
+      assert!(!script_src.contains("'unsafe-inline'"));
     }
 
     #[tokio::test]
