@@ -2,6 +2,32 @@
 
 What's new in gest — told version by version.
 
+## v0.5.4
+
+<span style={{opacity: 0.5}}>2026-04-14</span>
+
+### Mermaid Diagrams in the Web UI
+
+Fenced ` ```mermaid ` code blocks now render as interactive diagrams on all detail pages, timeline notes, and the
+markdown preview pane. The Mermaid v11 library is loaded from the jsDelivr CDN — if the CDN is unreachable the blocks
+display as raw code, same as before. The CSP was updated to allow the CDN script origin and Mermaid's runtime style
+injection.
+
+Iteration descriptions also now render full markdown (headings, lists, code blocks, etc.) on the web detail page,
+matching the behavior already present on artifact and task pages.
+
+### Performance
+
+List commands for tasks, artifacts, and iterations now batch tag, status, and phase queries into bulk lookups instead of
+issuing one query per row. `iteration next` also eliminates per-task relationship fan-out by using batch-loaded data.
+
+### CLI Polish
+
+- `project delete`, `project archive`, and `project unarchive` gained `--json` and `--quiet` output flags
+- `iteration next` returns exit code 2 (instead of a hard `process::exit`) when no tasks are available, making it
+  composable in scripts
+- `purge` no longer prompts for confirmation twice
+
 ## v0.5.3
 
 <span style={{opacity: 0.5}}>2026-04-12</span>

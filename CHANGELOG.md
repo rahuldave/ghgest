@@ -7,6 +7,30 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [v0.5.4] - 2026-04-14
+
+### Added
+
+- Mermaid diagram rendering in the web UI — fenced ` ```mermaid ` code blocks render as interactive
+  diagrams on all detail pages, timeline notes, and the markdown preview pane, loaded from jsDelivr CDN
+  with graceful fallback to raw code when offline
+- `--json` and `--quiet` output on `project delete`, `project archive`, and `project unarchive` commands
+
+### Changed
+
+- Iteration descriptions now render as full markdown on the web detail page, matching the behavior of
+  artifact and task descriptions
+- Iteration list, artifact list, and task list commands batch status, phase, and tag queries instead of
+  issuing per-row lookups
+- `iteration next` returns proper error codes (exit 2 when no tasks are available) instead of calling
+  `process::exit` directly
+- Consolidated entity operations behind composable action traits (`Findable`, `Prefixable`, `HasMetadata`,
+  `Taggable`, `HasNotes`), reducing duplication across task, artifact, and iteration command handlers
+
+### Fixed
+
+- `purge` no longer prompts for confirmation twice when run without `--yes`
+
 ## [v0.5.3] - 2026-04-12
 
 ### Fixed
@@ -437,12 +461,13 @@ Initial release
 [#22]: https://github.com/aaronmallen/gest/issues/22
 [#23]: https://github.com/aaronmallen/gest/issues/23
 [#24]: https://github.com/aaronmallen/gest/issues/24
-
 [#31]: https://github.com/aaronmallen/gest/issues/31
 [#34]: https://github.com/aaronmallen/gest/issues/34
 [#35]: https://github.com/aaronmallen/gest/issues/35
 [#36]: https://github.com/aaronmallen/gest/issues/36
 [#37]: https://github.com/aaronmallen/gest/issues/37
+[#38]: https://github.com/aaronmallen/gest/issues/38
+[#39]: https://github.com/aaronmallen/gest/issues/39
 [#43]: https://github.com/aaronmallen/gest/issues/43
 [#44]: https://github.com/aaronmallen/gest/issues/44
 [#45]: https://github.com/aaronmallen/gest/issues/45
@@ -455,26 +480,24 @@ Initial release
 [#53]: https://github.com/aaronmallen/gest/issues/53
 [#54]: https://github.com/aaronmallen/gest/issues/54
 
-[#38]: https://github.com/aaronmallen/gest/issues/38
-[#39]: https://github.com/aaronmallen/gest/issues/39
-
-[Unreleased]: https://github.com/aaronmallen/gest/compare/0.5.3...main
-[v0.2.0]: https://github.com/aaronmallen/gest/compare/0.1.0...0.2.0
-[v0.2.1]: https://github.com/aaronmallen/gest/compare/0.2.0...0.2.1
-[v0.2.2]: https://github.com/aaronmallen/gest/compare/0.2.1...0.2.2
-[v0.2.3]: https://github.com/aaronmallen/gest/compare/0.2.2...0.2.3
-[v0.3.0]: https://github.com/aaronmallen/gest/compare/0.2.3...0.3.0
-[v0.3.1]: https://github.com/aaronmallen/gest/compare/0.3.0...0.3.1
-[v0.3.2]: https://github.com/aaronmallen/gest/compare/0.3.1...0.3.2
-[v0.3.3]: https://github.com/aaronmallen/gest/compare/0.3.2...0.3.3
-[v0.3.4]: https://github.com/aaronmallen/gest/compare/0.3.3...0.3.4
-[v0.3.5]: https://github.com/aaronmallen/gest/compare/0.3.4...0.3.5
-[v0.4.0]: https://github.com/aaronmallen/gest/compare/0.3.5...0.4.0
-[v0.4.1]: https://github.com/aaronmallen/gest/compare/0.4.0...0.4.1
-[v0.4.2]: https://github.com/aaronmallen/gest/compare/0.4.1...0.4.2
-[v0.4.3]: https://github.com/aaronmallen/gest/compare/0.4.2...0.4.3
-[v0.4.4]: https://github.com/aaronmallen/gest/compare/0.4.3...0.4.4
-[v0.5.0]: https://github.com/aaronmallen/gest/compare/0.4.4...0.5.0
-[v0.5.1]: https://github.com/aaronmallen/gest/compare/0.5.0...0.5.1
-[v0.5.2]: https://github.com/aaronmallen/gest/compare/0.5.1...0.5.2
+[Unreleased]: https://github.com/aaronmallen/gest/compare/0.5.4...main
+[v0.5.4]: https://github.com/aaronmallen/gest/compare/0.5.3...0.5.4
 [v0.5.3]: https://github.com/aaronmallen/gest/compare/0.5.2...0.5.3
+[v0.5.2]: https://github.com/aaronmallen/gest/compare/0.5.1...0.5.2
+[v0.5.1]: https://github.com/aaronmallen/gest/compare/0.5.0...0.5.1
+[v0.5.0]: https://github.com/aaronmallen/gest/compare/0.4.4...0.5.0
+[v0.4.4]: https://github.com/aaronmallen/gest/compare/0.4.3...0.4.4
+[v0.4.3]: https://github.com/aaronmallen/gest/compare/0.4.2...0.4.3
+[v0.4.2]: https://github.com/aaronmallen/gest/compare/0.4.1...0.4.2
+[v0.4.1]: https://github.com/aaronmallen/gest/compare/0.4.0...0.4.1
+[v0.4.0]: https://github.com/aaronmallen/gest/compare/0.3.5...0.4.0
+[v0.3.5]: https://github.com/aaronmallen/gest/compare/0.3.4...0.3.5
+[v0.3.4]: https://github.com/aaronmallen/gest/compare/0.3.3...0.3.4
+[v0.3.3]: https://github.com/aaronmallen/gest/compare/0.3.2...0.3.3
+[v0.3.2]: https://github.com/aaronmallen/gest/compare/0.3.1...0.3.2
+[v0.3.1]: https://github.com/aaronmallen/gest/compare/0.3.0...0.3.1
+[v0.3.0]: https://github.com/aaronmallen/gest/compare/0.2.3...0.3.0
+[v0.2.3]: https://github.com/aaronmallen/gest/compare/0.2.2...0.2.3
+[v0.2.2]: https://github.com/aaronmallen/gest/compare/0.2.1...0.2.2
+[v0.2.1]: https://github.com/aaronmallen/gest/compare/0.2.0...0.2.1
+[v0.2.0]: https://github.com/aaronmallen/gest/compare/0.1.0...0.2.0

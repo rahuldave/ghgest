@@ -1082,7 +1082,7 @@ dependencies = [
 
 [[package]]
 name = "gest"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "askama",
  "assert_cmd",
