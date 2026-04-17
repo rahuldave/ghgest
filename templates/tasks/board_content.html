@@ -1,0 +1,93 @@
+<div class="summary">
+  <a href="/tasks">&larr; Tasks</a>
+</div>
+
+<h1 class="section-heading">Kanban Board</h1>
+
+<div class="kanban">
+  <div class="kanban-col">
+    <div class="kanban-col-header status-open">&#9675; Open ({{ open_tasks.len() }})</div>
+    {% for task in open_tasks %}
+    <div class="kanban-card">
+      <div class="kanban-card-title">
+        <a href="/tasks/{{ task.id() }}">{{ task.title() }}</a>
+      </div>
+      <div class="kanban-card-meta">
+        <span class="id-prefix">{{ task.id().short() }}</span>
+        {% if let Some(p) = task.priority() %}
+        &middot; <span class="priority">[P{{ p }}]</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% if open_tasks.is_empty() %}<div class="empty">no tasks</div>{% endif %}
+  </div>
+
+  <div class="kanban-col">
+    <div class="kanban-col-header status-in-progress">&#9680; In Progress ({{ in_progress_tasks.len() }})</div>
+    {% for task in in_progress_tasks %}
+    <div class="kanban-card">
+      <div class="kanban-card-title">
+        <a href="/tasks/{{ task.id() }}">{{ task.title() }}</a>
+      </div>
+      <div class="kanban-card-meta">
+        <span class="id-prefix">{{ task.id().short() }}</span>
+        {% if let Some(p) = task.priority() %}
+        &middot; <span class="priority">[P{{ p }}]</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% if in_progress_tasks.is_empty() %}<div class="empty">no tasks</div>{% endif %}
+  </div>
+
+  <div class="kanban-col">
+    <div class="kanban-col-header status-done">
+      &#9679; Done ({{ done_tasks.len() }})
+      <select class="form-select" data-nav-select aria-label="done row cap">
+        <option value="/tasks/board?done=10&amp;cancelled={{ cancelled_limit }}"{% if done_limit == 10 %} selected{% endif %}>10</option>
+        <option value="/tasks/board?done=20&amp;cancelled={{ cancelled_limit }}"{% if done_limit == 20 %} selected{% endif %}>20</option>
+        <option value="/tasks/board?done=50&amp;cancelled={{ cancelled_limit }}"{% if done_limit == 50 %} selected{% endif %}>50</option>
+      </select>
+    </div>
+    {% for task in done_tasks %}
+    <div class="kanban-card">
+      <div class="kanban-card-title">
+        <a href="/tasks/{{ task.id() }}">{{ task.title() }}</a>
+      </div>
+      <div class="kanban-card-meta">
+        <span class="id-prefix">{{ task.id().short() }}</span>
+        {% if let Some(p) = task.priority() %}
+        &middot; <span class="priority">[P{{ p }}]</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% if done_tasks.is_empty() %}<div class="empty">no tasks</div>{% endif %}
+  </div>
+
+  <div class="kanban-col">
+    <div class="kanban-col-header status-cancelled">
+      &#10007; Cancelled ({{ cancelled_tasks.len() }})
+      <select class="form-select" data-nav-select aria-label="cancelled row cap">
+        <option value="/tasks/board?done={{ done_limit }}&amp;cancelled=10"{% if cancelled_limit == 10 %} selected{% endif %}>10</option>
+        <option value="/tasks/board?done={{ done_limit }}&amp;cancelled=20"{% if cancelled_limit == 20 %} selected{% endif %}>20</option>
+        <option value="/tasks/board?done={{ done_limit }}&amp;cancelled=50"{% if cancelled_limit == 50 %} selected{% endif %}>50</option>
+      </select>
+    </div>
+    {% for task in cancelled_tasks %}
+    <div class="kanban-card">
+      <div class="kanban-card-title">
+        <a href="/tasks/{{ task.id() }}">{{ task.title() }}</a>
+      </div>
+      <div class="kanban-card-meta">
+        <span class="id-prefix">{{ task.id().short() }}</span>
+        {% if let Some(p) = task.priority() %}
+        &middot; <span class="priority">[P{{ p }}]</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% if cancelled_tasks.is_empty() %}<div class="empty">no tasks</div>{% endif %}
+  </div>
+</div>

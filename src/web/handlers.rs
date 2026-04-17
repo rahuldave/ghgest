@@ -23,8 +23,8 @@ pub use iteration::{
 };
 pub use search::{api_search, search};
 pub use task::{
-  note_add, task_create_form, task_create_submit, task_detail, task_detail_fragment, task_edit_form, task_list,
-  task_list_fragment, task_update,
+  note_add, task_board, task_board_fragment, task_create_form, task_create_submit, task_detail, task_detail_fragment,
+  task_edit_form, task_list, task_list_fragment, task_update,
 };
 
 use crate::web;

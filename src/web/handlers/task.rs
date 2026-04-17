@@ -26,10 +26,27 @@ use crate::{
   },
 };
 
+/// Query parameters for the global task board view (per-column row caps).
+#[derive(Deserialize)]
+pub struct TaskBoardParams {
+  cancelled: Option<String>,
+  done: Option<String>,
+}
+
 /// Query parameters for the task list view (status tab selection).
 #[derive(Deserialize)]
 pub struct TaskListParams {
   status: Option<String>,
+}
+
+/// Shared data backing both the full task board page and the SSE fragment.
+struct TaskBoardData {
+  cancelled_limit: u32,
+  cancelled_tasks: Vec<task::Model>,
+  done_limit: u32,
+  done_tasks: Vec<task::Model>,
+  in_progress_tasks: Vec<task::Model>,
+  open_tasks: Vec<task::Model>,
 }
 
 /// Shared data backing both the full task detail page and the SSE fragment.
@@ -58,6 +75,28 @@ struct DisplayLink {
   display_text: String,
   href: Option<String>,
   rel: String,
+}
+
+#[derive(Template)]
+#[template(path = "tasks/board_content.html")]
+struct TaskBoardFragmentTemplate {
+  cancelled_limit: u32,
+  cancelled_tasks: Vec<task::Model>,
+  done_limit: u32,
+  done_tasks: Vec<task::Model>,
+  in_progress_tasks: Vec<task::Model>,
+  open_tasks: Vec<task::Model>,
+}
+
+#[derive(Template)]
+#[template(path = "tasks/board.html")]
+struct TaskBoardTemplate {
+  cancelled_limit: u32,
+  cancelled_tasks: Vec<task::Model>,
+  done_limit: u32,
+  done_tasks: Vec<task::Model>,
+  in_progress_tasks: Vec<task::Model>,
+  open_tasks: Vec<task::Model>,
 }
 
 #[derive(Template)]
@@ -174,6 +213,40 @@ pub async fn note_add(
 
   let _ = state.reload_tx().send(());
   Ok(Redirect::to(&format!("/tasks/{task_id}")))
+}
+
+/// Global task board page.
+pub async fn task_board(
+  State(state): State<AppState>,
+  Query(params): Query<TaskBoardParams>,
+) -> Result<Html<String>, web::Error> {
+  let data = load_task_board(&state, params.done.as_deref(), params.cancelled.as_deref()).await?;
+  let tmpl = TaskBoardTemplate {
+    cancelled_limit: data.cancelled_limit,
+    cancelled_tasks: data.cancelled_tasks,
+    done_limit: data.done_limit,
+    done_tasks: data.done_tasks,
+    in_progress_tasks: data.in_progress_tasks,
+    open_tasks: data.open_tasks,
+  };
+  Ok(Html(tmpl.render()?))
+}
+
+/// Global task board fragment (for SSE live reload).
+pub async fn task_board_fragment(
+  State(state): State<AppState>,
+  Query(params): Query<TaskBoardParams>,
+) -> Result<Html<String>, web::Error> {
+  let data = load_task_board(&state, params.done.as_deref(), params.cancelled.as_deref()).await?;
+  let tmpl = TaskBoardFragmentTemplate {
+    cancelled_limit: data.cancelled_limit,
+    cancelled_tasks: data.cancelled_tasks,
+    done_limit: data.done_limit,
+    done_tasks: data.done_tasks,
+    in_progress_tasks: data.in_progress_tasks,
+    open_tasks: data.open_tasks,
+  };
+  Ok(Html(tmpl.render()?))
 }
 
 /// Task create form.
@@ -486,6 +559,48 @@ fn compute_blocking(task_id: &Id, rels: &[relationship::Model]) -> (bool, bool, 
   (is_blocked, blocking, blocked_by_display)
 }
 
+/// Load the shared task board payload used by both the full page and the
+/// fragment handler.
+///
+/// Tasks are bucketed by status into four columns. The Done and Cancelled
+/// buckets are truncated to a per-column cap parsed from `done_raw` and
+/// `cancelled_raw`; any unrecognized value falls back to the default cap.
+async fn load_task_board(
+  state: &AppState,
+  done_raw: Option<&str>,
+  cancelled_raw: Option<&str>,
+) -> Result<TaskBoardData, web::Error> {
+  let conn = state.store().connect().await?;
+  let tasks = repo::task::all(&conn, state.project_id(), &task::Filter::all()).await?;
+
+  let mut open_tasks = Vec::new();
+  let mut in_progress_tasks = Vec::new();
+  let mut done_tasks = Vec::new();
+  let mut cancelled_tasks = Vec::new();
+  for t in tasks {
+    match t.status() {
+      TaskStatus::InProgress => in_progress_tasks.push(t),
+      TaskStatus::Done => done_tasks.push(t),
+      TaskStatus::Cancelled => cancelled_tasks.push(t),
+      TaskStatus::Open => open_tasks.push(t),
+    }
+  }
+
+  let done_limit = parse_board_limit(done_raw);
+  let cancelled_limit = parse_board_limit(cancelled_raw);
+  done_tasks.truncate(done_limit as usize);
+  cancelled_tasks.truncate(cancelled_limit as usize);
+
+  Ok(TaskBoardData {
+    cancelled_limit,
+    cancelled_tasks,
+    done_limit,
+    done_tasks,
+    in_progress_tasks,
+    open_tasks,
+  })
+}
+
 /// Load the shared task detail payload used by both the full page and the
 /// fragment handler.
 async fn load_task_detail(state: &AppState, id: &str) -> Result<TaskDetailData, web::Error> {
@@ -554,6 +669,17 @@ async fn load_task_list(state: &AppState, status_param: Option<String>) -> Resul
     open_count: counts.open as usize,
     rows,
   })
+}
+
+/// Parse a task-board column cap query value.
+///
+/// Accepts `10`, `20`, or `50`; any missing or unrecognized value falls back to `10`.
+fn parse_board_limit(raw: Option<&str>) -> u32 {
+  match raw {
+    Some("20") => 20,
+    Some("50") => 50,
+    _ => 10,
+  }
 }
 
 /// Parse a form-supplied priority string (numeric byte or label) into the byte
@@ -827,6 +953,140 @@ mod tests {
       assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
       assert!(body.contains("<html"));
       assert!(body.contains("500"));
+    }
+  }
+
+  mod load_task_board {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    async fn seed_status_tasks(state: &AppState, title: &str, status: TaskStatus, count: usize) {
+      let conn = state.store().connect().await.unwrap();
+      for i in 0..count {
+        repo::task::create(
+          &conn,
+          state.project_id(),
+          &task::New {
+            title: format!("{title} {i}"),
+            status: Some(status),
+            ..Default::default()
+          },
+        )
+        .await
+        .unwrap();
+      }
+    }
+
+    #[tokio::test]
+    async fn it_buckets_tasks_by_status_across_all_projects_tasks() {
+      let state = setup().await;
+
+      let data = load_task_board(&state, None, None).await.unwrap();
+
+      assert_eq!(data.open_tasks.len(), 2);
+      assert_eq!(data.in_progress_tasks.len(), 1);
+      assert_eq!(data.done_tasks.len(), 1);
+      assert_eq!(data.cancelled_tasks.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn it_caps_done_and_cancelled_at_ten_by_default() {
+      let (store_arc, tmp) = store::open_temp().await.unwrap();
+      let conn = store_arc.connect().await.unwrap();
+      let project = Project::new("/tmp/web-task-board-default-cap".into());
+      conn
+        .execute(
+          "INSERT INTO projects (id, root, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
+          [
+            project.id().to_string(),
+            project.root().to_string_lossy().into_owned(),
+            project.created_at().to_rfc3339(),
+            project.updated_at().to_rfc3339(),
+          ],
+        )
+        .await
+        .unwrap();
+      let project_id = project.id().clone();
+      std::mem::forget(tmp);
+      let state = AppState::new(store_arc, project_id);
+
+      seed_status_tasks(&state, "Done", TaskStatus::Done, 15).await;
+      seed_status_tasks(&state, "Cancelled", TaskStatus::Cancelled, 15).await;
+
+      let data = load_task_board(&state, None, None).await.unwrap();
+
+      assert_eq!(data.done_limit, 10);
+      assert_eq!(data.cancelled_limit, 10);
+      assert_eq!(data.done_tasks.len(), 10);
+      assert_eq!(data.cancelled_tasks.len(), 10);
+    }
+
+    #[tokio::test]
+    async fn it_honors_overrides_to_twenty_and_fifty() {
+      let (store_arc, tmp) = store::open_temp().await.unwrap();
+      let conn = store_arc.connect().await.unwrap();
+      let project = Project::new("/tmp/web-task-board-override".into());
+      conn
+        .execute(
+          "INSERT INTO projects (id, root, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
+          [
+            project.id().to_string(),
+            project.root().to_string_lossy().into_owned(),
+            project.created_at().to_rfc3339(),
+            project.updated_at().to_rfc3339(),
+          ],
+        )
+        .await
+        .unwrap();
+      let project_id = project.id().clone();
+      std::mem::forget(tmp);
+      let state = AppState::new(store_arc, project_id);
+
+      seed_status_tasks(&state, "Done", TaskStatus::Done, 60).await;
+      seed_status_tasks(&state, "Cancelled", TaskStatus::Cancelled, 60).await;
+
+      let data = load_task_board(&state, Some("20"), Some("50")).await.unwrap();
+
+      assert_eq!(data.done_limit, 20);
+      assert_eq!(data.cancelled_limit, 50);
+      assert_eq!(data.done_tasks.len(), 20);
+      assert_eq!(data.cancelled_tasks.len(), 50);
+    }
+
+    #[tokio::test]
+    async fn it_falls_back_to_default_when_a_query_param_is_invalid() {
+      let state = setup().await;
+
+      let data = load_task_board(&state, Some("99"), Some("abc")).await.unwrap();
+
+      assert_eq!(data.done_limit, 10);
+      assert_eq!(data.cancelled_limit, 10);
+    }
+  }
+
+  mod parse_board_limit {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn it_accepts_ten_twenty_and_fifty() {
+      assert_eq!(parse_board_limit(Some("10")), 10);
+      assert_eq!(parse_board_limit(Some("20")), 20);
+      assert_eq!(parse_board_limit(Some("50")), 50);
+    }
+
+    #[test]
+    fn it_defaults_to_ten_when_missing() {
+      assert_eq!(parse_board_limit(None), 10);
+    }
+
+    #[test]
+    fn it_defaults_to_ten_when_value_is_not_allowed() {
+      assert_eq!(parse_board_limit(Some("")), 10);
+      assert_eq!(parse_board_limit(Some("99")), 10);
+      assert_eq!(parse_board_limit(Some("abc")), 10);
     }
   }
 

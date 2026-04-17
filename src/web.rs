@@ -317,7 +317,9 @@ fn router(state: AppState, csrf_key: CsrfKey) -> Router {
       "/tasks",
       axum::routing::get(handlers::task_list).post(handlers::task_create_submit),
     )
+    .route("/tasks/_board", axum::routing::get(handlers::task_board_fragment))
     .route("/tasks/_list", axum::routing::get(handlers::task_list_fragment))
+    .route("/tasks/board", axum::routing::get(handlers::task_board))
     .route("/tasks/new", axum::routing::get(handlers::task_create_form))
     .route(
       "/tasks/{id}",
