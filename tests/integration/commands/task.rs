@@ -17,6 +17,7 @@ mod when_prefix_highlighting;
 mod when_setting_priority;
 mod when_showing;
 mod when_showing_notes;
+mod when_unlinking;
 mod when_untagging;
 mod when_updating;
 mod when_updating_notes;

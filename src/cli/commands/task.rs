@@ -13,6 +13,7 @@ mod note;
 mod priority;
 mod show;
 mod tag;
+mod unlink;
 mod untag;
 mod update;
 
@@ -57,6 +58,8 @@ enum Sub {
   Show(show::Command),
   /// Add a tag to a task.
   Tag(tag::Command),
+  /// Remove a relationship from a task.
+  Unlink(unlink::Command),
   /// Remove a tag from a task.
   Untag(untag::Command),
   /// Update a task.
@@ -81,6 +84,7 @@ impl Command {
       Sub::Note(cmd) => cmd.call(context).await,
       Sub::Show(cmd) => cmd.call(context).await,
       Sub::Tag(cmd) => cmd.call(context).await,
+      Sub::Unlink(cmd) => cmd.call(context).await,
       Sub::Untag(cmd) => cmd.call(context).await,
       Sub::Update(cmd) => cmd.call(context).await,
     }
