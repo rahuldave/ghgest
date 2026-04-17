@@ -55,6 +55,69 @@ pub async fn delete(conn: &Connection, id: &Id) -> Result<bool, Error> {
   Ok(affected > 0)
 }
 
+/// Find relationships between a source and target endpoint pair.
+///
+/// When `rel_type` is `Some`, the unique index guarantees at most one row is
+/// returned. When `rel_type` is `None`, every relationship between the pair is
+/// returned, one per distinct `rel_type`. Rows are ordered by `rel_type`
+/// ascending for stable output.
+pub async fn find_by_endpoints(
+  conn: &Connection,
+  source_type: EntityType,
+  source_id: &Id,
+  target_type: EntityType,
+  target_id: &Id,
+  rel_type: Option<RelationshipType>,
+) -> Result<Vec<Model>, Error> {
+  log::debug!("repo::relationship::find_by_endpoints");
+  let mut rows = match rel_type {
+    Some(rel_type) => {
+      conn
+        .query(
+          &format!(
+            "SELECT {SELECT_COLUMNS} FROM relationships \
+              WHERE source_type = ?1 AND source_id = ?2 \
+              AND target_type = ?3 AND target_id = ?4 \
+              AND rel_type = ?5 \
+              ORDER BY rel_type ASC"
+          ),
+          [
+            source_type.to_string(),
+            source_id.to_string(),
+            target_type.to_string(),
+            target_id.to_string(),
+            rel_type.to_string(),
+          ],
+        )
+        .await?
+    }
+    None => {
+      conn
+        .query(
+          &format!(
+            "SELECT {SELECT_COLUMNS} FROM relationships \
+              WHERE source_type = ?1 AND source_id = ?2 \
+              AND target_type = ?3 AND target_id = ?4 \
+              ORDER BY rel_type ASC"
+          ),
+          [
+            source_type.to_string(),
+            source_id.to_string(),
+            target_type.to_string(),
+            target_id.to_string(),
+          ],
+        )
+        .await?
+    }
+  };
+
+  let mut relationships = Vec::new();
+  while let Some(row) = rows.next().await? {
+    relationships.push(Model::try_from(row)?);
+  }
+  Ok(relationships)
+}
+
 /// Find a relationship by its [`Id`].
 pub async fn find_by_id(conn: &Connection, id: impl Into<Id>) -> Result<Option<Model>, Error> {
   log::debug!("repo::relationship::find_by_id");
@@ -247,6 +310,170 @@ mod tests {
       let deleted = delete(&conn, rel.id()).await.unwrap();
 
       assert!(deleted);
+    }
+  }
+
+  mod find_by_endpoints_fn {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn it_returns_empty_vec_when_no_rows_match() {
+      let (_store, conn, _tmp, t1, t2) = setup().await;
+
+      let rels = find_by_endpoints(&conn, EntityType::Task, &t1, EntityType::Task, &t2, None)
+        .await
+        .unwrap();
+
+      assert!(rels.is_empty());
+    }
+
+    #[tokio::test]
+    async fn it_returns_single_row_when_one_matches() {
+      let (_store, conn, _tmp, t1, t2) = setup().await;
+
+      let rel = create(
+        &conn,
+        RelationshipType::Blocks,
+        EntityType::Task,
+        &t1,
+        EntityType::Task,
+        &t2,
+      )
+      .await
+      .unwrap();
+
+      let rels = find_by_endpoints(&conn, EntityType::Task, &t1, EntityType::Task, &t2, None)
+        .await
+        .unwrap();
+
+      assert_eq!(rels.len(), 1);
+      assert_eq!(rels[0].id(), rel.id());
+    }
+
+    #[tokio::test]
+    async fn it_returns_multiple_rows_when_rel_type_is_none_and_multiple_rel_types_exist() {
+      let (_store, conn, _tmp, t1, t2) = setup().await;
+
+      create(
+        &conn,
+        RelationshipType::Blocks,
+        EntityType::Task,
+        &t1,
+        EntityType::Task,
+        &t2,
+      )
+      .await
+      .unwrap();
+      create(
+        &conn,
+        RelationshipType::RelatesTo,
+        EntityType::Task,
+        &t1,
+        EntityType::Task,
+        &t2,
+      )
+      .await
+      .unwrap();
+
+      let rels = find_by_endpoints(&conn, EntityType::Task, &t1, EntityType::Task, &t2, None)
+        .await
+        .unwrap();
+
+      assert_eq!(rels.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn it_filters_to_one_row_when_rel_type_is_some() {
+      let (_store, conn, _tmp, t1, t2) = setup().await;
+
+      create(
+        &conn,
+        RelationshipType::Blocks,
+        EntityType::Task,
+        &t1,
+        EntityType::Task,
+        &t2,
+      )
+      .await
+      .unwrap();
+      create(
+        &conn,
+        RelationshipType::RelatesTo,
+        EntityType::Task,
+        &t1,
+        EntityType::Task,
+        &t2,
+      )
+      .await
+      .unwrap();
+
+      let rels = find_by_endpoints(
+        &conn,
+        EntityType::Task,
+        &t1,
+        EntityType::Task,
+        &t2,
+        Some(RelationshipType::Blocks),
+      )
+      .await
+      .unwrap();
+
+      assert_eq!(rels.len(), 1);
+      assert_eq!(rels[0].rel_type(), RelationshipType::Blocks);
+    }
+
+    #[tokio::test]
+    async fn it_orders_rows_by_rel_type_ascending() {
+      let (_store, conn, _tmp, t1, t2) = setup().await;
+
+      // Insert in non-alphabetical order to exercise the ORDER BY clause.
+      create(
+        &conn,
+        RelationshipType::RelatesTo,
+        EntityType::Task,
+        &t1,
+        EntityType::Task,
+        &t2,
+      )
+      .await
+      .unwrap();
+      create(
+        &conn,
+        RelationshipType::Blocks,
+        EntityType::Task,
+        &t1,
+        EntityType::Task,
+        &t2,
+      )
+      .await
+      .unwrap();
+      create(
+        &conn,
+        RelationshipType::ParentOf,
+        EntityType::Task,
+        &t1,
+        EntityType::Task,
+        &t2,
+      )
+      .await
+      .unwrap();
+
+      let rels = find_by_endpoints(&conn, EntityType::Task, &t1, EntityType::Task, &t2, None)
+        .await
+        .unwrap();
+
+      assert_eq!(rels.len(), 3);
+      let types: Vec<RelationshipType> = rels.iter().map(|r| r.rel_type()).collect();
+      assert_eq!(
+        types,
+        vec![
+          RelationshipType::Blocks,
+          RelationshipType::ParentOf,
+          RelationshipType::RelatesTo
+        ]
+      );
     }
   }
 
