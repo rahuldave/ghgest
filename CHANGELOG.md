@@ -7,6 +7,22 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [v0.5.5] - 2026-04-17
+
+### Added
+
+- `gest task unlink` and `gest iteration unlink` commands for removing a specific relationship between two entities,
+  with optional `--rel <type>` to disambiguate when multiple edge types connect the same pair and `--artifact` for
+  artifact targets; iteration-to-iteration unlinks remove both the forward and reciprocal rows atomically so `undo`
+  restores both halves (see [#63])
+- `--rel <type>` flag on `iteration link` matching the `task link` shape
+- Global kanban board view in the web UI showing every task in the project across iterations
+
+### Deprecated
+
+- Positional `rel` argument on `iteration link <id> <rel> <target>` — use `--rel <type>` instead; the old form still
+  works but emits a stderr deprecation warning
+
 ## [v0.5.4] - 2026-04-14
 
 ### Added
@@ -479,8 +495,10 @@ Initial release
 [#52]: https://github.com/aaronmallen/gest/issues/52
 [#53]: https://github.com/aaronmallen/gest/issues/53
 [#54]: https://github.com/aaronmallen/gest/issues/54
+[#63]: https://github.com/aaronmallen/gest/issues/63
 
-[Unreleased]: https://github.com/aaronmallen/gest/compare/0.5.4...main
+[Unreleased]: https://github.com/aaronmallen/gest/compare/0.5.5...main
+[v0.5.5]: https://github.com/aaronmallen/gest/compare/0.5.4...0.5.5
 [v0.5.4]: https://github.com/aaronmallen/gest/compare/0.5.3...0.5.4
 [v0.5.3]: https://github.com/aaronmallen/gest/compare/0.5.2...0.5.3
 [v0.5.2]: https://github.com/aaronmallen/gest/compare/0.5.1...0.5.2

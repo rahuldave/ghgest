@@ -2,6 +2,31 @@
 
 What's new in gest — told version by version.
 
+## v0.5.5
+
+<span style={{opacity: 0.5}}>2026-04-17</span>
+
+### Removing Relationships
+
+`gest task unlink` and `gest iteration unlink` close a long-standing gap: there was no way to remove a single
+relationship between two entities once it had been created. The commands take a source and target ID, with an optional
+`--rel <type>` filter to disambiguate when multiple edge types connect the same pair and `--artifact` when the target
+is an artifact. Iteration-to-iteration unlinks delete both the forward and reciprocal rows atomically, so `gest undo`
+restores both halves.
+
+- `task unlink <id> <target> [--rel <type>] [--artifact]` ([#63](https://github.com/aaronmallen/gest/issues/63))
+- `iteration unlink <id> <target> [--rel <type>] [--artifact]`
+
+### Iteration Link Flag Parity
+
+`iteration link` gained a `--rel <type>` flag matching the `task link` shape. The old positional form
+(`iteration link <id> <rel> <target>`) still works but now emits a deprecation warning on stderr — switch to
+`iteration link <id> <target> --rel <type>` going forward.
+
+### Web UI
+
+A new global kanban board surfaces every task in the project in a single view, independent of iteration membership.
+
 ## v0.5.4
 
 <span style={{opacity: 0.5}}>2026-04-14</span>
