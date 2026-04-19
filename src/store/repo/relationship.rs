@@ -223,10 +223,6 @@ pub async fn for_entity(conn: &Connection, entity_type: EntityType, entity_id: &
 /// The object shape mirrors the `relationships` table column set so
 /// [`crate::store::repo::transaction::undo`] can re-insert the row verbatim via
 /// an `INSERT` whose column list is the object's key set.
-// Callers migrate to this shared helper in phase 2 (task xovpkxwo); until then
-// the byte-identical duplicates in `task/unlink.rs` and `iteration/unlink.rs`
-// remain and this function has no in-crate users outside the test module.
-#[allow(dead_code)]
 pub fn relationship_audit_payload(rel: &Model) -> JsonValue {
   let mut map = Map::new();
   map.insert("id".into(), JsonValue::String(rel.id().to_string()));

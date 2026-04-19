@@ -1,5 +1,4 @@
 use clap::Args;
-use serde_json::{Map, Value as JsonValue};
 
 use crate::{
   AppContext,
@@ -130,7 +129,7 @@ async fn record_and_delete(
   transaction_id: &crate::store::model::primitives::Id,
   rel: &Relationship,
 ) -> Result<(), StoreError> {
-  let payload = relationship_audit_payload(rel);
+  let payload = repo::relationship::relationship_audit_payload(rel);
   repo::transaction::record_event(
     conn,
     transaction_id,
@@ -142,21 +141,4 @@ async fn record_and_delete(
   .await?;
   repo::relationship::delete(conn, rel.id()).await?;
   Ok(())
-}
-
-/// Build the JSON payload stored in the audit log for a relationship row.
-///
-/// The shape must match the `relationships` table schema exactly -- `transaction::undo` reconstructs the row via an
-/// `INSERT` whose column list is the object's key set.
-fn relationship_audit_payload(rel: &Relationship) -> JsonValue {
-  let mut map = Map::new();
-  map.insert("id".into(), JsonValue::String(rel.id().to_string()));
-  map.insert("rel_type".into(), JsonValue::String(rel.rel_type().to_string()));
-  map.insert("source_id".into(), JsonValue::String(rel.source_id().to_string()));
-  map.insert("source_type".into(), JsonValue::String(rel.source_type().to_string()));
-  map.insert("target_id".into(), JsonValue::String(rel.target_id().to_string()));
-  map.insert("target_type".into(), JsonValue::String(rel.target_type().to_string()));
-  map.insert("created_at".into(), JsonValue::String(rel.created_at().to_rfc3339()));
-  map.insert("updated_at".into(), JsonValue::String(rel.updated_at().to_rfc3339()));
-  JsonValue::Object(map)
 }

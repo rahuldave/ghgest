@@ -1,14 +1,10 @@
 use clap::Args;
-use serde_json::{Map, Value as JsonValue};
 
 use crate::{
   AppContext,
   cli::Error,
   store::{
-    model::{
-      primitives::{EntityType, RelationshipType},
-      relationship::Model as Relationship,
-    },
+    model::primitives::{EntityType, RelationshipType},
     repo,
   },
   ui::{components::SuccessMessage, envelope::Envelope, json},
@@ -84,7 +80,7 @@ impl Command {
       }
     };
 
-    let payload = relationship_audit_payload(&rel);
+    let payload = repo::relationship::relationship_audit_payload(&rel);
 
     let tx = repo::transaction::begin(&conn, project_id, "task unlink").await?;
     repo::transaction::record_event(
@@ -118,20 +114,4 @@ impl Command {
     })?;
     Ok(())
   }
-}
-
-/// Build the audit payload recorded in the transaction log for a relationship
-/// row. The shape matches the `relationships` table column set so
-/// [`repo::transaction::undo`] can re-insert the row verbatim.
-fn relationship_audit_payload(rel: &Relationship) -> JsonValue {
-  let mut map = Map::new();
-  map.insert("id".into(), JsonValue::String(rel.id().to_string()));
-  map.insert("rel_type".into(), JsonValue::String(rel.rel_type().to_string()));
-  map.insert("source_id".into(), JsonValue::String(rel.source_id().to_string()));
-  map.insert("source_type".into(), JsonValue::String(rel.source_type().to_string()));
-  map.insert("target_id".into(), JsonValue::String(rel.target_id().to_string()));
-  map.insert("target_type".into(), JsonValue::String(rel.target_type().to_string()));
-  map.insert("created_at".into(), JsonValue::String(rel.created_at().to_rfc3339()));
-  map.insert("updated_at".into(), JsonValue::String(rel.updated_at().to_rfc3339()));
-  JsonValue::Object(map)
 }
