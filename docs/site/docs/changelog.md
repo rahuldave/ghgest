@@ -2,6 +2,54 @@
 
 What's new in gest — told version by version.
 
+## v0.5.6
+
+<span style={{opacity: 0.5}}>2026-04-19</span>
+
+### Pager on Detail Views
+
+`gest artifact show` and `gest iteration show` now route their output through the pager, the same
+way `list` and `search` already did. Long descriptions, timelines, and relationship blocks scroll
+under your `$PAGER` instead of dumping into scrollback. `--no-pager`, the `pager.enabled` config
+field, and the TTY/terminal-height policy all apply uniformly.
+
+### Project JSON Envelope
+
+`project archive`, `project delete`, and `project unarchive` now emit the same `Envelope<Project>`
+JSON shape that the other entity commands use — the project row plus sidecar arrays for
+relationships, tags, and notes. If you're scripting against the older `--json` output (added in
+v0.5.4), update your parsers to read `envelope.entity` for the project body; the sidecar arrays
+are additive.
+
+### Purge Performance
+
+`gest purge` now batches cascade deletes. Instead of issuing one `SELECT`/`DELETE` per row per
+child table, it emits one `IN (...)` query per child table per entity type (tasks, iterations,
+artifacts). On large cleanups this collapses thousands of round-trips into a handful, while the
+child-first ordering and per-row audit events that `undo` relies on are preserved.
+
+### Transaction Replay Hardening
+
+`gest undo` now runs every replayed `table_name` and `before_data` column key through a closed
+allowlist before interpolating it into the rendered SQL. A corrupt, tampered, or forward-
+incompatible audit row surfaces as a clear `InvalidValue` error instead of being pasted into a
+`DELETE`/`UPDATE`/`INSERT`. Well-formed rows replay identically.
+
+### Web UI Navigation Guard
+
+The `data-nav-select` selector in the web UI now rejects any option value that isn't a same-
+origin relative path (must start with `/`, must not start with `//`). This closes off a defensive
+hole where a selector populated from untrusted input could have fired a `javascript:` URI or a
+protocol-relative redirect to an external host. Today all option values come from server-rendered
+routes, so this is a belt-and-braces hardening rather than a fix for an exploitable bug.
+
+### Internal Consolidation
+
+Behind the CLI surface, a round of shared-helper extraction landed: title inference from piped
+markdown, status-transition lifecycle commands, unlink audit payloads, short-ID `--quiet` output,
+and summary rendering each collapsed from N copies to one. No user-visible behavior change, but
+command handlers are now noticeably thinner.
+
 ## v0.5.5
 
 <span style={{opacity: 0.5}}>2026-04-17</span>

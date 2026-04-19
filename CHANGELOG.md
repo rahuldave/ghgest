@@ -7,6 +7,32 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [v0.5.6] - 2026-04-19
+
+### Added
+
+- Pager support on `gest artifact show` and `gest iteration show` — long detail views honor
+  `--no-pager`, `pager.enabled` config, and TTY/terminal-height checks, matching list and search
+  commands
+
+### Changed
+
+- `project archive`, `project delete`, and `project unarchive` `--json` output now uses the
+  Envelope format (with relationships, tags, and notes sidecars), matching other entity commands
+- `gest purge` batches cascade deletes into one `IN (...)` query per child table for tasks,
+  iterations, and artifacts, eliminating per-row query fanout on large cleanups
+- Transaction replay validates `table_name` and `before_data` column keys against a closed
+  allowlist — a corrupt or tampered audit row is rejected before its identifiers reach the
+  rendered SQL
+- Consolidated shared helpers for title inference, status transitions, unlink audit payloads,
+  short-ID `--quiet` output, and summary rendering across CLI command handlers
+
+### Fixed
+
+- Web UI `data-nav-select` navigation now refuses non-same-origin option values, so a selector
+  populated with an attacker-controlled `javascript:` URI or protocol-relative host can't be used
+  to navigate away
+
 ## [v0.5.5] - 2026-04-17
 
 ### Added
@@ -497,7 +523,8 @@ Initial release
 [#54]: https://github.com/aaronmallen/gest/issues/54
 [#63]: https://github.com/aaronmallen/gest/issues/63
 
-[Unreleased]: https://github.com/aaronmallen/gest/compare/0.5.5...main
+[Unreleased]: https://github.com/aaronmallen/gest/compare/0.5.6...main
+[v0.5.6]: https://github.com/aaronmallen/gest/compare/0.5.5...0.5.6
 [v0.5.5]: https://github.com/aaronmallen/gest/compare/0.5.4...0.5.5
 [v0.5.4]: https://github.com/aaronmallen/gest/compare/0.5.3...0.5.4
 [v0.5.3]: https://github.com/aaronmallen/gest/compare/0.5.2...0.5.3
