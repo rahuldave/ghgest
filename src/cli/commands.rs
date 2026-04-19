@@ -3,6 +3,7 @@
 pub mod artifact;
 pub mod config;
 pub mod generate;
+pub mod helpers;
 pub mod init;
 pub mod iteration;
 pub mod migrate;
