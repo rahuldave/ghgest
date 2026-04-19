@@ -47,12 +47,13 @@ impl Command {
 
     let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Artifacts, &self.id).await?;
 
+    let before_artifact = repo::artifact::find_by_id(&conn, id.clone())
+      .await?
+      .ok_or(Error::UninitializedProject)?;
+
     let body = if self.edit {
-      let artifact = repo::artifact::find_by_id(&conn, id.clone())
-        .await?
-        .ok_or_else(|| Error::Editor(format!("artifact {} not found", self.id)))?;
-      let edited =
-        crate::io::editor::edit_text_with_suffix(artifact.body(), ".md").map_err(|e| Error::Editor(e.to_string()))?;
+      let edited = crate::io::editor::edit_text_with_suffix(before_artifact.body(), ".md")
+        .map_err(|e| Error::Editor(e.to_string()))?;
       if edited.trim().is_empty() {
         return Err(Error::Editor("Aborting: empty body".into()));
       }
@@ -61,9 +62,6 @@ impl Command {
       self.body.clone()
     };
 
-    let before_artifact = repo::artifact::find_by_id(&conn, id.clone())
-      .await?
-      .ok_or(Error::UninitializedProject)?;
     let metadata = self.build_metadata(before_artifact.metadata())?;
 
     let before = serde_json::to_value(&before_artifact)?;
