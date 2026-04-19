@@ -1,20 +1,24 @@
 pub mod meta;
 pub mod note;
 pub mod tag;
+pub mod transition;
 
 use libsql::Connection;
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::store::{
-  Error,
-  model::{
-    artifact, iteration,
-    primitives::{EntityType, Id},
-    task,
+use crate::{
+  actions::transition::HasStatus,
+  store::{
+    Error,
+    model::{
+      artifact, iteration,
+      primitives::{EntityType, Id, IterationStatus, TaskStatus},
+      task,
+    },
+    repo,
+    repo::resolve::Table,
   },
-  repo,
-  repo::resolve::Table,
 };
 
 /// An entity that can be resolved from an ID prefix and fetched by full ID.
@@ -159,6 +163,25 @@ impl HasMetadata for Iteration {
   }
 }
 
+impl HasStatus for Iteration {
+  type Status = IterationStatus;
+
+  fn status(model: &iteration::Model) -> IterationStatus {
+    model.status()
+  }
+
+  fn status_patch(status: IterationStatus) -> iteration::Patch {
+    iteration::Patch {
+      status: Some(status),
+      ..Default::default()
+    }
+  }
+
+  fn title(model: &iteration::Model) -> &str {
+    model.title()
+  }
+}
+
 impl Prefixable for Iteration {
   async fn prefix_length(conn: &Connection, project_id: &Id, id: &str) -> Result<usize, Error> {
     let lengths = repo::iteration::prefix_lengths_for_project(conn, project_id, &[id]).await?;
@@ -211,6 +234,25 @@ impl HasMetadata for Task {
 }
 
 impl HasNotes for Task {}
+
+impl HasStatus for Task {
+  type Status = TaskStatus;
+
+  fn status(model: &task::Model) -> TaskStatus {
+    model.status()
+  }
+
+  fn status_patch(status: TaskStatus) -> task::Patch {
+    task::Patch {
+      status: Some(status),
+      ..Default::default()
+    }
+  }
+
+  fn title(model: &task::Model) -> &str {
+    model.title()
+  }
+}
 
 impl Prefixable for Task {
   async fn prefix_length(conn: &Connection, project_id: &Id, id: &str) -> Result<usize, Error> {
