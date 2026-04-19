@@ -75,6 +75,28 @@ impl Flags {
     Ok(())
   }
 
+  /// Print a collection of entities. In JSON mode the slice is serialized; in
+  /// quiet mode each short ID is printed on its own line; otherwise `normal` is
+  /// called to produce the human-readable output.
+  pub fn print_entities<T: Serialize>(
+    &self,
+    entities: &[T],
+    short_ids: impl FnOnce() -> Vec<String>,
+    normal: impl FnOnce() -> String,
+  ) -> Result<(), Error> {
+    if self.json {
+      let json = serde_json::to_string_pretty(entities)?;
+      println!("{json}");
+    } else if self.quiet {
+      for id in short_ids() {
+        println!("{id}");
+      }
+    } else {
+      println!("{}", normal());
+    }
+    Ok(())
+  }
+
   /// Print a single entity. In JSON mode the entity is serialized; in quiet mode
   /// only the short ID is printed; otherwise `normal` is called to produce the
   /// human-readable output.

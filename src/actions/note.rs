@@ -144,17 +144,12 @@ pub async fn list<E: HasNotes>(
   let mut notes = repo::note::for_entity(&conn, E::entity_type(), &parent_id).await?;
   limit.apply(&mut notes);
 
-  if output.json {
-    let json = serde_json::to_string_pretty(&notes)?;
-    println!("{json}");
-    return Ok(());
-  }
-
-  if output.quiet {
-    for note in &notes {
-      println!("{}", note.id().short());
-    }
-    return Ok(());
+  if output.json || output.quiet {
+    return output.print_entities(
+      &notes,
+      || notes.iter().map(|n| n.id().short()).collect(),
+      || unreachable!("normal branch is handled by the pager below"),
+    );
   }
 
   if notes.is_empty() {
