@@ -77,12 +77,9 @@ impl Command {
     let artifact = repo::artifact::update(&conn, &id, &patch).await?;
     repo::transaction::record_event(&conn, tx.id(), "artifacts", &id.to_string(), "modified", Some(&before)).await?;
 
+    // Replace all tags if --tag was specified
     if !self.tag.is_empty() {
-      // Replace all tags: remove existing, then attach new ones
-      let existing_tags = repo::tag::for_entity(&conn, EntityType::Artifact, &id).await?;
-      for label in &existing_tags {
-        repo::tag::detach(&conn, EntityType::Artifact, &id, label).await?;
-      }
+      repo::tag::detach_all(&conn, EntityType::Artifact, &id).await?;
       for label in tag_arg::normalize_tags(&self.tag) {
         let tag = repo::tag::attach(&conn, EntityType::Artifact, &id, &label).await?;
         repo::transaction::record_event(&conn, tx.id(), "entity_tags", &tag.id().to_string(), "created", None).await?;
