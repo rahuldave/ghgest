@@ -102,6 +102,90 @@ impl Table {
       Self::Tasks => "tasks",
     }
   }
+
+  /// Returns the closed allowlist of column identifiers defined on this
+  /// table's schema.
+  ///
+  /// Call sites that interpolate column names into dynamic SQL (e.g. replaying
+  /// `transaction_events.before_data` JSON keys into an `UPDATE ... SET` or
+  /// `INSERT ... (columns)` clause) MUST validate each key against this list
+  /// to prevent a malicious or corrupt `before_data` payload from injecting
+  /// arbitrary identifiers into the rendered SQL.
+  ///
+  /// The lists are kept in sync by hand with the migration DDL under
+  /// `src/store/migration/`; any schema change must update the matching
+  /// variant here.
+  // Consumers migrate to this API in a follow-up phase.
+  #[allow(dead_code)]
+  pub fn columns(self) -> &'static [&'static str] {
+    match self {
+      Self::Artifacts => &[
+        "archived_at",
+        "body",
+        "created_at",
+        "id",
+        "metadata",
+        "project_id",
+        "title",
+        "updated_at",
+      ],
+      Self::EntityTags => &["created_at", "entity_id", "entity_type", "tag_id"],
+      Self::IterationTasks => &["created_at", "iteration_id", "phase", "task_id"],
+      Self::Iterations => &[
+        "completed_at",
+        "created_at",
+        "description",
+        "id",
+        "metadata",
+        "project_id",
+        "status",
+        "title",
+        "updated_at",
+      ],
+      Self::Notes => &[
+        "author_id",
+        "body",
+        "created_at",
+        "entity_id",
+        "entity_type",
+        "id",
+        "updated_at",
+      ],
+      Self::Projects => &["archived_at", "created_at", "id", "root", "updated_at"],
+      Self::Relationships => &[
+        "created_at",
+        "id",
+        "rel_type",
+        "source_id",
+        "source_type",
+        "target_id",
+        "target_type",
+        "updated_at",
+      ],
+      Self::Tasks => &[
+        "assigned_to",
+        "created_at",
+        "description",
+        "id",
+        "metadata",
+        "priority",
+        "project_id",
+        "resolved_at",
+        "status",
+        "title",
+        "updated_at",
+      ],
+    }
+  }
+
+  /// Returns `true` iff `column` is an allowlisted identifier on this table.
+  ///
+  /// Convenience wrapper over [`Table::columns`] for single-key checks.
+  // Consumers migrate to this API in a follow-up phase.
+  #[allow(dead_code)]
+  pub fn has_column(self, column: &str) -> bool {
+    self.columns().contains(&column)
+  }
 }
 
 /// Query the given table for IDs matching the prefix, optionally restricted
@@ -378,6 +462,66 @@ mod tests {
       assert_eq!(Table::from_sql_ident("Artifacts"), None);
       assert_eq!(Table::from_sql_ident("artifacts;--"), None);
       assert_eq!(Table::from_sql_ident("unknown_table"), None);
+    }
+
+    #[test]
+    fn it_lists_relationships_columns_matching_schema() {
+      // `relationships` is non-trivial: it carries the full
+      // (rel_type, source_*, target_*) tuple and is the table that receives
+      // the broadest variety of `before_data` JSON payloads during undo.
+      let cols = Table::Relationships.columns();
+      assert_eq!(
+        cols,
+        &[
+          "created_at",
+          "id",
+          "rel_type",
+          "source_id",
+          "source_type",
+          "target_id",
+          "target_type",
+          "updated_at",
+        ]
+      );
+    }
+
+    #[test]
+    fn it_lists_tasks_columns_matching_schema() {
+      let cols = Table::Tasks.columns();
+      assert_eq!(
+        cols,
+        &[
+          "assigned_to",
+          "created_at",
+          "description",
+          "id",
+          "metadata",
+          "priority",
+          "project_id",
+          "resolved_at",
+          "status",
+          "title",
+          "updated_at",
+        ]
+      );
+    }
+
+    #[test]
+    fn it_reports_has_column_true_for_known_columns() {
+      assert!(Table::Tasks.has_column("status"));
+      assert!(Table::Tasks.has_column("id"));
+      assert!(Table::Relationships.has_column("rel_type"));
+      assert!(Table::EntityTags.has_column("tag_id"));
+      assert!(Table::IterationTasks.has_column("phase"));
+    }
+
+    #[test]
+    fn it_reports_has_column_false_for_unknown_or_injection_attempts() {
+      assert!(!Table::Tasks.has_column("drop_table"));
+      assert!(!Table::Tasks.has_column(""));
+      assert!(!Table::Tasks.has_column("status; DROP TABLE tasks;--"));
+      assert!(!Table::EntityTags.has_column("id")); // entity_tags has composite PK, no `id`
+      assert!(!Table::IterationTasks.has_column("id"));
     }
   }
 
