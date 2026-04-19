@@ -15,7 +15,7 @@ pub use column::{Component as Column, Flex};
 pub use icon::Component as Icon;
 #[cfg(test)]
 pub use id::min_unique_prefix;
-pub use id::{Component as Id, prefix_lengths_two_tier, unique_prefix_lengths};
+pub use id::{Component as Id, prefix_lengths_two_tier, unique_prefix_length_for_id, unique_prefix_lengths};
 pub use label::Component as Label;
 pub use separator::Component as Separator;
 pub use tag::Component as Tag;

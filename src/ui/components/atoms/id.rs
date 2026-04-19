@@ -96,6 +96,37 @@ pub fn prefix_lengths_two_tier(active_ids: &[&str], all_ids: &[&str]) -> Vec<usi
     .collect()
 }
 
+/// Compute the shortest prefix that distinguishes a single target ID from
+/// every other ID in the pool (each ID is first truncated to 8 chars).
+///
+/// The pool may optionally contain `target`; entries whose full string equals
+/// `target` are skipped once so callers can pass pools assembled via a
+/// narrow `LIKE` query without special-casing the target's own row. Pool
+/// entries whose 8-char prefix collides with `target`'s but whose full IDs
+/// differ are treated like any other colliding entry and drive the result
+/// up to the 8-char cap.
+///
+/// Returns at least 1 and at most 8.
+pub fn unique_prefix_length_for_id(target: &str, pool: &[&str]) -> usize {
+  let target_short: String = target.chars().take(8).collect();
+  let mut len = 1usize;
+  let mut skipped_self = false;
+  for other in pool {
+    if !skipped_self && *other == target {
+      skipped_self = true;
+      continue;
+    }
+    let other_short: String = other.chars().take(8).collect();
+    let common = target_short
+      .chars()
+      .zip(other_short.chars())
+      .take_while(|(a, b)| a == b)
+      .count();
+    len = len.max((common + 1).min(8));
+  }
+  len
+}
+
 /// Compute the shortest prefix that distinguishes each ID from every other ID
 /// in the input slice (each ID is first truncated to 8 chars).
 ///
@@ -183,6 +214,61 @@ mod tests {
       assert_eq!(lengths[2], 1); // "ccc33333"
       // Archived ID needs longer prefix (computed against full pool)
       assert_eq!(lengths[3], 4); // "aaa44444" vs "aaa11111" — need 4 chars
+    }
+  }
+
+  mod unique_prefix_length_for_id_fn {
+    use super::*;
+
+    #[test]
+    fn it_caps_at_eight_when_full_short_id_collides() {
+      // The target's 8-char prefix matches another entry's 8-char prefix but
+      // the full IDs differ past character 8 (pool values longer than 8).
+      let pool = vec!["aaaaaaaab", "aaaaaaaaz"];
+
+      assert_eq!(unique_prefix_length_for_id("aaaaaaaax", &pool), 8);
+    }
+
+    #[test]
+    fn it_skips_target_entry_in_pool() {
+      // Narrow-query pools include the target row itself; skip it so the
+      // target's own ID doesn't force the length to 8 spuriously.
+      let pool = vec!["aaxyz111", "aaxyz222"];
+
+      assert_eq!(unique_prefix_length_for_id("aaxyz111", &pool), 6);
+    }
+
+    #[test]
+    fn it_returns_1_for_empty_pool() {
+      let pool: Vec<&str> = vec![];
+
+      assert_eq!(unique_prefix_length_for_id("abcdefgh", &pool), 1);
+    }
+
+    #[test]
+    fn it_returns_1_when_pool_shares_no_first_char() {
+      let pool = vec!["bcde1234", "cdef5678"];
+
+      assert_eq!(unique_prefix_length_for_id("abcd0000", &pool), 1);
+    }
+
+    #[test]
+    fn it_returns_common_plus_one_for_sibling_in_pool() {
+      let pool = vec!["aaxyz111", "aaxyz222", "bbcde333"];
+
+      // "aaxyz1" vs "aaxyz2" → 5 common chars → prefix 6
+      assert_eq!(unique_prefix_length_for_id("aaxyz111", &pool), 6);
+    }
+
+    #[test]
+    fn it_matches_unique_prefix_lengths_for_same_pool() {
+      // Single-ID narrow path must agree with the full-pool per-ID computation.
+      let pool = vec!["xmaaaaaa", "wbbbbbbb", "pccccccc", "xtdddddd", "oeeeeeee"];
+      let full = unique_prefix_lengths(&pool);
+
+      for (i, id) in pool.iter().enumerate() {
+        assert_eq!(unique_prefix_length_for_id(id, &pool), full[i]);
+      }
     }
   }
 
