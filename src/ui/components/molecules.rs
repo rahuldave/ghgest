@@ -12,6 +12,7 @@ mod phase_header;
 pub mod row;
 mod status_badge;
 mod success_message;
+mod summary;
 mod task_row;
 mod update_notice;
 
@@ -27,5 +28,6 @@ pub use phase_header::Component as PhaseHeader;
 pub use row::Component as Row;
 pub use status_badge::Component as StatusBadge;
 pub use success_message::Component as SuccessMessage;
+pub use summary::Component as Summary;
 pub use task_row::{Component as TaskRow, priority_pad_width};
 pub use update_notice::Component as UpdateNotice;
