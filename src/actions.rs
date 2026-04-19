@@ -114,8 +114,7 @@ impl HasNotes for Artifact {}
 
 impl Prefixable for Artifact {
   async fn prefix_length(conn: &Connection, project_id: &Id, id: &str) -> Result<usize, Error> {
-    let lengths = repo::artifact::prefix_lengths(conn, project_id, &[id]).await?;
-    Ok(lengths.into_iter().next().unwrap_or(1))
+    repo::artifact::prefix_length_for_id(conn, project_id, id).await
   }
 }
 
@@ -184,8 +183,7 @@ impl HasStatus for Iteration {
 
 impl Prefixable for Iteration {
   async fn prefix_length(conn: &Connection, project_id: &Id, id: &str) -> Result<usize, Error> {
-    let lengths = repo::iteration::prefix_lengths_for_project(conn, project_id, &[id]).await?;
-    Ok(lengths.into_iter().next().unwrap_or(1))
+    repo::iteration::prefix_length_for_id(conn, project_id, id).await
   }
 }
 
@@ -256,8 +254,7 @@ impl HasStatus for Task {
 
 impl Prefixable for Task {
   async fn prefix_length(conn: &Connection, project_id: &Id, id: &str) -> Result<usize, Error> {
-    let map = repo::task::per_id_prefix_lengths(conn, project_id).await?;
-    Ok(map.get(id).copied().unwrap_or(1))
+    repo::task::prefix_length_for_id(conn, project_id, id).await
   }
 }
 
