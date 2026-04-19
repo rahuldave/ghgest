@@ -4,7 +4,7 @@ use crate::{
   AppContext,
   cli::{Error, prompt},
   store::repo::{self, resolve::Table},
-  ui::{components::SuccessMessage, json},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Delete a project and all of its owned entities.
@@ -56,34 +56,26 @@ impl Command {
     let deleted_at = chrono::Utc::now();
     let summary = repo::project::delete(&conn, &id, context.gest_dir().as_deref(), deleted_at).await?;
 
-    let short_id = id.short();
-    if self.output.json {
-      let json = serde_json::json!({
-        "id": id.to_string(),
-        "root": project.root().display().to_string(),
-        "tasks": summary.tasks,
-        "iterations": summary.iterations,
-        "artifacts": summary.artifacts,
-        "notes": summary.notes,
-        "tags": summary.tags,
-        "relationships": summary.relationships,
-      });
-      println!("{}", serde_json::to_string_pretty(&json)?);
-    } else if self.output.quiet {
-      println!("{short_id}");
-    } else {
+    let envelope = Envelope {
+      entity: &project,
+      notes: None,
+      relationships: vec![],
+      tags: vec![],
+    };
+    let short_id = project.id().short();
+    self.output.print_envelope(&envelope, &short_id, || {
       log::info!("deleted project");
-      let msg = SuccessMessage::new("deleted project")
-        .id(short_id)
+      SuccessMessage::new("deleted project")
+        .id(short_id.clone())
         .field("root", project.root().display().to_string())
         .field("tasks", summary.tasks.to_string())
         .field("iterations", summary.iterations.to_string())
         .field("artifacts", summary.artifacts.to_string())
         .field("notes", summary.notes.to_string())
         .field("tags", summary.tags.to_string())
-        .field("relationships", summary.relationships.to_string());
-      println!("{msg}");
-    }
+        .field("relationships", summary.relationships.to_string())
+        .to_string()
+    })?;
     Ok(())
   }
 }

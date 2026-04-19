@@ -3,8 +3,8 @@ use clap::Args;
 use crate::{
   AppContext,
   cli::Error,
-  store::repo,
-  ui::{components::SuccessMessage, json},
+  store::repo::{self, resolve::Table},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Restore an archived project to active status.
@@ -22,33 +22,32 @@ impl Command {
     log::debug!("project unarchive: entry");
     let conn = context.store().connect().await?;
 
-    let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Projects, &self.id).await?;
+    let id = repo::resolve::resolve_id(&conn, Table::Projects, &self.id).await?;
     let project = repo::project::find_by_id(&conn, id)
       .await?
       .ok_or_else(|| Error::Argument(format!("project {} not found", self.id)))?;
 
     repo::project::unarchive(&conn, project.id()).await?;
+    let restored = repo::project::find_by_id(&conn, project.id().clone())
+      .await?
+      .ok_or_else(|| Error::Argument(format!("project {} not found after unarchive", project.id().short())))?;
 
-    let short_id = project.id().short();
-    if self.output.json {
-      let json = serde_json::json!({
-        "id": project.id().to_string(),
-        "root": project.root().display().to_string(),
-      });
-      println!("{}", serde_json::to_string_pretty(&json)?);
-    } else if self.output.quiet {
-      println!("{short_id}");
-    } else {
+    let envelope = Envelope {
+      entity: &restored,
+      notes: None,
+      relationships: vec![],
+      tags: vec![],
+    };
+    let short_id = restored.id().short();
+    self.output.print_envelope(&envelope, &short_id, || {
       let message = SuccessMessage::new("unarchived project")
         .id(short_id.clone())
-        .field("root", project.root().display().to_string());
-      println!("{message}");
-      println!();
-      println!(
-        "  Workspace paths are not automatically restored \u{2014} run `gest project attach {}` to re-enable workspace discovery.",
-        short_id
-      );
-    }
+        .field("root", restored.root().display().to_string());
+      format!(
+        "{message}\n\n  Workspace paths are not automatically restored \u{2014} run \
+        `gest project attach {short_id}` to re-enable workspace discovery."
+      )
+    })?;
     Ok(())
   }
 }

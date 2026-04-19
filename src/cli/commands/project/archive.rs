@@ -3,8 +3,8 @@ use clap::Args;
 use crate::{
   AppContext,
   cli::{Error, prompt},
-  store::repo,
-  ui::{components::SuccessMessage, json},
+  store::repo::{self, resolve::Table},
+  ui::{components::SuccessMessage, envelope::Envelope, json},
 };
 
 /// Soft-archive a project, detaching all workspaces and hiding owned entities from list views.
@@ -25,7 +25,7 @@ impl Command {
     log::debug!("project archive: entry");
     let conn = context.store().connect().await?;
 
-    let id = repo::resolve::resolve_id(&conn, repo::resolve::Table::Projects, &self.id).await?;
+    let id = repo::resolve::resolve_id(&conn, Table::Projects, &self.id).await?;
     let project = repo::project::find_by_id(&conn, id)
       .await?
       .ok_or_else(|| Error::Argument(format!("project {} not found", self.id)))?;
@@ -33,7 +33,8 @@ impl Command {
     let counts = repo::project::entity_counts(&conn, project.id()).await?;
 
     let target = format!(
-      "project {} ({}). This will detach {} workspace paths and hide {} tasks, {} iterations, {} artifacts from list views",
+      "project {} ({}). This will detach {} workspace paths and hide {} tasks, \
+      {} iterations, {} artifacts from list views",
       project.id().short(),
       project.root().display(),
       counts.workspaces,
@@ -47,30 +48,28 @@ impl Command {
     }
 
     repo::project::archive(&conn, project.id()).await?;
+    let archived = repo::project::find_by_id(&conn, project.id().clone())
+      .await?
+      .ok_or_else(|| Error::Argument(format!("project {} not found after archive", project.id().short())))?;
 
-    let short_id = project.id().short();
-    if self.output.json {
-      let json = serde_json::json!({
-        "id": project.id().to_string(),
-        "root": project.root().display().to_string(),
-        "workspaces_detached": counts.workspaces,
-        "tasks_hidden": counts.tasks,
-        "iterations_hidden": counts.iterations,
-        "artifacts_hidden": counts.artifacts,
-      });
-      println!("{}", serde_json::to_string_pretty(&json)?);
-    } else if self.output.quiet {
-      println!("{short_id}");
-    } else {
-      let message = SuccessMessage::new("archived project")
-        .id(short_id)
-        .field("root", project.root().display().to_string())
+    let envelope = Envelope {
+      entity: &archived,
+      notes: None,
+      relationships: vec![],
+      tags: vec![],
+    };
+    let short_id = archived.id().short();
+    self.output.print_envelope(&envelope, &short_id, || {
+      log::info!("archived project");
+      SuccessMessage::new("archived project")
+        .id(short_id.clone())
+        .field("root", archived.root().display().to_string())
         .field("workspaces detached", counts.workspaces.to_string())
         .field("tasks hidden", counts.tasks.to_string())
         .field("iterations hidden", counts.iterations.to_string())
-        .field("artifacts hidden", counts.artifacts.to_string());
-      println!("{message}");
-    }
+        .field("artifacts hidden", counts.artifacts.to_string())
+        .to_string()
+    })?;
     Ok(())
   }
 }
