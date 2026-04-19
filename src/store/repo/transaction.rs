@@ -8,6 +8,7 @@ use crate::store::{
     primitives::Id,
     transaction::{Event, Model},
   },
+  repo::resolve::Table,
 };
 
 const SELECT_COLUMNS: &str = "id, project_id, author_id, command, undone_at, created_at";
@@ -301,10 +302,17 @@ pub async fn undo(conn: &Connection, transaction_id: &Id) -> Result<String, Erro
 
   // Replay each event
   for event in &events {
+    // Resolve the stored `table_name` through the closed allowlist. A row with
+    // an unrecognized identifier indicates either a schema-migration gap or a
+    // tampered DB; either way, we refuse to interpolate it into dynamic SQL.
+    let table = Table::from_sql_ident(event.table_name())
+      .ok_or_else(|| Error::InvalidValue(format!("unknown table in transaction_events: {}", event.table_name())))?;
+    let ident = table.as_sql_ident();
+
     match event.event_type().as_str() {
       "created" => {
         // Undo a create by deleting the row
-        let sql = format!("DELETE FROM {} WHERE id = ?1", event.table_name());
+        let sql = format!("DELETE FROM {ident} WHERE id = ?1");
         conn.execute(&sql, [event.row_id().to_string()]).await?;
       }
       "modified" => {
@@ -319,6 +327,11 @@ pub async fn undo(conn: &Connection, transaction_id: &Id) -> Result<String, Erro
             if key == "id" {
               continue;
             }
+            if !table.has_column(key) {
+              return Err(Error::InvalidValue(format!(
+                "unknown column in before_data for table {ident}: {key}"
+              )));
+            }
             sets.push(format!("{key} = ?{idx}"));
             params.push(match val {
               JsonValue::String(s) => s.clone(),
@@ -329,11 +342,7 @@ pub async fn undo(conn: &Connection, transaction_id: &Id) -> Result<String, Erro
           }
           if !sets.is_empty() {
             params.push(event.row_id().to_string());
-            let sql = format!(
-              "UPDATE {} SET {} WHERE id = ?{idx}",
-              event.table_name(),
-              sets.join(", ")
-            );
+            let sql = format!("UPDATE {ident} SET {} WHERE id = ?{idx}", sets.join(", "));
             conn
               .execute(&sql, libsql::params_from_iter(params.iter().map(|s| s.as_str())))
               .await?;
@@ -348,6 +357,13 @@ pub async fn undo(conn: &Connection, transaction_id: &Id) -> Result<String, Erro
         if let Some(before) = event.before_data()
           && let Some(obj) = before.as_object()
         {
+          for key in obj.keys() {
+            if !table.has_column(key) {
+              return Err(Error::InvalidValue(format!(
+                "unknown column in before_data for table {ident}: {key}"
+              )));
+            }
+          }
           let keys: Vec<&str> = obj.keys().map(|k| k.as_str()).collect();
           let placeholders: Vec<String> = (1..=keys.len()).map(|i| format!("?{i}")).collect();
           let values: Vec<Value> = obj
@@ -359,8 +375,7 @@ pub async fn undo(conn: &Connection, transaction_id: &Id) -> Result<String, Erro
             })
             .collect();
           let sql = format!(
-            "INSERT OR IGNORE INTO {} ({}) VALUES ({})",
-            event.table_name(),
+            "INSERT OR IGNORE INTO {ident} ({}) VALUES ({})",
             keys.join(", "),
             placeholders.join(", ")
           );
@@ -761,6 +776,78 @@ mod tests {
         .await
         .unwrap();
       assert!(rows.next().await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn it_errors_when_before_data_contains_unknown_column_for_deleted_event() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      // Hand-craft a `deleted` event whose `before_data` names a column that
+      // does not exist on `tasks`. The allowlist must reject it before any
+      // SQL is rendered.
+      let tx = begin(&conn, &pid, "task delete").await.unwrap();
+      let bogus = serde_json::json!({
+        "id": "abc",
+        "title": "Task",
+        "not_a_real_column": "value",
+      });
+      record_event(&conn, tx.id(), "tasks", "abc", "deleted", Some(&bogus))
+        .await
+        .unwrap();
+
+      let err = undo(&conn, tx.id()).await.unwrap_err();
+      let msg = err.to_string();
+      assert!(msg.contains("unknown column"), "unexpected error: {msg}");
+      assert!(msg.contains("not_a_real_column"), "unexpected error: {msg}");
+    }
+
+    #[tokio::test]
+    async fn it_errors_when_before_data_contains_unknown_column_for_modified_event() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      // Insert a task so the row exists even though we expect the replay to
+      // bail before issuing any UPDATE.
+      let task_id = Id::new();
+      conn
+        .execute(
+          "INSERT INTO tasks (id, project_id, title) VALUES (?1, ?2, ?3)",
+          [task_id.to_string(), pid.to_string(), "Task".to_string()],
+        )
+        .await
+        .unwrap();
+
+      let tx = begin(&conn, &pid, "task update").await.unwrap();
+      let before = serde_json::json!({
+        "id": task_id.to_string(),
+        "not_a_real_column": "value",
+      });
+      record_event(&conn, tx.id(), "tasks", &task_id.to_string(), "modified", Some(&before))
+        .await
+        .unwrap();
+
+      let err = undo(&conn, tx.id()).await.unwrap_err();
+      let msg = err.to_string();
+      assert!(msg.contains("unknown column"), "unexpected error: {msg}");
+      assert!(msg.contains("not_a_real_column"), "unexpected error: {msg}");
+    }
+
+    #[tokio::test]
+    async fn it_errors_when_table_name_is_not_in_the_allowlist() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      // Record an event against a `table_name` outside the closed allowlist.
+      // This could happen if the DB row was written by a future migration or
+      // tampered with externally; either way, undo must refuse to interpolate
+      // it into dynamic SQL.
+      let tx = begin(&conn, &pid, "mystery op").await.unwrap();
+      record_event(&conn, tx.id(), "not_a_real_table", "abc", "created", None)
+        .await
+        .unwrap();
+
+      let err = undo(&conn, tx.id()).await.unwrap_err();
+      let msg = err.to_string();
+      assert!(msg.contains("unknown table"), "unexpected error: {msg}");
+      assert!(msg.contains("not_a_real_table"), "unexpected error: {msg}");
     }
 
     #[tokio::test]
