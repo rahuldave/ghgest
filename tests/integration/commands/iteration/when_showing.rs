@@ -17,6 +17,22 @@ fn it_aliases_show_to_view() {
 }
 
 #[test]
+fn it_respects_no_pager() {
+  let g = GestCmd::new();
+  let id = g.create_iteration("Pager-bypassed sprint");
+
+  let output = g
+    .cmd()
+    .args(["--no-pager", "iteration", "show", &id])
+    .output()
+    .expect("iteration show --no-pager failed to run");
+
+  assert!(output.status.success(), "iteration show --no-pager exited non-zero");
+  let stdout = String::from_utf8_lossy(&output.stdout);
+  assert!(stdout.contains("Pager-bypassed sprint"), "got: {stdout}");
+}
+
+#[test]
 fn it_shows_iteration_status_for_new_iteration() {
   let g = GestCmd::new();
   let id = g.create_iteration("Status sprint");
