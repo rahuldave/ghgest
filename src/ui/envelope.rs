@@ -35,10 +35,12 @@ pub struct Envelope<'a, T: Serialize> {
 
 impl<'a, T: Serialize> Envelope<'a, T> {
   /// Build envelopes for many entities using batch queries (one query per sidecar type).
+  ///
+  /// Borrows each entity by reference to avoid cloning caller-owned models.
   pub async fn load_many(
     conn: &Connection,
     entity_type: EntityType,
-    entities: &'a [(Id, T)],
+    entities: &[(Id, &'a T)],
     include_notes: bool,
   ) -> Result<Vec<Envelope<'a, T>>, Error> {
     let ids: Vec<Id> = entities.iter().map(|(id, _)| id.clone()).collect();
@@ -72,7 +74,7 @@ impl<'a, T: Serialize> Envelope<'a, T> {
           .map(|m| m.remove(id).unwrap_or_default().iter().map(NoteView::from).collect());
 
         Envelope {
-          entity,
+          entity: *entity,
           notes,
           relationships,
           tags: tag_labels,

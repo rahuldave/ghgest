@@ -59,7 +59,7 @@ impl Command {
     let full_ids: Vec<String> = iterations.iter().map(|i| i.id().to_string()).collect();
 
     if self.output.json {
-      let pairs: Vec<(Id, _)> = iterations.into_iter().map(|i| (i.id().clone(), i)).collect();
+      let pairs: Vec<(Id, &_)> = iterations.iter().map(|i| (i.id().clone(), i)).collect();
       let envelopes = Envelope::load_many(&conn, EntityType::Iteration, &pairs, false).await?;
       let json = serde_json::to_string_pretty(&envelopes)?;
       println!("{json}");

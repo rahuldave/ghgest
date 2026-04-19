@@ -63,7 +63,7 @@ impl Command {
     }
 
     if self.output.json {
-      let pairs: Vec<(Id, _)> = tasks.iter().map(|t| (t.id().clone(), t.clone())).collect();
+      let pairs: Vec<(Id, &_)> = tasks.iter().map(|t| (t.id().clone(), t)).collect();
       let envelopes = Envelope::load_many(&conn, EntityType::Task, &pairs, false).await?;
       self.output.print_envelopes(
         &envelopes,

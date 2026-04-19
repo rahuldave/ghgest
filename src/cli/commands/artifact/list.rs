@@ -54,7 +54,7 @@ impl Command {
     let id_shorts: Vec<String> = artifacts.iter().map(|a| a.id().short().to_string()).collect();
 
     if self.output.json {
-      let pairs: Vec<(Id, _)> = artifacts.iter().map(|a| (a.id().clone(), a.clone())).collect();
+      let pairs: Vec<(Id, &_)> = artifacts.iter().map(|a| (a.id().clone(), a)).collect();
       let envelopes = Envelope::load_many(&conn, EntityType::Artifact, &pairs, false).await?;
       let json = serde_json::to_string_pretty(&envelopes)?;
       println!("{json}");
