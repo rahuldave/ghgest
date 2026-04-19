@@ -154,22 +154,31 @@ impl Command {
     let tx = repo::transaction::begin(&conn, &tx_project_id, "purge").await?;
     let deleted_at = Utc::now();
 
-    // Delete terminal tasks.
-    for task_id in &tasks.ids {
-      repo::entity::delete::delete_with_cascade(&conn, tx.id(), EntityType::Task, task_id).await?;
-      tombstone::tombstone_task(context.gest_dir().as_deref(), task_id, deleted_at)?;
+    // Delete terminal tasks (single batched cascade query per child table).
+    if !tasks.ids.is_empty() {
+      let task_refs: Vec<&Id> = tasks.ids.iter().collect();
+      repo::entity::delete::delete_many_with_cascade(&conn, tx.id(), EntityType::Task, &task_refs).await?;
+      for task_id in &tasks.ids {
+        tombstone::tombstone_task(context.gest_dir().as_deref(), task_id, deleted_at)?;
+      }
     }
 
     // Delete terminal iterations.
-    for iteration_id in &iterations.ids {
-      repo::entity::delete::delete_with_cascade(&conn, tx.id(), EntityType::Iteration, iteration_id).await?;
-      tombstone::tombstone_iteration(context.gest_dir().as_deref(), iteration_id, deleted_at)?;
+    if !iterations.ids.is_empty() {
+      let iter_refs: Vec<&Id> = iterations.ids.iter().collect();
+      repo::entity::delete::delete_many_with_cascade(&conn, tx.id(), EntityType::Iteration, &iter_refs).await?;
+      for iteration_id in &iterations.ids {
+        tombstone::tombstone_iteration(context.gest_dir().as_deref(), iteration_id, deleted_at)?;
+      }
     }
 
     // Delete archived artifacts.
-    for artifact_id in &artifacts.ids {
-      repo::entity::delete::delete_with_cascade(&conn, tx.id(), EntityType::Artifact, artifact_id).await?;
-      tombstone::tombstone_artifact(context.gest_dir().as_deref(), artifact_id, deleted_at)?;
+    if !artifacts.ids.is_empty() {
+      let artifact_refs: Vec<&Id> = artifacts.ids.iter().collect();
+      repo::entity::delete::delete_many_with_cascade(&conn, tx.id(), EntityType::Artifact, &artifact_refs).await?;
+      for artifact_id in &artifacts.ids {
+        tombstone::tombstone_artifact(context.gest_dir().as_deref(), artifact_id, deleted_at)?;
+      }
     }
 
     // Delete archived projects (non-undoable).

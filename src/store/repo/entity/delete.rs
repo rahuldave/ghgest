@@ -26,7 +26,7 @@ use serde_json::{Map, Value as JsonValue};
 
 use crate::store::{
   Error,
-  model::primitives::EntityType,
+  model::primitives::{EntityType, Id},
   repo::{artifact, iteration, task, transaction},
 };
 
@@ -259,9 +259,9 @@ impl CapturedChild {
 /// dependent table.
 pub async fn delete_with_cascade(
   conn: &Connection,
-  transaction_id: &crate::store::model::primitives::Id,
+  transaction_id: &Id,
   entity_type: EntityType,
-  entity_id: &crate::store::model::primitives::Id,
+  entity_id: &Id,
 ) -> Result<DeleteReport, Error> {
   log::debug!("repo::entity::delete::delete_with_cascade");
   let entity_type_str = entity_type.to_string();
@@ -301,6 +301,91 @@ pub async fn delete_with_cascade(
   }
 
   record_and_delete_parent(conn, transaction_id, entity_type, &parent, &id_str).await?;
+
+  Ok(report)
+}
+
+/// Batched equivalent of [`delete_with_cascade`] for a slice of same-type ids.
+///
+/// Captures every dependent row (notes, entity_tags, relationships,
+/// iteration_tasks) for the full id set in a single `IN (...)` query per child
+/// table, records one audit event per captured row, then issues a single
+/// batched `DELETE ... WHERE ... IN (...)` per table. The overall ordering is
+/// identical to [`delete_with_cascade`]: children first, parents last, so FK
+/// constraints stay satisfied and undo replay restores rows in reverse.
+///
+/// Returns a combined [`DeleteReport`] covering every deleted row across the
+/// whole batch. An empty slice returns a zero report without issuing any
+/// queries.
+pub async fn delete_many_with_cascade(
+  conn: &Connection,
+  transaction_id: &Id,
+  entity_type: EntityType,
+  entity_ids: &[&Id],
+) -> Result<DeleteReport, Error> {
+  log::debug!("repo::entity::delete::delete_many_with_cascade");
+  if entity_ids.is_empty() {
+    return Ok(DeleteReport::default());
+  }
+
+  let entity_type_str = entity_type.to_string();
+  let id_strs: Vec<String> = entity_ids.iter().map(|id| id.to_string()).collect();
+
+  let notes = capture_notes_many(conn, &entity_type_str, &id_strs).await?;
+  let entity_tags = capture_entity_tags_many(conn, &entity_type_str, &id_strs).await?;
+  let relationships = capture_relationships_many(conn, &entity_type_str, &id_strs).await?;
+  let iteration_tasks = match entity_type {
+    EntityType::Task => capture_iteration_tasks_for_tasks(conn, &id_strs).await?,
+    EntityType::Iteration => capture_iteration_tasks_for_iterations(conn, &id_strs).await?,
+    EntityType::Artifact => Vec::new(),
+  };
+  let parents = capture_parents_many(conn, entity_type, &id_strs).await?;
+
+  let report = DeleteReport {
+    iteration_tasks: iteration_tasks.len(),
+    notes: notes.len(),
+    relationships: relationships.len(),
+    tags: entity_tags.len(),
+  };
+
+  // Record every child event first so the audit log order matches the
+  // child-first mutation we're about to issue.
+  for child in notes
+    .iter()
+    .chain(entity_tags.iter())
+    .chain(relationships.iter())
+    .chain(iteration_tasks.iter())
+  {
+    let payload = child.to_audit_payload();
+    transaction::record_event(
+      conn,
+      transaction_id,
+      child.table(),
+      &child.audit_row_id(),
+      "deleted",
+      Some(&payload),
+    )
+    .await?;
+  }
+
+  // Delete all captured children in one query per table.
+  delete_notes_many(conn, &entity_type_str, &id_strs, !notes.is_empty()).await?;
+  delete_entity_tags_many(conn, &entity_type_str, &id_strs, !entity_tags.is_empty()).await?;
+  delete_relationships_many(conn, &entity_type_str, &id_strs, !relationships.is_empty()).await?;
+  if !iteration_tasks.is_empty() {
+    match entity_type {
+      EntityType::Task => delete_iteration_tasks_for_tasks(conn, &id_strs).await?,
+      EntityType::Iteration => delete_iteration_tasks_for_iterations(conn, &id_strs).await?,
+      EntityType::Artifact => {}
+    }
+  }
+
+  // Record + delete parents.
+  for (id_str, payload) in &parents {
+    let (table, _) = parent_table_and_sql(entity_type);
+    transaction::record_event(conn, transaction_id, table, id_str, "deleted", Some(payload)).await?;
+  }
+  delete_parents_many(conn, entity_type, &id_strs).await?;
 
   Ok(report)
 }
@@ -457,11 +542,7 @@ fn libsql_value_to_json(value: Value) -> JsonValue {
   }
 }
 
-async fn record_and_delete_child(
-  conn: &Connection,
-  transaction_id: &crate::store::model::primitives::Id,
-  child: &CapturedChild,
-) -> Result<(), Error> {
+async fn record_and_delete_child(conn: &Connection, transaction_id: &Id, child: &CapturedChild) -> Result<(), Error> {
   let payload = child.to_audit_payload();
   transaction::record_event(
     conn,
@@ -478,19 +559,327 @@ async fn record_and_delete_child(
 
 async fn record_and_delete_parent(
   conn: &Connection,
-  transaction_id: &crate::store::model::primitives::Id,
+  transaction_id: &Id,
   entity_type: EntityType,
   before: &JsonValue,
   id: &str,
 ) -> Result<(), Error> {
-  let (table, sql) = match entity_type {
-    EntityType::Artifact => ("artifacts", "DELETE FROM artifacts WHERE id = ?1"),
-    EntityType::Iteration => ("iterations", "DELETE FROM iterations WHERE id = ?1"),
-    EntityType::Task => ("tasks", "DELETE FROM tasks WHERE id = ?1"),
-  };
+  let (table, sql) = parent_table_and_sql(entity_type);
 
   transaction::record_event(conn, transaction_id, table, id, "deleted", Some(before)).await?;
   conn.execute(sql, [id.to_string()]).await?;
+  Ok(())
+}
+
+/// Returns the `(table_name, single-row DELETE sql)` for an entity-parent table.
+fn parent_table_and_sql(entity_type: EntityType) -> (&'static str, &'static str) {
+  match entity_type {
+    EntityType::Artifact => ("artifacts", "DELETE FROM artifacts WHERE id = ?1"),
+    EntityType::Iteration => ("iterations", "DELETE FROM iterations WHERE id = ?1"),
+    EntityType::Task => ("tasks", "DELETE FROM tasks WHERE id = ?1"),
+  }
+}
+
+/// Build the `?N, ?N+1, ...` placeholder list starting at the given 1-based index.
+fn placeholders(start: usize, count: usize) -> String {
+  (start..start + count)
+    .map(|i| format!("?{i}"))
+    .collect::<Vec<_>>()
+    .join(", ")
+}
+
+async fn capture_entity_tags_many(
+  conn: &Connection,
+  entity_type: &str,
+  entity_ids: &[String],
+) -> Result<Vec<CapturedChild>, Error> {
+  if entity_ids.is_empty() {
+    return Ok(Vec::new());
+  }
+  let holders = placeholders(2, entity_ids.len());
+  let sql = format!(
+    "SELECT entity_id, entity_type, tag_id, created_at \
+      FROM entity_tags WHERE entity_type = ?1 AND entity_id IN ({holders})"
+  );
+  let mut params: Vec<Value> = Vec::with_capacity(entity_ids.len() + 1);
+  params.push(Value::from(entity_type.to_string()));
+  for id in entity_ids {
+    params.push(Value::from(id.clone()));
+  }
+
+  let mut rows = conn.query(&sql, libsql::params_from_iter(params)).await?;
+  let mut captured = Vec::new();
+  while let Some(row) = rows.next().await? {
+    captured.push(CapturedChild::EntityTag {
+      entity_id: row.get(0)?,
+      entity_type: row.get(1)?,
+      tag_id: row.get(2)?,
+      created_at: row.get(3)?,
+    });
+  }
+  Ok(captured)
+}
+
+async fn capture_iteration_tasks_for_iterations(
+  conn: &Connection,
+  iteration_ids: &[String],
+) -> Result<Vec<CapturedChild>, Error> {
+  if iteration_ids.is_empty() {
+    return Ok(Vec::new());
+  }
+  let holders = placeholders(1, iteration_ids.len());
+  let sql = format!(
+    "SELECT iteration_id, task_id, phase, created_at \
+      FROM iteration_tasks WHERE iteration_id IN ({holders})"
+  );
+  let params: Vec<Value> = iteration_ids.iter().map(|id| Value::from(id.clone())).collect();
+
+  let mut rows = conn.query(&sql, libsql::params_from_iter(params)).await?;
+  collect_iteration_task_rows(&mut rows).await
+}
+
+async fn capture_iteration_tasks_for_tasks(
+  conn: &Connection,
+  task_ids: &[String],
+) -> Result<Vec<CapturedChild>, Error> {
+  if task_ids.is_empty() {
+    return Ok(Vec::new());
+  }
+  let holders = placeholders(1, task_ids.len());
+  let sql = format!(
+    "SELECT iteration_id, task_id, phase, created_at \
+      FROM iteration_tasks WHERE task_id IN ({holders})"
+  );
+  let params: Vec<Value> = task_ids.iter().map(|id| Value::from(id.clone())).collect();
+
+  let mut rows = conn.query(&sql, libsql::params_from_iter(params)).await?;
+  collect_iteration_task_rows(&mut rows).await
+}
+
+async fn capture_notes_many(
+  conn: &Connection,
+  entity_type: &str,
+  entity_ids: &[String],
+) -> Result<Vec<CapturedChild>, Error> {
+  if entity_ids.is_empty() {
+    return Ok(Vec::new());
+  }
+  let holders = placeholders(2, entity_ids.len());
+  let sql = format!(
+    "SELECT id, entity_id, entity_type, author_id, body, created_at, updated_at \
+      FROM notes WHERE entity_type = ?1 AND entity_id IN ({holders})"
+  );
+  let mut params: Vec<Value> = Vec::with_capacity(entity_ids.len() + 1);
+  params.push(Value::from(entity_type.to_string()));
+  for id in entity_ids {
+    params.push(Value::from(id.clone()));
+  }
+
+  let mut rows = conn.query(&sql, libsql::params_from_iter(params)).await?;
+  let mut captured = Vec::new();
+  while let Some(row) = rows.next().await? {
+    captured.push(CapturedChild::Note {
+      id: row.get(0)?,
+      entity_id: row.get(1)?,
+      entity_type: row.get(2)?,
+      author_id: row.get(3)?,
+      body: row.get(4)?,
+      created_at: row.get(5)?,
+      updated_at: row.get(6)?,
+    });
+  }
+  Ok(captured)
+}
+
+async fn capture_parents_many(
+  conn: &Connection,
+  entity_type: EntityType,
+  entity_ids: &[String],
+) -> Result<Vec<(String, JsonValue)>, Error> {
+  if entity_ids.is_empty() {
+    return Ok(Vec::new());
+  }
+  let (table, select_columns) = match entity_type {
+    EntityType::Artifact => ("artifacts", artifact::SELECT_COLUMNS),
+    EntityType::Iteration => ("iterations", iteration::SELECT_COLUMNS),
+    EntityType::Task => ("tasks", task::SELECT_COLUMNS),
+  };
+  let columns: Vec<&str> = select_columns.split(',').map(str::trim).collect();
+  let id_column_idx = columns
+    .iter()
+    .position(|c| *c == "id")
+    .expect("entity parent SELECT_COLUMNS must include `id`");
+
+  let holders = placeholders(1, entity_ids.len());
+  let sql = format!("SELECT {select_columns} FROM {table} WHERE id IN ({holders})");
+  let params: Vec<Value> = entity_ids.iter().map(|id| Value::from(id.clone())).collect();
+
+  let mut rows = conn.query(&sql, libsql::params_from_iter(params)).await?;
+  let mut captured = Vec::new();
+  while let Some(row) = rows.next().await? {
+    let mut map = Map::new();
+    let mut id_value: Option<String> = None;
+    for (idx, column) in columns.iter().enumerate() {
+      let value: Value = row.get(idx as i32)?;
+      if idx == id_column_idx
+        && let Value::Text(ref s) = value
+      {
+        id_value = Some(s.clone());
+      }
+      map.insert((*column).to_string(), libsql_value_to_json(value));
+    }
+    let id = id_value.ok_or_else(|| Error::NotFound(format!("{entity_type} row missing id column")))?;
+    captured.push((id, JsonValue::Object(map)));
+  }
+
+  if captured.len() != entity_ids.len() {
+    let found: std::collections::HashSet<&str> = captured.iter().map(|(id, _)| id.as_str()).collect();
+    for id in entity_ids {
+      if !found.contains(id.as_str()) {
+        return Err(Error::NotFound(format!("{entity_type} {id}")));
+      }
+    }
+  }
+
+  Ok(captured)
+}
+
+async fn capture_relationships_many(
+  conn: &Connection,
+  entity_type: &str,
+  entity_ids: &[String],
+) -> Result<Vec<CapturedChild>, Error> {
+  if entity_ids.is_empty() {
+    return Ok(Vec::new());
+  }
+  let source_holders = placeholders(2, entity_ids.len());
+  let target_holders = placeholders(2 + entity_ids.len(), entity_ids.len());
+  let sql = format!(
+    "SELECT id, rel_type, source_id, source_type, target_id, target_type, created_at, updated_at \
+      FROM relationships \
+      WHERE (source_type = ?1 AND source_id IN ({source_holders})) \
+      OR (target_type = ?1 AND target_id IN ({target_holders}))"
+  );
+  let mut params: Vec<Value> = Vec::with_capacity(entity_ids.len() * 2 + 1);
+  params.push(Value::from(entity_type.to_string()));
+  for id in entity_ids {
+    params.push(Value::from(id.clone()));
+  }
+  for id in entity_ids {
+    params.push(Value::from(id.clone()));
+  }
+
+  let mut rows = conn.query(&sql, libsql::params_from_iter(params)).await?;
+  let mut captured = Vec::new();
+  while let Some(row) = rows.next().await? {
+    captured.push(CapturedChild::Relationship {
+      id: row.get(0)?,
+      rel_type: row.get(1)?,
+      source_id: row.get(2)?,
+      source_type: row.get(3)?,
+      target_id: row.get(4)?,
+      target_type: row.get(5)?,
+      created_at: row.get(6)?,
+      updated_at: row.get(7)?,
+    });
+  }
+  Ok(captured)
+}
+
+async fn delete_entity_tags_many(
+  conn: &Connection,
+  entity_type: &str,
+  entity_ids: &[String],
+  any: bool,
+) -> Result<(), Error> {
+  if !any {
+    return Ok(());
+  }
+  let holders = placeholders(2, entity_ids.len());
+  let sql = format!("DELETE FROM entity_tags WHERE entity_type = ?1 AND entity_id IN ({holders})");
+  let mut params: Vec<Value> = Vec::with_capacity(entity_ids.len() + 1);
+  params.push(Value::from(entity_type.to_string()));
+  for id in entity_ids {
+    params.push(Value::from(id.clone()));
+  }
+  conn.execute(&sql, libsql::params_from_iter(params)).await?;
+  Ok(())
+}
+
+async fn delete_iteration_tasks_for_iterations(conn: &Connection, iteration_ids: &[String]) -> Result<(), Error> {
+  let holders = placeholders(1, iteration_ids.len());
+  let sql = format!("DELETE FROM iteration_tasks WHERE iteration_id IN ({holders})");
+  let params: Vec<Value> = iteration_ids.iter().map(|id| Value::from(id.clone())).collect();
+  conn.execute(&sql, libsql::params_from_iter(params)).await?;
+  Ok(())
+}
+
+async fn delete_iteration_tasks_for_tasks(conn: &Connection, task_ids: &[String]) -> Result<(), Error> {
+  let holders = placeholders(1, task_ids.len());
+  let sql = format!("DELETE FROM iteration_tasks WHERE task_id IN ({holders})");
+  let params: Vec<Value> = task_ids.iter().map(|id| Value::from(id.clone())).collect();
+  conn.execute(&sql, libsql::params_from_iter(params)).await?;
+  Ok(())
+}
+
+async fn delete_notes_many(
+  conn: &Connection,
+  entity_type: &str,
+  entity_ids: &[String],
+  any: bool,
+) -> Result<(), Error> {
+  if !any {
+    return Ok(());
+  }
+  let holders = placeholders(2, entity_ids.len());
+  let sql = format!("DELETE FROM notes WHERE entity_type = ?1 AND entity_id IN ({holders})");
+  let mut params: Vec<Value> = Vec::with_capacity(entity_ids.len() + 1);
+  params.push(Value::from(entity_type.to_string()));
+  for id in entity_ids {
+    params.push(Value::from(id.clone()));
+  }
+  conn.execute(&sql, libsql::params_from_iter(params)).await?;
+  Ok(())
+}
+
+async fn delete_parents_many(conn: &Connection, entity_type: EntityType, entity_ids: &[String]) -> Result<(), Error> {
+  let table = match entity_type {
+    EntityType::Artifact => "artifacts",
+    EntityType::Iteration => "iterations",
+    EntityType::Task => "tasks",
+  };
+  let holders = placeholders(1, entity_ids.len());
+  let sql = format!("DELETE FROM {table} WHERE id IN ({holders})");
+  let params: Vec<Value> = entity_ids.iter().map(|id| Value::from(id.clone())).collect();
+  conn.execute(&sql, libsql::params_from_iter(params)).await?;
+  Ok(())
+}
+
+async fn delete_relationships_many(
+  conn: &Connection,
+  entity_type: &str,
+  entity_ids: &[String],
+  any: bool,
+) -> Result<(), Error> {
+  if !any {
+    return Ok(());
+  }
+  let source_holders = placeholders(2, entity_ids.len());
+  let target_holders = placeholders(2 + entity_ids.len(), entity_ids.len());
+  let sql = format!(
+    "DELETE FROM relationships \
+      WHERE (source_type = ?1 AND source_id IN ({source_holders})) \
+      OR (target_type = ?1 AND target_id IN ({target_holders}))"
+  );
+  let mut params: Vec<Value> = Vec::with_capacity(entity_ids.len() * 2 + 1);
+  params.push(Value::from(entity_type.to_string()));
+  for id in entity_ids {
+    params.push(Value::from(id.clone()));
+  }
+  for id in entity_ids {
+    params.push(Value::from(id.clone()));
+  }
+  conn.execute(&sql, libsql::params_from_iter(params)).await?;
   Ok(())
 }
 
@@ -1003,6 +1392,253 @@ mod tests {
           &conn,
           "SELECT COUNT(*) FROM iteration_tasks WHERE iteration_id = ?1 AND task_id = ?2",
           &[iteration.id().to_string().into(), task.id().to_string().into()],
+        )
+        .await,
+        1
+      );
+    }
+  }
+
+  mod delete_many_with_cascade_fn {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn it_is_a_no_op_for_an_empty_slice() {
+      let (_store, conn, _tmp, pid) = setup().await;
+      let tx = transaction_repo::begin(&conn, &pid, "empty purge").await.unwrap();
+
+      let report = delete_many_with_cascade(&conn, tx.id(), EntityType::Task, &[])
+        .await
+        .unwrap();
+
+      assert_eq!(report, DeleteReport::default());
+    }
+
+    #[tokio::test]
+    async fn it_cascades_multiple_tasks_in_a_single_batch() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let task_a = task_repo::create(
+        &conn,
+        &pid,
+        &crate::store::model::task::New {
+          title: "A".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      let task_b = task_repo::create(
+        &conn,
+        &pid,
+        &crate::store::model::task::New {
+          title: "B".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      let survivor = task_repo::create(
+        &conn,
+        &pid,
+        &crate::store::model::task::New {
+          title: "Keep".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      let iteration = iteration_repo::create(
+        &conn,
+        &pid,
+        &crate::store::model::iteration::New {
+          title: "Sprint".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      iteration_repo::add_task(&conn, iteration.id(), task_a.id(), 1)
+        .await
+        .unwrap();
+      iteration_repo::add_task(&conn, iteration.id(), task_b.id(), 2)
+        .await
+        .unwrap();
+
+      note_repo::create(
+        &conn,
+        EntityType::Task,
+        task_a.id(),
+        &crate::store::model::note::New {
+          body: "a".into(),
+          author_id: None,
+        },
+      )
+      .await
+      .unwrap();
+      note_repo::create(
+        &conn,
+        EntityType::Task,
+        task_b.id(),
+        &crate::store::model::note::New {
+          body: "b".into(),
+          author_id: None,
+        },
+      )
+      .await
+      .unwrap();
+      tag_repo::attach(&conn, EntityType::Task, task_a.id(), "urgent")
+        .await
+        .unwrap();
+      tag_repo::attach(&conn, EntityType::Task, task_b.id(), "blocker")
+        .await
+        .unwrap();
+      relationship_repo::create(
+        &conn,
+        RelationshipType::BlockedBy,
+        EntityType::Task,
+        task_a.id(),
+        EntityType::Task,
+        survivor.id(),
+      )
+      .await
+      .unwrap();
+
+      let tx = transaction_repo::begin(&conn, &pid, "batch delete").await.unwrap();
+      let ids: Vec<&Id> = vec![task_a.id(), task_b.id()];
+      let report = delete_many_with_cascade(&conn, tx.id(), EntityType::Task, &ids)
+        .await
+        .unwrap();
+
+      assert_eq!(report.notes, 2);
+      assert_eq!(report.tags, 2);
+      assert_eq!(report.relationships, 1);
+      assert_eq!(report.iteration_tasks, 2);
+
+      assert_eq!(
+        row_count(
+          &conn,
+          "SELECT COUNT(*) FROM tasks WHERE id IN (?1, ?2)",
+          &[task_a.id().to_string().into(), task_b.id().to_string().into()],
+        )
+        .await,
+        0
+      );
+      assert_eq!(
+        row_count(
+          &conn,
+          "SELECT COUNT(*) FROM tasks WHERE id = ?1",
+          &[survivor.id().to_string().into()],
+        )
+        .await,
+        1,
+        "sibling task must not be touched"
+      );
+      assert_eq!(
+        row_count(
+          &conn,
+          "SELECT COUNT(*) FROM iteration_tasks WHERE iteration_id = ?1",
+          &[iteration.id().to_string().into()],
+        )
+        .await,
+        0
+      );
+    }
+
+    #[tokio::test]
+    async fn it_is_reversible_via_transaction_undo() {
+      let (_store, conn, _tmp, pid) = setup().await;
+
+      let task_a = task_repo::create(
+        &conn,
+        &pid,
+        &crate::store::model::task::New {
+          title: "A".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      let task_b = task_repo::create(
+        &conn,
+        &pid,
+        &crate::store::model::task::New {
+          title: "B".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      let iteration = iteration_repo::create(
+        &conn,
+        &pid,
+        &crate::store::model::iteration::New {
+          title: "Sprint".into(),
+          ..Default::default()
+        },
+      )
+      .await
+      .unwrap();
+      iteration_repo::add_task(&conn, iteration.id(), task_a.id(), 1)
+        .await
+        .unwrap();
+      note_repo::create(
+        &conn,
+        EntityType::Task,
+        task_a.id(),
+        &crate::store::model::note::New {
+          body: "hello".into(),
+          author_id: None,
+        },
+      )
+      .await
+      .unwrap();
+      tag_repo::attach(&conn, EntityType::Task, task_b.id(), "urgent")
+        .await
+        .unwrap();
+
+      let tx = transaction_repo::begin(&conn, &pid, "batch purge").await.unwrap();
+      let ids: Vec<&Id> = vec![task_a.id(), task_b.id()];
+      delete_many_with_cascade(&conn, tx.id(), EntityType::Task, &ids)
+        .await
+        .unwrap();
+
+      transaction_repo::undo(&conn, tx.id()).await.unwrap();
+
+      assert_eq!(
+        row_count(
+          &conn,
+          "SELECT COUNT(*) FROM tasks WHERE id IN (?1, ?2)",
+          &[task_a.id().to_string().into(), task_b.id().to_string().into()],
+        )
+        .await,
+        2
+      );
+      assert_eq!(
+        row_count(
+          &conn,
+          "SELECT COUNT(*) FROM notes WHERE entity_type = 'task' AND entity_id = ?1",
+          &[task_a.id().to_string().into()],
+        )
+        .await,
+        1
+      );
+      assert_eq!(
+        row_count(
+          &conn,
+          "SELECT COUNT(*) FROM entity_tags WHERE entity_type = 'task' AND entity_id = ?1",
+          &[task_b.id().to_string().into()],
+        )
+        .await,
+        1
+      );
+      assert_eq!(
+        row_count(
+          &conn,
+          "SELECT COUNT(*) FROM iteration_tasks WHERE iteration_id = ?1 AND task_id = ?2",
+          &[iteration.id().to_string().into(), task_a.id().to_string().into()],
         )
         .await,
         1

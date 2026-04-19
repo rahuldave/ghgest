@@ -246,3 +246,35 @@ fn it_shows_purge_summary_in_dry_run() {
   assert!(stdout.contains("1 done"), "should show done count: {stdout}");
   assert!(stdout.contains("1 cancelled"), "should show cancelled count: {stdout}");
 }
+
+#[test]
+fn it_prints_summary_success_and_undo_hint_on_commit() {
+  let g = GestCmd::new();
+  let id = g.create_task("Done for summary");
+  g.complete_task(&id);
+
+  let output = g
+    .cmd()
+    .args(["purge", "--tasks", "--yes"])
+    .output()
+    .expect("purge failed to run");
+
+  assert!(
+    output.status.success(),
+    "purge exited non-zero: {}",
+    String::from_utf8_lossy(&output.stderr)
+  );
+  let stdout = strip_ansi(&String::from_utf8_lossy(&output.stdout));
+
+  assert!(
+    stdout.contains("Purge summary"),
+    "should render the summary block: {stdout}"
+  );
+  assert!(stdout.contains("tasks: 1"), "should render the task row: {stdout}");
+  assert!(stdout.contains("Purged"), "should render the success message: {stdout}");
+  assert!(
+    stdout.contains("total"),
+    "success message should carry the total field: {stdout}"
+  );
+  assert!(stdout.contains("gest undo"), "should render the undo hint: {stdout}");
+}
