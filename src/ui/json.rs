@@ -97,6 +97,21 @@ impl Flags {
     Ok(())
   }
 
+  /// Print a list of short entity IDs, one per line.
+  ///
+  /// This is the `--quiet` form of list-style commands: script-friendly output
+  /// where each line is a single short ID that can be piped to another command.
+  pub fn print_short_ids<I, S>(&self, ids: I) -> Result<(), Error>
+  where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+  {
+    for id in ids {
+      println!("{}", id.as_ref());
+    }
+    Ok(())
+  }
+
   /// Print a single entity. In JSON mode the entity is serialized; in quiet mode
   /// only the short ID is printed; otherwise `normal` is called to produce the
   /// human-readable output.

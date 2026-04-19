@@ -62,9 +62,7 @@ impl Command {
     }
 
     if self.output.quiet {
-      for id in &id_shorts {
-        println!("{id}");
-      }
+      self.output.print_short_ids(&id_shorts)?;
       return Ok(());
     }
 

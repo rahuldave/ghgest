@@ -56,9 +56,7 @@ impl Command {
     self.limit.apply(&mut tasks);
 
     if self.output.quiet {
-      for task in &tasks {
-        println!("{}", task.id().short());
-      }
+      self.output.print_short_ids(tasks.iter().map(|t| t.id().short()))?;
       return Ok(());
     }
 
