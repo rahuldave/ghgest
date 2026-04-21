@@ -24,9 +24,9 @@ already shared across every dispatched task.
 Retrieve the iteration and visualize the execution plan:
 
 ```sh
-cargo run -- iteration show --json <id>
-cargo run -- iteration status <id> --json
-cargo run -- iteration graph <id>
+gest iteration show --json <id>
+gest iteration status <id> --json
+gest iteration graph <id>
 ```
 
 Extract:
@@ -65,17 +65,17 @@ For each phase:
 
    ```sh
    # Claim next available task in priority order (returns JSON with task details):
-   cargo run -- iteration next <iteration-id> --claim --agent implement-agent --json
+   gest iteration next <iteration-id> --claim --agent implement-agent --json
 
    # Or get just the task ID for scripting:
-   cargo run -- iteration next <iteration-id> --claim --agent implement-agent -q
+   gest iteration next <iteration-id> --claim --agent implement-agent -q
    ```
 
    Exit code **75** (`EX_TEMPFAIL`) means no tasks are currently available — an idle signal, not an
    error. Script `iteration next` with this in mind:
 
    ```sh
-   cargo run -- iteration next <iteration-id> --claim --agent implement-agent --json
+   gest iteration next <iteration-id> --claim --agent implement-agent --json
    status=$?
    if [ $status -eq 75 ]; then
      echo "no work available -- idle"
@@ -107,13 +107,13 @@ For each phase:
 3. **Check phase progress:**
 
    ```sh
-   cargo run -- iteration status <iteration-id> --json
+   gest iteration status <iteration-id> --json
    ```
 
 4. **Advance to the next phase** once the current phase is complete:
 
    ```sh
-   cargo run -- iteration advance <iteration-id>
+   gest iteration advance <iteration-id>
    ```
 
    Use `--force` to advance past stuck tasks if needed.
@@ -132,14 +132,14 @@ After all phases complete:
    - If **all tasks** completed successfully (`done`):
 
      ```sh
-     cargo run -- \
+     gest \
        iteration update <iteration-id> --status completed -q
      ```
 
    - If **any tasks** remain `in-progress`:
 
      ```sh
-     cargo run -- \
+     gest \
        iteration cancel <iteration-id> -q
      ```
 

@@ -13,7 +13,7 @@ Promote a gest task to a GitHub Issue.
 ### 1. Read the Task
 
 ```sh
-cargo run -- task show <id> --json
+gest task show <id> --json
 ```
 
 Extract:
@@ -92,7 +92,7 @@ gh issue create \
 After the user confirms, execute the command. Extract the issue number from the output, then store it as task metadata:
 
 ```sh
-cargo run -- task meta set <id> github-issue <number>
+gest task meta set <id> github-issue <number>
 ```
 
 ### 5. Report

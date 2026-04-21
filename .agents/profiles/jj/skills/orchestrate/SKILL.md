@@ -16,9 +16,9 @@ when needed.
 Retrieve the iteration and visualize the execution plan:
 
 ```sh
-cargo run -- iteration show --json <id>
-cargo run -- iteration status <id> --json
-cargo run -- iteration graph <id>
+gest iteration show --json <id>
+gest iteration status <id> --json
+gest iteration graph <id>
 ```
 
 Extract:
@@ -30,7 +30,7 @@ Extract:
 Also capture the current project ID from the main workspace so dispatched agents can attach to the same project:
 
 ```sh
-cargo run -- project --json
+gest project --json
 ```
 
 Record the `id` field — you will pass it to `gest project attach` in each parallel workspace.
@@ -65,17 +65,17 @@ For each phase:
 
    ```sh
    # Claim next available task (returns JSON with task details):
-   cargo run -- iteration next <iteration-id> --claim --agent implement-agent --json
+   gest iteration next <iteration-id> --claim --agent implement-agent --json
 
    # Or get just the task ID for scripting:
-   cargo run -- iteration next <iteration-id> --claim --agent implement-agent -q
+   gest iteration next <iteration-id> --claim --agent implement-agent -q
    ```
 
    Exit code **75** (`EX_TEMPFAIL`) means no tasks are currently available — an idle signal, not an
    error. Script `iteration next` with this in mind:
 
    ```sh
-   cargo run -- iteration next <iteration-id> --claim --agent implement-agent --json
+   gest iteration next <iteration-id> --claim --agent implement-agent --json
    status=$?
    if [ $status -eq 75 ]; then
      echo "no work available -- idle"
@@ -110,7 +110,7 @@ For each phase:
 
    ```sh
    jj workspace add ../gest-<task-id> --name <task-id> -r @
-   (cd ../gest-<task-id> && cargo run -- project attach <project-id>)
+   (cd ../gest-<task-id> && gest project attach <project-id>)
    ```
 
    b. **Dispatch** `/implement <task-id>` for each task. Each implementation agent works in its respective workspace
@@ -122,7 +122,7 @@ For each phase:
 
    ```sh
    # For each workspace created in this phase:
-   (cd ../gest-<task-id> && cargo run -- project detach)
+   (cd ../gest-<task-id> && gest project detach)
    jj workspace forget <task-id>
    rm -rf ../gest-<task-id>
    ```
@@ -139,13 +139,13 @@ workspaces. There is no need to merge or cherry-pick -- the commits are already 
 1. **Check phase progress:**
 
    ```sh
-   cargo run -- iteration status <iteration-id> --json
+   gest iteration status <iteration-id> --json
    ```
 
 2. **Advance to the next phase** once the current phase is complete:
 
    ```sh
-   cargo run -- iteration advance <iteration-id>
+   gest iteration advance <iteration-id>
    ```
 
    Use `--force` to advance past stuck tasks if needed.
@@ -164,14 +164,14 @@ After all phases complete:
    - If **all tasks** completed successfully (`done`):
 
      ```sh
-     cargo run -- \
+     gest \
        iteration update <iteration-id> --status completed -q
      ```
 
    - If **any tasks** remain `in-progress`:
 
      ```sh
-     cargo run -- \
+     gest \
        iteration cancel <iteration-id> -q
      ```
 
@@ -185,7 +185,7 @@ After all phases complete:
    If any task workspaces still exist, detach them from the project and clean them up:
 
    ```sh
-   (cd ../gest-<task-id> && cargo run -- project detach)
+   (cd ../gest-<task-id> && gest project detach)
    jj workspace forget <task-id>
    rm -rf ../gest-<task-id>
    ```

@@ -65,7 +65,7 @@ Follow the conventions in `docs/dev/commits.md`:
 If the current work relates to a gest task, check whether the task has `github-issue` metadata:
 
 ```sh
-cargo run -- task show <id> --json
+gest task show <id> --json
 ```
 
 If the `metadata` object contains a `github-issue` key, include a footer referencing that issue (e.g. `Closes #42`). If

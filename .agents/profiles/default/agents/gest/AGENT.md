@@ -14,7 +14,7 @@ As of v0.5.0, gest stores all entity data in a local SQLite database at `<data_d
 also mirrors the database to a `.gest/` directory as JSON and Markdown so the data can be
 committed alongside source code — but the database is always the source of truth.
 
-All commands in this reference use `cargo run --` as the invocation prefix so you can exercise
+All commands in this reference use `gest` as the invocation prefix so you can exercise
 an in-development build; substitute `gest` directly when running against an installed binary.
 No special environment variables are required — the project is resolved automatically from the
 current working directory.
@@ -72,8 +72,8 @@ and filter with `--tag`.
 The title is a **positional argument**, not a flag. `-t` is `--tag`, not `--title`.
 
 ```sh
-cargo run -- artifact create "<title>" --tag spec --tag "<area>" --source <path>
-cargo run -- artifact create "<title>" --tag adr --tag "<area>" --body "<inline body>"
+gest artifact create "<title>" --tag spec --tag "<area>" --source <path>
+gest artifact create "<title>" --tag adr --tag "<area>" --body "<inline body>"
 ```
 
 Options: `-t, --tag <TAG>` (repeatable), `-m, --metadata <JSON>` (JSON object),
@@ -86,18 +86,18 @@ Tags use bare format (no namespace prefixes). Include area tags (`cli`, `config`
 ### Show
 
 ```sh
-cargo run -- artifact show <id>          # human-readable
-cargo run -- artifact show <id> --json   # structured JSON
+gest artifact show <id>          # human-readable
+gest artifact show <id> --json   # structured JSON
 ```
 
 ### List
 
 ```sh
-cargo run -- artifact list                 # active only
-cargo run -- artifact list --all           # include archived
-cargo run -- artifact list --archived      # only archived
-cargo run -- artifact list --tag <tag>     # filter by tag (use spec, adr, etc.)
-cargo run -- artifact list --json          # structured JSON
+gest artifact list                 # active only
+gest artifact list --all           # include archived
+gest artifact list --archived      # only archived
+gest artifact list --tag <tag>     # filter by tag (use spec, adr, etc.)
+gest artifact list --json          # structured JSON
 ```
 
 ### Update
@@ -106,41 +106,41 @@ cargo run -- artifact list --json          # structured JSON
 like on create, is `--tag`.
 
 ```sh
-cargo run -- artifact update <id> -T "<new title>"
-cargo run -- artifact update <id> --body "<new body>"
-cargo run -- artifact update <id> --edit        # open $EDITOR on the current body
-cargo run -- artifact update <id> --tag <tag>   # replace all tags
+gest artifact update <id> -T "<new title>"
+gest artifact update <id> --body "<new body>"
+gest artifact update <id> --edit        # open $EDITOR on the current body
+gest artifact update <id> --tag <tag>   # replace all tags
 ```
 
 ### Archive
 
 ```sh
-cargo run -- artifact archive <id>
+gest artifact archive <id>
 ```
 
 ### Tags
 
 ```sh
-cargo run -- artifact tag <id> <tag>
-cargo run -- artifact untag <id> <tag>
+gest artifact tag <id> <tag>
+gest artifact untag <id> <tag>
 ```
 
 ### Notes
 
 ```sh
-cargo run -- artifact note add <artifact-id> --body "<text>"
-cargo run -- artifact note add <artifact-id> --agent <name> --body "<text>"
-cargo run -- artifact note list <artifact-id>
-cargo run -- artifact note show <artifact-id> <note-id>
-cargo run -- artifact note update <artifact-id> <note-id> --body "<new text>"
-cargo run -- artifact note delete <artifact-id> <note-id>
+gest artifact note add <artifact-id> --body "<text>"
+gest artifact note add <artifact-id> --agent <name> --body "<text>"
+gest artifact note list <artifact-id>
+gest artifact note show <artifact-id> <note-id>
+gest artifact note update <artifact-id> <note-id> --body "<new text>"
+gest artifact note delete <artifact-id> <note-id>
 ```
 
 ### Metadata
 
 ```sh
-cargo run -- artifact meta set <id> <key> <value>
-cargo run -- artifact meta get <id> <key>
+gest artifact meta set <id> <key> <value>
+gest artifact meta get <id> <key>
 ```
 
 ## Tasks
@@ -150,9 +150,9 @@ cargo run -- artifact meta get <id> <key>
 Title is a positional argument.
 
 ```sh
-cargo run -- task create "<title>" --description "<desc>" --tag enhancement --tag cli
-cargo run -- task create "<title>" --status open --tag "<area>"
-cargo run -- task create "<title>" --priority 1 --phase 2 --assigned-to agent-1
+gest task create "<title>" --description "<desc>" --tag enhancement --tag cli
+gest task create "<title>" --status open --tag "<area>"
+gest task create "<title>" --priority 1 --phase 2 --assigned-to agent-1
 ```
 
 Options: `--description`, `--status`, `-t, --tag <TAG>` (repeatable),
@@ -166,19 +166,19 @@ vocabulary.
 ### Show
 
 ```sh
-cargo run -- task show <id>          # human-readable
-cargo run -- task show <id> --json   # structured JSON
+gest task show <id>          # human-readable
+gest task show <id> --json   # structured JSON
 ```
 
 ### List
 
 ```sh
-cargo run -- task list                           # active only
-cargo run -- task list --all                     # include resolved
-cargo run -- task list --status <status>         # filter by status
-cargo run -- task list --tag <tag>               # filter by tag
-cargo run -- task list --assigned-to <name>      # filter by assignee
-cargo run -- task list --json                    # structured JSON
+gest task list                           # active only
+gest task list --all                     # include resolved
+gest task list --status <status>         # filter by status
+gest task list --tag <tag>               # filter by tag
+gest task list --assigned-to <name>      # filter by assignee
+gest task list --json                    # structured JSON
 ```
 
 ### Update
@@ -186,11 +186,11 @@ cargo run -- task list --json                    # structured JSON
 `-T, --title` (capital T) is the title flag; `-t` is `--tag`.
 
 ```sh
-cargo run -- task update <id> --status <status>
-cargo run -- task update <id> -T "<new title>"
-cargo run -- task update <id> --priority 0
-cargo run -- task update <id> --phase 3
-cargo run -- task update <id> --assigned-to agent-2
+gest task update <id> --status <status>
+gest task update <id> -T "<new title>"
+gest task update <id> --priority 0
+gest task update <id> --phase 3
+gest task update <id> --assigned-to agent-2
 ```
 
 Setting status to `done` or `cancelled` resolves the task; setting it back to `open` or
@@ -199,11 +199,11 @@ Setting status to `done` or `cancelled` resolves the task; setting it back to `o
 ### Shortcuts
 
 ```sh
-cargo run -- task complete <id>                     # mark done
-cargo run -- task cancel <id>                       # mark cancelled
-cargo run -- task claim <id> --agent <name>        # claim for an agent (set to in-progress)
-cargo run -- task block <id> <target-id>            # task blocks target task
-cargo run -- task block <id> <target-id> --artifact # task blocks artifact
+gest task complete <id>                     # mark done
+gest task cancel <id>                       # mark cancelled
+gest task claim <id> --agent <name>        # claim for an agent (set to in-progress)
+gest task block <id> <target-id>            # task blocks target task
+gest task block <id> <target-id> --artifact # task blocks artifact
 ```
 
 ### Task Fields
@@ -218,8 +218,8 @@ cargo run -- task block <id> <target-id> --artifact # task blocks artifact
 Links connect tasks to other tasks or to artifacts.
 
 ```sh
-cargo run -- task link <task-id> <rel> <target-task-id>               # task-to-task
-cargo run -- task link <task-id> <rel> <target-artifact-id> --artifact # task-to-artifact
+gest task link <task-id> <rel> <target-task-id>               # task-to-task
+gest task link <task-id> <rel> <target-artifact-id> --artifact # task-to-artifact
 ```
 
 Valid relation types:
@@ -235,8 +235,8 @@ Valid relation types:
 Freeform key-value pairs.
 
 ```sh
-cargo run -- task meta set <id> <key> <value>
-cargo run -- task meta get <id> <key>
+gest task meta set <id> <key> <value>
+gest task meta get <id> <key>
 ```
 
 ### Notes
@@ -246,18 +246,18 @@ observations.
 
 ```sh
 # Add a note (human author from git config)
-cargo run -- task note add <task-id> --body "<text>"
+gest task note add <task-id> --body "<text>"
 # Add an agent-attributed note
-cargo run -- task note add <task-id> --agent <name> --body "<text>"
+gest task note add <task-id> --agent <name> --body "<text>"
 # List notes
-cargo run -- task note list <task-id>
-cargo run -- task note list <task-id> --json
+gest task note list <task-id>
+gest task note list <task-id> --json
 # Show a single note
-cargo run -- task note show <task-id> <note-id>
+gest task note show <task-id> <note-id>
 # Update a note
-cargo run -- task note update <task-id> <note-id> --body "<new text>"
+gest task note update <task-id> <note-id> --body "<new text>"
 # Delete a note
-cargo run -- task note delete <task-id> <note-id>
+gest task note delete <task-id> <note-id>
 ```
 
 Author resolution: `--agent <name>` sets `author_type: agent`. Without `--agent`, author comes
@@ -267,8 +267,8 @@ from `git config user.name` / `user.email` with `author_type: human`. Notes appe
 ### Tags
 
 ```sh
-cargo run -- task tag <id> <tag>
-cargo run -- task untag <id> <tag>
+gest task tag <id> <tag>
+gest task untag <id> <tag>
 ```
 
 ## Iterations
@@ -279,8 +279,8 @@ Iterations group tasks into an execution plan. They separate "how to execute" fr
 ### Create
 
 ```sh
-cargo run -- iteration create "<title>"
-cargo run -- iteration create "<title>" --description "<desc>" --tag <tag>
+gest iteration create "<title>"
+gest iteration create "<title>" --description "<desc>" --tag <tag>
 ```
 
 Output: `created iteration  <id>` -- the last whitespace-delimited token is the ID.
@@ -288,34 +288,34 @@ Output: `created iteration  <id>` -- the last whitespace-delimited token is the 
 ### Show
 
 ```sh
-cargo run -- iteration show <id>
-cargo run -- iteration show <id> --json
+gest iteration show <id>
+gest iteration show <id> --json
 ```
 
 ### List
 
 ```sh
-cargo run -- iteration list                    # active only
-cargo run -- iteration list --all              # include resolved
-cargo run -- iteration list --status <s>       # filter: active, completed, cancelled
-cargo run -- iteration list --json
+gest iteration list                    # active only
+gest iteration list --all              # include resolved
+gest iteration list --status <s>       # filter: active, completed, cancelled
+gest iteration list --json
 ```
 
 ### Update / Complete / Cancel
 
 ```sh
-cargo run -- iteration update <id> --status completed
-cargo run -- iteration update <id> -T "<new title>"
-cargo run -- iteration complete <id>              # shortcut: mark completed
-cargo run -- iteration cancel <id>                # shortcut: mark cancelled
-cargo run -- iteration reopen <id>                # shortcut: move back to active
+gest iteration update <id> --status completed
+gest iteration update <id> -T "<new title>"
+gest iteration complete <id>              # shortcut: mark completed
+gest iteration cancel <id>                # shortcut: mark cancelled
+gest iteration reopen <id>                # shortcut: move back to active
 ```
 
 ### Add / Remove Tasks
 
 ```sh
-cargo run -- iteration add <iteration-id> <task-id>
-cargo run -- iteration remove <iteration-id> <task-id>
+gest iteration add <iteration-id> <task-id>
+gest iteration remove <iteration-id> <task-id>
 ```
 
 ### Graph
@@ -323,29 +323,29 @@ cargo run -- iteration remove <iteration-id> <task-id>
 Visualize the phased execution plan:
 
 ```sh
-cargo run -- iteration graph <id>          # jj-style tree output
-cargo run -- iteration graph <id> --json   # structured JSON
+gest iteration graph <id>          # jj-style tree output
+gest iteration graph <id> --json   # structured JSON
 ```
 
 ### Links
 
 ```sh
-cargo run -- iteration link <id> <rel> <target-id>              # to a task
-cargo run -- iteration link <id> <rel> <target-id> --artifact   # to an artifact
+gest iteration link <id> <rel> <target-id>              # to a task
+gest iteration link <id> <rel> <target-id> --artifact   # to an artifact
 ```
 
 ### Tags
 
 ```sh
-cargo run -- iteration tag <id> <tag>
-cargo run -- iteration untag <id> <tag>
+gest iteration tag <id> <tag>
+gest iteration untag <id> <tag>
 ```
 
 ### Metadata
 
 ```sh
-cargo run -- iteration meta set <id> <key> <value>
-cargo run -- iteration meta get <id> <key>
+gest iteration meta set <id> <key> <value>
+gest iteration meta get <id> <key>
 ```
 
 ### Orchestration
@@ -357,8 +357,8 @@ These commands support multi-agent execution of iteration phases.
 Check iteration progress (active phase, task counts, assignees):
 
 ```sh
-cargo run -- iteration status <id>
-cargo run -- iteration status <id> --json
+gest iteration status <id>
+gest iteration status <id> --json
 ```
 
 JSON output includes: `active_phase`, `total_phases`, `phase_progress` (`done`/`total`),
@@ -369,10 +369,10 @@ JSON output includes: `active_phase`, `total_phases`, `phase_progress` (`done`/`
 Find and optionally claim the next available task in the iteration:
 
 ```sh
-cargo run -- iteration next <id>                          # show next task
-cargo run -- iteration next <id> --claim --agent <name>   # atomically claim it
-cargo run -- iteration next <id> -q                       # print only the short ID
-cargo run -- iteration next <id> --json                   # structured JSON
+gest iteration next <id>                          # show next task
+gest iteration next <id> --claim --agent <name>   # atomically claim it
+gest iteration next <id> -q                       # print only the short ID
+gest iteration next <id> --json                   # structured JSON
 ```
 
 Exits with code **75** (`EX_TEMPFAIL`) when no tasks remain — an idle signal, not an error. Every
@@ -385,8 +385,8 @@ Options: `--claim` (set task to in-progress), `--agent <name>` (set assigned_to)
 Move to the next phase once the current phase is complete:
 
 ```sh
-cargo run -- iteration advance <id>           # advance if phase is done
-cargo run -- iteration advance <id> --force   # advance past stuck tasks
+gest iteration advance <id>           # advance if phase is done
+gest iteration advance <id> --force   # advance past stuck tasks
 ```
 
 ## Projects
@@ -395,10 +395,10 @@ Projects are rows in the `projects` table, keyed on root path. `gest init` creat
 the `project` command inspects and manages it.
 
 ```sh
-cargo run -- project              # show the current project
-cargo run -- project list         # list every known project
-cargo run -- project attach <id>  # attach the current directory as a workspace
-cargo run -- project detach       # detach the current directory
+gest project              # show the current project
+gest project list         # list every known project
+gest project attach <id>  # attach the current directory as a workspace
+gest project detach       # detach the current directory
 ```
 
 ## Migrate
@@ -406,8 +406,8 @@ cargo run -- project detach       # detach the current directory
 Import legacy v0.4.x flat-file data into the current SQLite database:
 
 ```sh
-cargo run -- migrate --from v0.4                 # auto-discover .gest/
-cargo run -- migrate --from v0.4 --path ~/old    # explicit path
+gest migrate --from v0.4                 # auto-discover .gest/
+gest migrate --from v0.4 --path ~/old    # explicit path
 ```
 
 ## Cross-Entity Tagging
@@ -417,8 +417,8 @@ Tag, untag, and list tags across all entity types without knowing the entity typ
 ### Add / Remove Tags
 
 ```sh
-cargo run -- tag add <id> <tags...>      # add tags (space-separated)
-cargo run -- tag remove <id> <tags...>   # remove tags
+gest tag add <id> <tags...>      # add tags (space-separated)
+gest tag remove <id> <tags...>   # remove tags
 ```
 
 The ID prefix is resolved across tasks, artifacts, and iterations. If the prefix matches
@@ -427,10 +427,10 @@ multiple entity types, an error is returned with disambiguation guidance.
 ### List Tags
 
 ```sh
-cargo run -- tag list                    # all tags
-cargo run -- tag list --task             # only task tags
-cargo run -- tag list --artifact         # only artifact tags
-cargo run -- tag list --iteration        # only iteration tags
+gest tag list                    # all tags
+gest tag list --task             # only task tags
+gest tag list --artifact         # only artifact tags
+gest tag list --iteration        # only iteration tags
 ```
 
 Flags can be combined.
@@ -443,8 +443,8 @@ changes are captured in the `transactions` and `transaction_events` tables. Non-
 commands (show, list, search) are not recorded.
 
 ```sh
-cargo run -- undo       # undo last command
-cargo run -- undo 3     # undo last 3 commands
+gest undo       # undo last command
+gest undo 3     # undo last 3 commands
 ```
 
 Undo applies the inverse of each recorded change: inserts become deletes, updates restore the
@@ -457,11 +457,11 @@ Cross-entity search with filter prefixes (`is:`, `tag:`, `status:`) and free tex
 `type:` filter was removed in v0.5.0 -- use `tag:<category>` instead.
 
 ```sh
-cargo run -- search "<query>"                  # search all entities
-cargo run -- search "<query>" --json           # structured JSON
-cargo run -- search "<query>" --all            # include archived/resolved
-cargo run -- search "is:task tag:urgent"       # combine filters
-cargo run -- search "is:artifact tag:spec"     # artifacts tagged spec (replaces type:spec)
+gest search "<query>"                  # search all entities
+gest search "<query>" --json           # structured JSON
+gest search "<query>" --all            # include archived/resolved
+gest search "is:task tag:urgent"       # combine filters
+gest search "is:artifact tag:spec"     # artifacts tagged spec (replaces type:spec)
 ```
 
 ## ID Extraction
@@ -484,28 +484,28 @@ ID.
 
 ```sh
 # Create the iteration
-iter_id=$(cargo run -- iteration create "Sprint: Feature X" -q)
+iter_id=$(gest iteration create "Sprint: Feature X" -q)
 # Link it to the source spec
-cargo run -- iteration link $iter_id child-of <spec-id> --artifact
+gest iteration link $iter_id child-of <spec-id> --artifact
 # Create tasks with phase, priority, and tags
-a=$(cargo run -- task create "Add parser types" --phase 1 --priority 1 --tag enhancement --tag store -q)
-b=$(cargo run -- task create "Add CLI flag" --phase 1 --priority 2 --tag enhancement --tag cli -q)
-c=$(cargo run -- task create "Integrate parser" --phase 2 --priority 0 --tag enhancement --tag cli -q)
+a=$(gest task create "Add parser types" --phase 1 --priority 1 --tag enhancement --tag store -q)
+b=$(gest task create "Add CLI flag" --phase 1 --priority 2 --tag enhancement --tag cli -q)
+c=$(gest task create "Integrate parser" --phase 2 --priority 0 --tag enhancement --tag cli -q)
 # Link tasks to spec and add to iteration
 for t in $a $b $c; do
-  cargo run -- task link $t child-of <spec-id> --artifact
-  cargo run -- iteration add $iter_id $t
+  gest task link $t child-of <spec-id> --artifact
+  gest iteration add $iter_id $t
 done
 # Set blocking dependencies
-cargo run -- task link $c blocked-by $a
+gest task link $c blocked-by $a
 # View the execution graph
-cargo run -- iteration graph $iter_id
+gest iteration graph $iter_id
 ```
 
 ### Finding tasks linked to a spec
 
-Use `cargo run -- task list --json` and inspect the `links` array for entries referencing the
-artifact ID, or use `cargo run -- search "<spec title>"` to find related entities.
+Use `gest task list --json` and inspect the `links` array for entries referencing the
+artifact ID, or use `gest search "<spec title>"` to find related entities.
 
 ## Exit Codes
 
@@ -529,7 +529,7 @@ The authoritative contract lives in ADR `prsooyor` (_Exit Code Contract for the 
 Typical scripting pattern for `iteration next`:
 
 ```sh
-cargo run -- iteration next <id> --claim --agent my-agent --json
+gest iteration next <id> --claim --agent my-agent --json
 status=$?
 if [ $status -eq 75 ]; then
   echo "no work available -- idle"

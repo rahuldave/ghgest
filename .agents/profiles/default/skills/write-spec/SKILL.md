@@ -54,7 +54,7 @@ Pipe the spec content via stdin. When `--body` is omitted and stdin is piped, ge
 to get the bare artifact ID:
 
 ```sh
-cat <<'EOF' | cargo run -- artifact create "<title>" \
+cat <<'EOF' | gest artifact create "<title>" \
   --tag spec --tag "<area>" -q
 <spec content here>
 EOF

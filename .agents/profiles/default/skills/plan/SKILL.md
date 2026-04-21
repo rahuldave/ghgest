@@ -12,7 +12,7 @@ Assess a spec and produce an implementation plan.
 
 ### 1. Read and Understand the Spec
 
-Read the spec via `cargo run -- artifact show <id>` (add `--json`
+Read the spec via `gest artifact show <id>` (add `--json`
 for structured parsing). Identify:
 
 - Acceptance criteria (these become the basis for tasks)
@@ -51,7 +51,7 @@ For **multi-issue**:
    spec inline. Each line is a JSON object:
 
    ```sh
-   cat <<'EOF' | cargo run -- task create --batch -q
+   cat <<'EOF' | gest task create --batch -q
    {"title":"First task","description":"...","phase":1,"priority":0,"tags":["storage"],"links":["child-of:<spec-id>"]}
    {"title":"Second task","description":"...","phase":1,"priority":1,"tags":["config"],"links":["child-of:<spec-id>"]}
    {"title":"Third task","description":"...","phase":2,"priority":0,"tags":["storage"],"links":["child-of:<spec-id>"]}
@@ -88,20 +88,20 @@ For **multi-issue**:
 5. **Set blocking dependencies** for tasks that span phases:
 
    ```sh
-   cargo run -- task link <task-id> blocked-by <other-task-id> -q
+   gest task link <task-id> blocked-by <other-task-id> -q
    ```
 
 6. **Create an iteration**, link it to the spec, and add all tasks:
 
    ```sh
    # Create iteration and capture ID
-   cargo run -- iteration create "<plan title>" -q
+   gest iteration create "<plan title>" -q
 
    # Link iteration to spec
-   cargo run -- iteration link <iteration-id> child-of <spec-id> --artifact -q
+   gest iteration link <iteration-id> child-of <spec-id> --artifact -q
 
    # Add each task
-   cargo run -- iteration add <iteration-id> <task-id> -q
+   gest iteration add <iteration-id> <task-id> -q
    ```
 
 ### 5. Output

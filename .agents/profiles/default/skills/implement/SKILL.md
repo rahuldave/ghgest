@@ -12,7 +12,7 @@ Implement a single issue (gest task) from start to commit.
 
 ### 1. Read the Issue
 
-Retrieve the task via `cargo run -- task show <id>`. Understand:
+Retrieve the task via `gest task show <id>`. Understand:
 
 - User story (the "why")
 - Acceptance criteria (the "what" -- each must be satisfied)
@@ -21,7 +21,7 @@ Retrieve the task via `cargo run -- task show <id>`. Understand:
 Then mark the task as in-progress:
 
 ```sh
-cargo run -- task update <id> --status in-progress
+gest task update <id> --status in-progress
 ```
 
 ### 2. Implement
@@ -87,16 +87,16 @@ Invoke `/commit` to create the commit. Reference the issue in the commit footer 
 Mark the task as done:
 
 ```sh
-cargo run -- task complete <id>
+gest task complete <id>
 ```
 
 Then check if the task links to a spec artifact (look for artifact links in the task's `links` field). If it does, query
 all tasks that link to the same artifact via
-`cargo run -- task list --json` and check whether any remain
+`gest task list --json` and check whether any remain
 `open` or `in-progress`. If none do, archive the artifact:
 
 ```sh
-cargo run -- artifact archive <spec-id>
+gest artifact archive <spec-id>
 ```
 
 **On failure:** If any prior step fails and cannot be resolved, leave the task as `in-progress` -- do not mark it `done`

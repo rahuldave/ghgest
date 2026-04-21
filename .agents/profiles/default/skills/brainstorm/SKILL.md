@@ -22,7 +22,7 @@ structured context report covering existing patterns, constraints, complexity, a
 report to ground the conversation.
 
 For existing specs, retrieve the spec via
-`cargo run -- artifact show <id> --json` for structured parsing,
+`gest artifact show <id> --json` for structured parsing,
 or without `--json` for human-readable output. Identify natural decomposition boundaries.
 
 ### 2. Clarify Requirements

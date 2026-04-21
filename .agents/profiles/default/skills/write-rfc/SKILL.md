@@ -33,7 +33,7 @@ Pipe the RFC content via stdin. When `--body` is omitted and stdin is piped, ges
 to get the bare artifact ID:
 
 ```sh
-cat <<'EOF' | cargo run -- artifact create "<title>" \
+cat <<'EOF' | gest artifact create "<title>" \
   --tag rfc --tag "<area>" -q
 <rfc content here>
 EOF
